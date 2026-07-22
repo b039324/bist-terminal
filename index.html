@@ -1,0 +1,160 @@
+<!DOCTYPE html>
+<html lang="tr">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>BIST Terminal</title>
+<link rel="stylesheet" href="style.css" />
+</head>
+<body>
+
+  <!-- ============ KİLİT EKRANI ============ -->
+  <div class="lock-screen" id="lockScreen">
+    <div class="lock-card">
+      <div class="lock-icon">
+        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+          <rect x="5" y="11" width="14" height="10" rx="2"/><path d="M8 11V7a4 4 0 0 1 8 0v4"/>
+        </svg>
+      </div>
+      <h1>Özel Erişim</h1>
+      <p>Devam etmek için şifreni gir</p>
+      <input type="password" id="passInput" placeholder="Şifre" autocomplete="off" />
+      <button id="passSubmit">Giriş Yap</button>
+      <div class="lock-error" id="lockError"></div>
+    </div>
+  </div>
+
+  <!-- ============ ANA UYGULAMA (kilit açılınca gösterilir) ============ -->
+  <div id="app" style="display:none;">
+
+    <div class="topbar">
+      <div class="brand">BIST<span class="dot">•</span>TERMINAL <small>YAHOO FINANCE VERİSİ</small></div>
+      <button class="logout-btn" id="logoutBtn">Çıkış</button>
+    </div>
+
+    <!-- Boş arama ekranı -->
+    <div class="search-screen" id="searchScreen">
+      <div class="headline">Hisse kodunu yaz</div>
+      <div class="search-box">
+        <input type="text" id="searchInput" placeholder="örn. ALARK, THYAO, ASELS" autocomplete="off" />
+      </div>
+      <div class="search-hint">Enter'a bas — veri sadece arama yaptığında çekilir</div>
+      <div class="search-error" id="searchError"></div>
+    </div>
+
+    <!-- Yükleniyor -->
+    <div class="loading-screen" id="loadingScreen">
+      <div class="spinner"></div>
+      <span id="loadingText">VERİ ÇEKİLİYOR...</span>
+    </div>
+
+    <!-- Sonuç ekranı -->
+    <div class="result-screen" id="resultScreen">
+
+      <div class="new-search-bar">
+        <input type="text" id="newSearchInput" placeholder="Başka bir hisse ara..." autocomplete="off" />
+        <button id="newSearchBtn">Ara</button>
+      </div>
+
+      <!-- Fiyat özeti -->
+      <div class="stock-header">
+        <div class="top-row">
+          <div class="stock-id">
+            <div class="ticker" id="stTicker">—</div>
+            <div class="company-name" id="stCompanyName">—</div>
+          </div>
+          <div class="price-block">
+            <div class="price" id="stPrice">—</div>
+            <div class="day-change" id="stDayChange">—</div>
+          </div>
+        </div>
+        <div class="change-badges" id="changeBadges"></div>
+      </div>
+
+      <!-- 52 hafta aralığı -->
+      <div class="range-card">
+        <div class="card-title">52 Hafta Aralığı</div>
+        <div class="range-track">
+          <div class="range-fill"></div>
+          <div class="range-marker" id="rangeMarker" style="left:50%"></div>
+        </div>
+        <div class="range-labels">
+          <div><span class="lbl-title">52H Düşük</span><span id="range52Low">—</span></div>
+          <div style="text-align:right"><span class="lbl-title">52H Yüksek</span><span id="range52High">—</span></div>
+        </div>
+        <div class="range-extra">
+          <div class="stat">
+            <div class="stat-label">Zirveye Uzaklık</div>
+            <div class="stat-value" id="distToHigh">—</div>
+          </div>
+          <div class="stat">
+            <div class="stat-label">Dibe Uzaklık</div>
+            <div class="stat-value" id="distToLow">—</div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Grafik -->
+      <div class="chart-card">
+        <div class="card-head">
+          <div class="card-title" style="margin-bottom:0">Fiyat Grafiği (Son 1 Yıl)</div>
+          <div class="range-tabs" id="rangeTabs">
+            <button data-range="1m">1A</button>
+            <button data-range="3m">3A</button>
+            <button data-range="6m">6A</button>
+            <button data-range="1y" class="active">1Y</button>
+          </div>
+        </div>
+        <div id="priceChart"></div>
+        <div id="volumeChart"></div>
+      </div>
+
+      <!-- AL/SAT Göstergesi -->
+      <div class="gauge-card">
+        <div class="card-title">Genel Değerlendirme</div>
+        <div class="gauge-wrap">
+          <svg id="gaugeSvg" viewBox="0 0 280 160" width="280" height="160"></svg>
+        </div>
+        <div class="gauge-label-big" id="gaugeLabel">—</div>
+        <div class="gauge-score" id="gaugeScoreText">—</div>
+        <div class="gauge-factors" id="gaugeFactors"></div>
+        <div class="disclaimer">
+          Bu değerlendirme RSI, hareketli ortalamalar, MACD ve analist ortalamasına dayalı kural tabanlı bir puanlamadır.
+          Yatırım tavsiyesi değildir; yalnızca bilgilendirme amaçlıdır.
+        </div>
+      </div>
+
+      <!-- Teknik + Temel -->
+      <div class="two-col-grid">
+        <div class="panel-card">
+          <div class="card-title" style="margin-bottom:16px">Teknik Göstergeler</div>
+          <div id="technicalRows"></div>
+        </div>
+        <div class="panel-card">
+          <div class="card-title" style="margin-bottom:16px">Temel Veriler</div>
+          <div id="fundamentalRows"></div>
+        </div>
+      </div>
+
+      <!-- Hacim -->
+      <div class="volume-card">
+        <div class="volume-main">
+          <div class="card-title">Son 30 Gün Ort. Hacim (TL)</div>
+          <div class="big-number" id="avgVolumeTL">—</div>
+          <div class="sub-note" id="avgVolumeShares">—</div>
+        </div>
+        <div class="volume-mini-chart">
+          <svg id="miniVolumeSvg" viewBox="0 0 300 60" width="100%" height="60" preserveAspectRatio="none"></svg>
+        </div>
+      </div>
+
+      <footer class="data-source">Veri kaynağı: Yahoo Finance · Gecikmeli fiyat verisi olabilir</footer>
+    </div>
+
+  </div>
+
+  <script src="https://unpkg.com/lightweight-charts@4.1.3/dist/lightweight-charts.standalone.production.js"></script>
+  <script src="config.js"></script>
+  <script src="app.js"></script>
+</body>
+</html>
