@@ -188,6 +188,10 @@ function processChartData(result) {
   const avgVolumeTL = last30.reduce((s, v) => s + v.volumeTL, 0) / last30.length;
   const last30Shares = candles.slice(-30).reduce((s, c) => s + c.volume, 0) / last30.length;
 
+  const lastCandle = candles[candles.length - 1];
+  const dailyVolumeTL = lastCandle.volume * lastCandle.close;
+  const dailyVolumeShares = lastCandle.volume;
+
   // Teknik göstergeler
   const rsi = calcRSI(closes, 14);
   const ma50 = sma(closes, 50);
@@ -203,6 +207,8 @@ function processChartData(result) {
     week52High,
     avgVolumeTL,
     avgVolumeShares: last30Shares,
+    dailyVolumeTL,
+    dailyVolumeShares,
     rsi: rsi[rsi.length - 1],
     ma50: ma50[ma50.length - 1],
     ma200: ma200[ma200.length - 1],
@@ -584,6 +590,8 @@ function renderAll(symbol, d, f) {
   renderChart(d.candles, d.volumesTL);
 
   // Hacim kartı
+  document.getElementById("dailyVolumeTL").textContent = fmtCompactTL(d.dailyVolumeTL);
+  document.getElementById("dailyVolumeShares").textContent = `${fmtNum(d.dailyVolumeShares, 0)} adet`;
   document.getElementById("avgVolumeTL").textContent = fmtCompactTL(d.avgVolumeTL);
   document.getElementById("avgVolumeShares").textContent = `Ortalama ${fmtNum(d.avgVolumeShares, 0)} adet/gün`;
   drawMiniVolume(d.volumesTL);
