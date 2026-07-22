@@ -581,10 +581,12 @@ function renderAll(symbol, d, f) {
   const pct = hi > lo ? ((d.lastClose - lo) / (hi - lo)) * 100 : 50;
   document.getElementById("rangeMarker").style.left = `${Math.max(2, Math.min(98, pct))}%`;
 
-  const distHigh = ((hi - d.lastClose) / hi) * 100;
-  const distLow = ((d.lastClose - lo) / lo) * 100;
-  document.getElementById("distToHigh").textContent = `- ${fmtNum(distHigh)}%`;
-  document.getElementById("distToLow").textContent = `+ ${fmtNum(distLow)}%`;
+  // Zirveye uzaklık: güncel fiyatın zirveye ulaşması için ne kadar yükselmesi gerektiği
+  const distHigh = ((hi - d.lastClose) / d.lastClose) * 100;
+  // Dibe uzaklık: güncel fiyatın dibe inmesi için ne kadar düşmesi gerektiği
+  const distLow = ((d.lastClose - lo) / d.lastClose) * 100;
+  document.getElementById("distToHigh").textContent = `+ ${fmtNum(distHigh)}%`;
+  document.getElementById("distToLow").textContent = `- ${fmtNum(distLow)}%`;
 
   // Grafik
   renderChart(d.candles, d.volumesTL);
