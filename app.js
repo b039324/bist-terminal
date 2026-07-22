@@ -219,7 +219,12 @@ function processFundamentals(raw) {
   const price = r.price || {};
   const rec = r.recommendationTrend?.trend?.[0] || {};
 
-  const g = (obj, key) => (obj?.[key]?.raw !== undefined ? obj[key].raw : null);
+  const g = (obj, key) => {
+    const v = obj?.[key];
+    if (v == null) return null;
+    if (typeof v === "object" && "raw" in v) return v.raw; // eski (formatted) yapı
+    return v; // formatted=false ile gelen düz değer
+  };
 
   return {
     companyName: price.longName || price.shortName || "—",
