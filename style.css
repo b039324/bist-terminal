@@ -483,6 +483,7 @@ a { color: var(--blue); }
   flex-wrap: wrap;
 }
 .volume-main .card-title { margin-bottom: 8px; }
+.volume-main + .volume-main { padding-left: 32px; border-left: 1px solid var(--border); }
 .volume-main .big-number {
   font-family: var(--font-mono);
   font-size: 30px;
