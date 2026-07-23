@@ -168,7 +168,10 @@ function processChartData(result) {
   // Günlük mum dizisinin son kapanışı bazen buna göre birkaç dakika geride kalabiliyor,
   // bu yüzden mevcutsa meta değerini esas alıyoruz (Yahoo Finance sitesiyle birebir eşleşsin diye).
   const lastClose = meta.regularMarketPrice != null ? meta.regularMarketPrice : closes[closes.length - 1];
-  const prevClose = meta.chartPreviousClose != null ? meta.chartPreviousClose : (closes[closes.length - 2] ?? lastClose);
+  // ÖNEMLİ: meta.chartPreviousClose "dünün kapanışı" DEĞİL, grafik aralığının (1 yıl) başlangıcından
+  // hemen önceki günün kapanışıdır — yani ~365 gün önceki bir referans. Günlük değişim için bunun yerine
+  // serideki bir önceki günün gerçek kapanışını kullanıyoruz.
+  const prevClose = closes[closes.length - 2] ?? lastClose;
 
   const findByDaysAgo = (n) => {
     const idx = closes.length - 1 - n;
