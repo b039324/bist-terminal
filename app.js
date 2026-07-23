@@ -145,6 +145,7 @@ function showLoading(active, text) {
 function processChartData(result) {
   const ts = result.timestamp;
   const quote = result.indicators.quote[0];
+  const meta = result.meta || {};
   const adjClose = result.indicators.adjclose?.[0]?.adjclose;
 
   const candles = [];
@@ -163,8 +164,11 @@ function processChartData(result) {
   }
 
   const closes = candles.map((c) => c.close);
-  const lastClose = closes[closes.length - 1];
-  const prevClose = closes[closes.length - 2] ?? lastClose;
+  // Yahoo'nun web sitesinde gösterdiği gerçek güncel fiyat meta.regularMarketPrice'ta bulunur.
+  // Günlük mum dizisinin son kapanışı bazen buna göre birkaç dakika geride kalabiliyor,
+  // bu yüzden mevcutsa meta değerini esas alıyoruz (Yahoo Finance sitesiyle birebir eşleşsin diye).
+  const lastClose = meta.regularMarketPrice != null ? meta.regularMarketPrice : closes[closes.length - 1];
+  const prevClose = meta.chartPreviousClose != null ? meta.chartPreviousClose : (closes[closes.length - 2] ?? lastClose);
 
   const findByDaysAgo = (n) => {
     const idx = closes.length - 1 - n;
@@ -189,7 +193,7 @@ function processChartData(result) {
   const last30Shares = candles.slice(-30).reduce((s, c) => s + c.volume, 0) / last30.length;
 
   const lastCandle = candles[candles.length - 1];
-  const dailyVolumeTL = lastCandle.volume * lastCandle.close;
+  const dailyVolumeTL = lastCandle.volume * lastClose;
   const dailyVolumeShares = lastCandle.volume;
 
   // Teknik göstergeler
