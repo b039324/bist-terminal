@@ -109,10 +109,15 @@ async function runSearch(rawSymbol) {
     const processed = processChartData(chartResult);
     const fundamentals = processFundamentals(quoteRes.data);
 
-    renderAll(symbol, processed, fundamentals);
+    // ÖNEMLİ: Sonuç ekranını grafik çizilmeden ÖNCE görünür yapıyoruz.
+    // Lightweight Charts, hâlâ "display:none" olan bir kutunun içine çizilirse
+    // genişliği 0 piksel görür ve grafik görünmez çıkar. Bu yüzden önce ekranı
+    // gösterip, grafiği ondan sonra oluşturuyoruz.
     showLoading(false);
     resultScreen.classList.add("active");
     searchScreen.classList.add("hidden");
+
+    renderAll(symbol, processed, fundamentals);
     newSearchInput.value = "";
   } catch (err) {
     showLoading(false);
