@@ -60,6 +60,8 @@ a { color: var(--blue); }
   justify-content: space-between;
   padding: 18px 28px;
   border-bottom: 1px solid var(--border);
+  flex-wrap: wrap;
+  gap: 12px;
 }
 .brand {
   display: flex;
@@ -267,6 +269,24 @@ a { color: var(--blue); }
 }
 .new-search-bar button:hover { border-color: var(--gold); color: var(--gold); }
 
+/* ---------- Takip Butonu (sonuç ekranında) ---------- */
+.wl-toggle-btn {
+  background: var(--panel-2);
+  border: 1px solid var(--border);
+  color: var(--text-dim);
+  padding: 10px 18px;
+  border-radius: 8px;
+  font-size: 13px;
+  white-space: nowrap;
+  transition: border-color .15s, color .15s, background .15s;
+}
+.wl-toggle-btn:hover { border-color: var(--gold); color: var(--gold); }
+.wl-toggle-btn.following {
+  background: rgba(212, 175, 55, 0.12);
+  border-color: var(--gold);
+  color: var(--gold);
+}
+
 /* ---------- Header: fiyat özeti ---------- */
 .stock-header {
   background: var(--panel);
@@ -359,7 +379,7 @@ a { color: var(--blue); }
 }
 .range-fill {
   position: absolute;
-  top: 0; left: 0; height: 100%;
+  top: 0; left: 0; width: 100%; height: 100%;
   background: linear-gradient(90deg, var(--down), var(--gold), var(--up));
   border-radius: 4px;
   opacity: 0.35;
@@ -552,7 +572,7 @@ footer.data-source {
 }
 
 /* ---------- Üst çubuk nav butonları ---------- */
-.nav-buttons { display: flex; align-items: center; gap: 8px; }
+.nav-buttons { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
 .nav-btn {
   background: none;
   border: 1px solid var(--border);
@@ -685,6 +705,15 @@ footer.data-source {
 .donut-legend .legend-left { display: flex; align-items: center; gap: 8px; }
 .donut-legend .legend-dot { width: 9px; height: 9px; border-radius: 50%; flex-shrink: 0; }
 .donut-legend .legend-pct { font-family: var(--font-mono); color: var(--text-dim); }
+
+/* ---------- Takip Listesi Ekranı ---------- */
+.watchlist-screen {
+  display: none;
+  max-width: 1180px;
+  margin: 0 auto;
+  padding: 24px 24px 60px;
+}
+.watchlist-screen.active { display: block; }
 
 /* ---------- Karşılaştırma ekranı ---------- */
 .compare-screen {
