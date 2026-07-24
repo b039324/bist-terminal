@@ -405,57 +405,86 @@ function processFundamentals(raw) {
 }
 
 // ==========================================================================
-// 6) GAUGE
+// 6) GAUGE - tamamen yeniden, basit ve taşmasız
 // ==========================================================================
 function drawGauge(score, svgId = "gaugeSvg") {
   const svg = document.getElementById(svgId);
   svg.innerHTML = "";
-  const cx = 140, cy = 135, r = 105, innerR = r - 16;
-  const startAngle = Math.PI, endAngle = 0, arcSpan = startAngle - endAngle;
-  const clamped = Math.max(2, Math.min(98, score));
-  const fraction = clamped / 100;
-  const needleAngle = startAngle - arcSpan * fraction;
 
-  const segments = 60;
-  for (let i = 0; i < segments; i++) {
-    const a1 = startAngle - arcSpan * (i / segments);
-    const a2 = startAngle - arcSpan * ((i + 1) / segments);
-    const t = i / segments;
+  const w = 280, h = 150;
+  const cx = 140, cy = 130;       // merkez altta
+  const r = 100;                  // dış yarıçap
+  const arcW = 14;                // şerit kalınlığı
+  const innerR = r - arcW;        // iç yarıçap
+
+  const startA = Math.PI;         // sol (180°)
+  const endA = 0;                 // sağ (0°)
+  const span = startA - endA;     // 180°
+
+  // skoru 1-99 arasına sıkıştır (uçlardan %1 pay)
+  const clamped = Math.max(1, Math.min(99, score || 50));
+  const frac = clamped / 100;
+  const needleA = startA - span * frac; // ibre açısı
+
+  // --- Renkli şerit (dilim dilim) ---
+  const segs = 60;
+  for (let i = 0; i < segs; i++) {
+    const a1 = startA - span * (i / segs);
+    const a2 = startA - span * ((i + 1) / segs);
+    const t = i / segs;
     const color = t < 0.5
       ? lerpColor("#ff4757", "#d4af37", t / 0.5)
       : lerpColor("#d4af37", "#17c987", (t - 0.5) / 0.5);
+
+    // dış yay noktaları
     const x1o = cx + r * Math.cos(a1), y1o = cy - r * Math.sin(a1);
     const x2o = cx + r * Math.cos(a2), y2o = cy - r * Math.sin(a2);
+    // iç yay noktaları
     const x1i = cx + innerR * Math.cos(a1), y1i = cy - innerR * Math.sin(a1);
     const x2i = cx + innerR * Math.cos(a2), y2i = cy - innerR * Math.sin(a2);
-    const path = document.createElementNS("http://www.w3.org/2000/svg", "path");
-    path.setAttribute("d", `M ${x1o} ${y1o} A ${r} ${r} 0 0 1 ${x2o} ${y2o} L ${x2i} ${y2i} A ${innerR} ${innerR} 0 0 0 ${x1i} ${y1i} Z`);
-    path.setAttribute("fill", color);
-    path.setAttribute("opacity", "0.85");
-    svg.appendChild(path);
+
+    const p = document.createElementNS("http://www.w3.org/2000/svg", "path");
+    p.setAttribute("d", `M ${x1o} ${y1o} A ${r} ${r} 0 0 1 ${x2o} ${y2o} L ${x2i} ${y2i} A ${innerR} ${innerR} 0 0 0 ${x1i} ${y1i} Z`);
+    p.setAttribute("fill", color);
+    p.setAttribute("opacity", "0.8");
+    svg.appendChild(p);
   }
 
-  const needleLen = r - 22;
-  const nx = cx + needleLen * Math.cos(needleAngle);
-  const ny = cy - needleLen * Math.sin(needleAngle);
-  const needle = document.createElementNS("http://www.w3.org/2000/svg", "line");
-  needle.setAttribute("x1", cx); needle.setAttribute("y1", cy);
-  needle.setAttribute("x2", nx); needle.setAttribute("y2", ny);
-  needle.setAttribute("stroke", "#e6eaf0");
-  needle.setAttribute("stroke-width", "3");
-  needle.setAttribute("stroke-linecap", "round");
-  svg.appendChild(needle);
+  // --- İbre ---
+  // ibre ucu, iç yayın da 8px içinde kalsın
+  const needleLen = innerR - 8;
+  const nx = cx + needleLen * Math.cos(needleA);
+  const ny = cy - needleLen * Math.sin(needleA);
 
-  const hub = document.createElementNS("http://www.w3.org/2000/svg", "circle");
-  hub.setAttribute("cx", cx); hub.setAttribute("cy", cy); hub.setAttribute("r", "8");
-  hub.setAttribute("fill", "#e6eaf0");
-  svg.appendChild(hub);
+  const line = document.createElementNS("http://www.w3.org/2000/svg", "line");
+  line.setAttribute("x1", cx); line.setAttribute("y1", cy);
+  line.setAttribute("x2", nx); line.setAttribute("y2", ny);
+  line.setAttribute("stroke", "#ffffff");
+  line.setAttribute("stroke-width", "3");
+  line.setAttribute("stroke-linecap", "round");
+  svg.appendChild(line);
 
-  const ls = { "font-family": "JetBrains Mono, monospace", "font-size": "10px", "fill": "#4c5768" };
-  addSvgText(svg, cx - r - 2, cy + 6, svgId === "valueGaugeSvg" ? "PAHALI" : "SAT", { ...ls, "text-anchor": "end" });
-  addSvgText(svg, cx + r + 2, cy + 6, svgId === "valueGaugeSvg" ? "UCUZ" : "AL", { ...ls, "text-anchor": "start" });
+  // --- Merkez nokta ---
+  const dot = document.createElementNS("http://www.w3.org/2000/svg", "circle");
+  dot.setAttribute("cx", cx); dot.setAttribute("cy", cy);
+  dot.setAttribute("r", "6");
+  dot.setAttribute("fill", "#ffffff");
+  svg.appendChild(dot);
+
+  // --- SOL / SAĞ etiket ---
+  const lbl = (x, y, text, anchor) => {
+    const t = document.createElementNS("http://www.w3.org/2000/svg", "text");
+    t.setAttribute("x", x); t.setAttribute("y", y);
+    t.setAttribute("text-anchor", anchor);
+    t.setAttribute("fill", "#4c5768");
+    t.setAttribute("font-family", "JetBrains Mono, monospace");
+    t.setAttribute("font-size", "10");
+    t.textContent = text;
+    svg.appendChild(t);
+  };
+  lbl(cx - r - 4, cy + 5, svgId === "valueGaugeSvg" ? "PAHALI" : "SAT", "end");
+  lbl(cx + r + 4, cy + 5, svgId === "valueGaugeSvg" ? "UCUZ" : "AL", "start");
 }
-
 // ==========================================================================
 // 7) PUANLAMA
 // ==========================================================================
