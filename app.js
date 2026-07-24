@@ -2,6 +2,7 @@
    BIST TERMİNAL — app.js
    Kilit ekranı -> boş arama ekranı -> arama yapılınca Worker'dan veri çekme
    -> teknik/temel hesaplama -> profesyonel sonuç ekranı render
+   Portföy ve Takip Listesi: KV (Cloudflare) tabanlı, cihazlar arası senkron
    ========================================================================== */
 
 const LS_PASS_KEY = "bist_terminal_pass";
@@ -22,10 +23,13 @@ const loadingText = document.getElementById("loadingText");
 const resultScreen = document.getElementById("resultScreen");
 const newSearchInput = document.getElementById("newSearchInput");
 const newSearchBtn = document.getElementById("newSearchBtn");
+const watchlistToggleBtn = document.getElementById("watchlistToggleBtn");
 
 // ---------- Portföy DOM referansları ----------
 const navSearchBtn = document.getElementById("navSearchBtn");
 const navPortfolioBtn = document.getElementById("navPortfolioBtn");
+const navWatchlistBtn = document.getElementById("navWatchlistBtn");
+const navCompareBtn = document.getElementById("navCompareBtn");
 const portfolioScreen = document.getElementById("portfolioScreen");
 const posSymbol = document.getElementById("posSymbol");
 const posQty = document.getElementById("posQty");
@@ -38,10 +42,15 @@ const portfolioEmpty = document.getElementById("portfolioEmpty");
 const donutSvg = document.getElementById("donutSvg");
 const donutLegend = document.getElementById("donutLegend");
 
-const LS_PORTFOLIO_KEY = "bist_terminal_portfolio";
+// ---------- Takip Listesi DOM referansları ----------
+const watchlistScreen = document.getElementById("watchlistScreen");
+const wlSymbol = document.getElementById("wlSymbol");
+const wlAddBtn = document.getElementById("wlAddBtn");
+const wlError = document.getElementById("wlError");
+const watchlistTableBody = document.getElementById("watchlistTableBody");
+const watchlistEmpty = document.getElementById("watchlistEmpty");
 
 // ---------- Karşılaştırma DOM referansları ----------
-const navCompareBtn = document.getElementById("navCompareBtn");
 const compareScreen = document.getElementById("compareScreen");
 const cmpSymbol1 = document.getElementById("cmpSymbol1");
 const cmpSymbol2 = document.getElementById("cmpSymbol2");
@@ -56,7 +65,8 @@ let priceChartApi = null;
 let volumeChartApi = null;
 let candleSeries = null;
 let volumeSeries = null;
-let fullChartData = null; // { candles: [...], volumesTL: [...] }
+let fullChartData = null;
+let currentSymbol = null;
 
 // ==========================================================================
 // 1) GİRİŞ / ŞİFRE
@@ -66,6 +76,7 @@ function tryEnterApp() {
   if (saved) {
     lockScreen.style.display = "none";
     appEl.style.display = "block";
+    syncWatchlistState();
   }
 }
 
@@ -75,9 +86,6 @@ passInput.addEventListener("keydown", (e) => { if (e.key === "Enter") handlePass
 function handlePasswordSubmit() {
   const val = passInput.value.trim();
   if (!val) { lockError.textContent = "Lütfen şifre gir."; return; }
-  // Not: gerçek doğrulama Worker tarafında yapılır (bkz. worker.js).
-  // Burada şifreyi sadece localStorage'a kaydediyoruz; yanlış girilirse
-  // ilk arama isteğinde Worker 401 döner ve kullanıcı bilgilendirilir.
   localStorage.setItem(LS_PASS_KEY, val);
   lockScreen.style.display = "none";
   appEl.style.display = "block";
@@ -103,43 +111,56 @@ newSearchInput.addEventListener("keydown", (e) => {
 });
 
 // ==========================================================================
-// EKRAN GEÇİŞLERİ (Ara <-> Portföy)
+// EKRAN GEÇİŞLERİ (Ara <-> Portföy <-> Takip <-> Karşılaştır)
 // ==========================================================================
+function setActiveNav(activeBtn) {
+  [navSearchBtn, navPortfolioBtn, navWatchlistBtn, navCompareBtn].forEach((b) => b.classList.remove("active"));
+  activeBtn.classList.add("active");
+}
+
 function showSearchNav() {
-  navSearchBtn.classList.add("active");
-  navPortfolioBtn.classList.remove("active");
-  navCompareBtn.classList.remove("active");
+  setActiveNav(navSearchBtn);
   portfolioScreen.classList.remove("active");
+  watchlistScreen.classList.remove("active");
   compareScreen.classList.remove("active");
   searchScreen.classList.remove("hidden");
-  // Eğer daha önce bir hisse aranmışsa sonuç ekranı zaten "active" kalmış olabilir, bu normal.
 }
 
 function showPortfolioNav() {
-  navPortfolioBtn.classList.add("active");
-  navSearchBtn.classList.remove("active");
-  navCompareBtn.classList.remove("active");
+  setActiveNav(navPortfolioBtn);
   searchScreen.classList.add("hidden");
   resultScreen.classList.remove("active");
   loadingScreen.classList.remove("active");
   compareScreen.classList.remove("active");
+  watchlistScreen.classList.remove("active");
   portfolioScreen.classList.add("active");
   renderPortfolio();
 }
 
+function showWatchlistNav() {
+  setActiveNav(navWatchlistBtn);
+  searchScreen.classList.add("hidden");
+  resultScreen.classList.remove("active");
+  loadingScreen.classList.remove("active");
+  compareScreen.classList.remove("active");
+  portfolioScreen.classList.remove("active");
+  watchlistScreen.classList.add("active");
+  renderWatchlist();
+}
+
 function showCompareNav() {
-  navCompareBtn.classList.add("active");
-  navSearchBtn.classList.remove("active");
-  navPortfolioBtn.classList.remove("active");
+  setActiveNav(navCompareBtn);
   searchScreen.classList.add("hidden");
   resultScreen.classList.remove("active");
   loadingScreen.classList.remove("active");
   portfolioScreen.classList.remove("active");
+  watchlistScreen.classList.remove("active");
   compareScreen.classList.add("active");
 }
 
 navSearchBtn.addEventListener("click", showSearchNav);
 navPortfolioBtn.addEventListener("click", showPortfolioNav);
+navWatchlistBtn.addEventListener("click", showWatchlistNav);
 navCompareBtn.addEventListener("click", showCompareNav);
 
 async function runSearch(rawSymbol) {
@@ -148,6 +169,7 @@ async function runSearch(rawSymbol) {
   if (!symbol) { searchError.textContent = "Lütfen bir hisse kodu gir (örn: ALARK)."; return; }
 
   showLoading(true, `${symbol} için veri çekiliyor...`);
+  currentSymbol = symbol;
 
   const pass = localStorage.getItem(LS_PASS_KEY) || "";
 
@@ -178,15 +200,12 @@ async function runSearch(rawSymbol) {
     const processed = processChartData(chartResult);
     const fundamentals = processFundamentals(quoteRes.data);
 
-    // ÖNEMLİ: Sonuç ekranını grafik çizilmeden ÖNCE görünür yapıyoruz.
-    // Lightweight Charts, hâlâ "display:none" olan bir kutunun içine çizilirse
-    // genişliği 0 piksel görür ve grafik görünmez çıkar. Bu yüzden önce ekranı
-    // gösterip, grafiği ondan sonra oluşturuyoruz.
     showLoading(false);
     resultScreen.classList.add("active");
     searchScreen.classList.add("hidden");
 
     renderAll(symbol, processed, fundamentals);
+    syncWatchlistState();
     newSearchInput.value = "";
   } catch (err) {
     showLoading(false);
@@ -238,13 +257,7 @@ function processChartData(result) {
   }
 
   const closes = candles.map((c) => c.close);
-  // Yahoo'nun web sitesinde gösterdiği gerçek güncel fiyat meta.regularMarketPrice'ta bulunur.
-  // Günlük mum dizisinin son kapanışı bazen buna göre birkaç dakika geride kalabiliyor,
-  // bu yüzden mevcutsa meta değerini esas alıyoruz (Yahoo Finance sitesiyle birebir eşleşsin diye).
   const lastClose = meta.regularMarketPrice != null ? meta.regularMarketPrice : closes[closes.length - 1];
-  // ÖNEMLİ: meta.chartPreviousClose "dünün kapanışı" DEĞİL, grafik aralığının (1 yıl) başlangıcından
-  // hemen önceki günün kapanışıdır — yani ~365 gün önceki bir referans. Günlük değişim için bunun yerine
-  // serideki bir önceki günün gerçek kapanışını kullanıyoruz.
   const prevClose = closes[closes.length - 2] ?? lastClose;
 
   const findByDaysAgo = (n) => {
@@ -273,7 +286,6 @@ function processChartData(result) {
   const dailyVolumeTL = lastCandle.volume * lastClose;
   const dailyVolumeShares = lastCandle.volume;
 
-  // Teknik göstergeler
   const rsi = calcRSI(closes, 14);
   const ma50 = sma(closes, 50);
   const ma200 = sma(closes, 200);
@@ -282,19 +294,10 @@ function processChartData(result) {
   const stochRsi = calcStochRSI(closes, 14, 14);
 
   return {
-    candles,
-    volumesTL,
-    lastClose,
-    changes,
-    week52Low,
-    week52High,
-    avgVolumeTL,
-    avgVolumeShares: last30Shares,
-    dailyVolumeTL,
-    dailyVolumeShares,
-    rsi: rsi[rsi.length - 1],
-    ma50: ma50[ma50.length - 1],
-    ma200: ma200[ma200.length - 1],
+    candles, volumesTL, lastClose, changes,
+    week52Low, week52High, avgVolumeTL, avgVolumeShares: last30Shares,
+    dailyVolumeTL, dailyVolumeShares,
+    rsi: rsi[rsi.length - 1], ma50: ma50[ma50.length - 1], ma200: ma200[ma200.length - 1],
     macd: macd.macdLine[macd.macdLine.length - 1],
     macdSignal: macd.signalLine[macd.signalLine.length - 1],
     bollingerUpper: bollinger.upper[bollinger.upper.length - 1],
@@ -315,8 +318,8 @@ function processFundamentals(raw) {
   const g = (obj, key) => {
     const v = obj?.[key];
     if (v == null) return null;
-    if (typeof v === "object" && "raw" in v) return v.raw; // eski (formatted) yapı
-    return v; // formatted=false ile gelen düz değer
+    if (typeof v === "object" && "raw" in v) return v.raw;
+    return v;
   };
 
   return {
@@ -396,7 +399,6 @@ function calcMACD(closes) {
   return { macdLine, signalLine };
 }
 
-// Bollinger Bantları: SMA(20) ± 2 standart sapma
 function calcBollinger(closes, period = 20, mult = 2) {
   const mid = sma(closes, period);
   const upper = [], lower = [];
@@ -411,7 +413,6 @@ function calcBollinger(closes, period = 20, mult = 2) {
   return { mid, upper, lower };
 }
 
-// Stochastic RSI: RSI değerinin kendi son N günlük aralığındaki göreli konumu (0-100)
 function calcStochRSI(closes, rsiPeriod = 14, stochPeriod = 14) {
   const rsi = calcRSI(closes, rsiPeriod);
   const out = new Array(closes.length).fill(null);
@@ -453,6 +454,11 @@ function fmtCompactTL(n) {
 }
 function changeClass(n) { return n > 0.001 ? "up" : n < -0.001 ? "down" : "flat"; }
 function arrow(n) { return n > 0.001 ? "▲" : n < -0.001 ? "▼" : "▬"; }
+function fmtDate(ts) {
+  if (!ts) return "—";
+  const d = new Date(ts);
+  return d.toLocaleDateString("tr-TR", { day: "2-digit", month: "2-digit", year: "numeric" });
+}
 
 // ==========================================================================
 // 5) AL/SAT PUANLAMA
@@ -461,7 +467,6 @@ function computeRecommendation(d, f) {
   let score = 50;
   const factors = [];
 
-  // RSI
   if (d.rsi != null) {
     if (d.rsi < 30) { score += 20; factors.push(["RSI aşırı satım", "+20"]); }
     else if (d.rsi < 45) { score += 8; factors.push(["RSI zayıf bölge", "+8"]); }
@@ -470,28 +475,24 @@ function computeRecommendation(d, f) {
     else { score -= 20; factors.push(["RSI aşırı alım", "-20"]); }
   }
 
-  // MA trend
   if (d.ma50 != null && d.ma200 != null) {
     if (d.lastClose > d.ma50 && d.ma50 > d.ma200) { score += 18; factors.push(["Trend: yükseliş (Golden)", "+18"]); }
     else if (d.lastClose < d.ma50 && d.ma50 < d.ma200) { score -= 18; factors.push(["Trend: düşüş (Death)", "-18"]); }
     else { factors.push(["Trend: karışık", "0"]); }
   }
 
-  // MACD
   if (d.macd != null && d.macdSignal != null) {
     if (d.macd > d.macdSignal) { score += 12; factors.push(["MACD pozitif kesişim", "+12"]); }
     else { score -= 12; factors.push(["MACD negatif kesişim", "-12"]); }
   }
 
-  // Yıllık momentum
   const y = d.changes.yearly;
   if (y > 25) { score += 8; factors.push(["Güçlü yıllık momentum", "+8"]); }
   else if (y < -25) { score -= 8; factors.push(["Zayıf yıllık momentum", "-8"]); }
 
-  // Analist ortalaması (1=Strong Buy .. 5=Strong Sell)
   if (f.recommendationMean != null) {
     const rm = f.recommendationMean;
-    const analystScore = ((3 - rm) / 2) * 15; // rm=1 -> +15, rm=5 -> -15
+    const analystScore = ((3 - rm) / 2) * 15;
     score += analystScore;
     factors.push(["Analist ortalaması", `${analystScore >= 0 ? "+" : ""}${fmtNum(analystScore, 0)}`]);
   }
@@ -509,15 +510,12 @@ function computeRecommendation(d, f) {
 }
 
 // ==========================================================================
-// 5b) DEĞERLEME SAĞLIĞI PUANLAMA — "şişirilmiş mi" sorusuna sadece temel
-// verilerle (teknik momentum hariç) cevap veren ayrı bir puanlama.
-// 100 = çok ucuz, 0 = aşırı pahalı (şişirilmiş)
+// 5b) DEĞERLEME SAĞLIĞI PUANLAMA
 // ==========================================================================
 function computeValuationScore(f) {
   let score = 50;
   const factors = [];
 
-  // F/K (Trailing) — genel/piyasa-geneli eşikler, sektöre özel değil
   if (f.trailingPE != null && f.trailingPE > 0) {
     if (f.trailingPE < 8) { score += 20; factors.push(["F/K çok düşük", "+20"]); }
     else if (f.trailingPE < 15) { score += 8; factors.push(["F/K makul", "+8"]); }
@@ -528,7 +526,6 @@ function computeValuationScore(f) {
     score -= 10; factors.push(["Şirket zarar ediyor (F/K negatif)", "-10"]);
   }
 
-  // PD/DD (Piyasa Değeri / Defter Değeri)
   if (f.priceToBook != null && f.priceToBook > 0) {
     if (f.priceToBook < 1) { score += 15; factors.push(["PD/DD defter değerinin altında", "+15"]); }
     else if (f.priceToBook < 2) { score += 5; factors.push(["PD/DD makul", "+5"]); }
@@ -537,7 +534,6 @@ function computeValuationScore(f) {
     else { score -= 20; factors.push(["PD/DD aşırı prim", "-20"]); }
   }
 
-  // PD/Satış (Price to Sales)
   if (f.priceToSales != null && f.priceToSales > 0) {
     if (f.priceToSales < 1) { score += 10; factors.push(["PD/Satış düşük", "+10"]); }
     else if (f.priceToSales <= 3) { factors.push(["PD/Satış normal", "0"]); }
@@ -545,7 +541,6 @@ function computeValuationScore(f) {
     else { score -= 15; factors.push(["PD/Satış aşırı yüksek", "-15"]); }
   }
 
-  // Forward F/K, Trailing F/K'dan belirgin düşükse (kâr büyümesi bekleniyor demektir) hafif olumlu
   if (f.forwardPE != null && f.trailingPE != null && f.trailingPE > 0 && f.forwardPE > 0) {
     if (f.forwardPE < f.trailingPE * 0.8) { score += 8; factors.push(["Beklenen kâr artışı (Forward F/K düşük)", "+8"]); }
     else if (f.forwardPE > f.trailingPE * 1.2) { score -= 8; factors.push(["Beklenen kâr düşüşü (Forward F/K yüksek)", "-8"]); }
@@ -570,10 +565,9 @@ function drawGauge(score, svgId = "gaugeSvg") {
   const svg = document.getElementById(svgId);
   svg.innerHTML = "";
   const cx = 140, cy = 140, r = 110;
-  const startAngle = Math.PI; // 180°
-  const endAngle = 0; // 0°
+  const startAngle = Math.PI;
+  const endAngle = 0;
 
-  // Arka plan yayı (renk geçişli)
   const segments = 40;
   for (let i = 0; i < segments; i++) {
     const a1 = startAngle - (startAngle - endAngle) * (i / segments);
@@ -593,7 +587,6 @@ function drawGauge(score, svgId = "gaugeSvg") {
     svg.appendChild(path);
   }
 
-  // İbre (needle)
   const angle = startAngle - (startAngle - endAngle) * (score / 100);
   const needleLen = r - 16;
   const nx = cx + needleLen * Math.cos(angle);
@@ -611,7 +604,6 @@ function drawGauge(score, svgId = "gaugeSvg") {
   hub.setAttribute("fill", "#e6eaf0");
   svg.appendChild(hub);
 
-  // Uç etiketleri
   const labelStyle = { "font-family": "JetBrains Mono, monospace", "font-size": "10.5px", fill: "#4c5768" };
   const leftLabel = svgId === "valueGaugeSvg" ? "PAHALI" : "SAT";
   const rightLabel = svgId === "valueGaugeSvg" ? "UCUZ" : "AL";
@@ -699,7 +691,6 @@ function renderChart(candles, volumesTL) {
   priceChartApi.timeScale().fitContent();
   volumeChartApi.timeScale().fitContent();
 
-  // İki grafiği senkronize kaydır/yakınlaştır
   priceChartApi.timeScale().subscribeVisibleLogicalRangeChange((range) => {
     volumeChartApi.timeScale().setVisibleLogicalRange(range);
   });
@@ -734,7 +725,6 @@ function renderAll(symbol, d, f) {
   dayEl.textContent = `${arrow(d.changes.daily)} ${fmtPct(d.changes.daily)} (bugün)`;
   dayEl.className = `day-change ${dayCls}`;
 
-  // Değişim rozetleri
   const badgeDefs = [
     ["Günlük", d.changes.daily],
     ["Haftalık", d.changes.weekly],
@@ -750,7 +740,6 @@ function renderAll(symbol, d, f) {
       </div>`)
     .join("");
 
-  // 52 hafta aralığı
   const lo = f.fiftyTwoWeekLow ?? d.week52Low;
   const hi = f.fiftyTwoWeekHigh ?? d.week52High;
   document.getElementById("range52Low").textContent = fmtTL(lo);
@@ -758,24 +747,19 @@ function renderAll(symbol, d, f) {
   const pct = hi > lo ? ((d.lastClose - lo) / (hi - lo)) * 100 : 50;
   document.getElementById("rangeMarker").style.left = `${Math.max(2, Math.min(98, pct))}%`;
 
-  // Zirveye uzaklık: güncel fiyatın zirveye ulaşması için ne kadar yükselmesi gerektiği
   const distHigh = ((hi - d.lastClose) / d.lastClose) * 100;
-  // Dibe uzaklık: güncel fiyatın dibe inmesi için ne kadar düşmesi gerektiği
   const distLow = ((d.lastClose - lo) / d.lastClose) * 100;
   document.getElementById("distToHigh").textContent = `+ ${fmtNum(distHigh)}%`;
   document.getElementById("distToLow").textContent = `- ${fmtNum(distLow)}%`;
 
-  // Grafik
   renderChart(d.candles, d.volumesTL);
 
-  // Hacim kartı
   document.getElementById("dailyVolumeTL").textContent = fmtCompactTL(d.dailyVolumeTL);
   document.getElementById("dailyVolumeShares").textContent = `${fmtNum(d.dailyVolumeShares, 0)} adet`;
   document.getElementById("avgVolumeTL").textContent = fmtCompactTL(d.avgVolumeTL);
   document.getElementById("avgVolumeShares").textContent = `Ortalama ${fmtNum(d.avgVolumeShares, 0)} adet/gün`;
   drawMiniVolume(d.volumesTL);
 
-  // Teknik göstergeler paneli
   const rsiTag = d.rsi < 30 ? ["Aşırı Satım", "buy"] : d.rsi > 70 ? ["Aşırı Alım", "sell"] : ["Nötr", "neutral"];
   const maTag = d.lastClose > d.ma50 ? ["Fiyat > MA50", "buy"] : ["Fiyat < MA50", "sell"];
   const macdTag = d.macd > d.macdSignal ? ["Pozitif", "buy"] : ["Negatif", "sell"];
@@ -796,7 +780,6 @@ function renderAll(symbol, d, f) {
     rowHTML("Beta", fmtNum(f.beta)),
   ].join("");
 
-  // Temel veriler paneli
   document.getElementById("fundamentalRows").innerHTML = [
     rowHTML("Piyasa Değeri", fmtCompactTL(f.marketCap)),
     rowHTML("F/K (Trailing)", fmtNum(f.trailingPE)),
@@ -810,7 +793,6 @@ function renderAll(symbol, d, f) {
     rowHTML("Analist Sayısı", fmtNum(f.numberOfAnalysts, 0)),
   ].join("");
 
-  // AL/SAT gauge
   const rec = computeRecommendation(d, f);
   drawGauge(rec.score, "gaugeSvg");
   const gaugeLabelEl = document.getElementById("gaugeLabel");
@@ -821,7 +803,6 @@ function renderAll(symbol, d, f) {
     .map(([label, val]) => `<div class="factor">${label}: <b>${val}</b></div>`)
     .join("");
 
-  // Değerleme Sağlığı gauge
   const val = computeValuationScore(f);
   drawGauge(val.score, "valueGaugeSvg");
   const valueGaugeLabelEl = document.getElementById("valueGaugeLabel");
@@ -840,19 +821,41 @@ function rowHTML(label, value, tag) {
 }
 
 // ==========================================================================
-// 10) PORTFÖY
+// 10) KV (BULUT) VERİ YARDIMCILARI
 // ==========================================================================
-function loadPortfolio() {
-  try {
-    const raw = localStorage.getItem(LS_PORTFOLIO_KEY);
-    return raw ? JSON.parse(raw) : [];
-  } catch (e) {
-    return [];
-  }
+function getPass() { return localStorage.getItem(LS_PASS_KEY) || ""; }
+
+async function kvGet(key) {
+  const pass = getPass();
+  const res = await fetch(`${WORKER_URL}/api/${key}?pass=${encodeURIComponent(pass)}`);
+  const data = await res.json();
+  if (!res.ok) throw new Error(data.error || "KV okuma hatası");
+  return data;
 }
 
-function savePortfolio(positions) {
-  localStorage.setItem(LS_PORTFOLIO_KEY, JSON.stringify(positions));
+async function kvPost(key, body) {
+  const pass = getPass();
+  const res = await fetch(`${WORKER_URL}/api/${key}`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ pass, ...body }),
+  });
+  const data = await res.json();
+  if (!res.ok) throw new Error(data.error || "KV yazma hatası");
+  return data;
+}
+
+// ==========================================================================
+// 11) PORTFÖY (KV tabanlı)
+// ==========================================================================
+async function loadPortfolio() {
+  try { return await kvGet("portfolio"); }
+  catch (e) { console.error("Portföy yüklenemedi:", e); return []; }
+}
+
+async function savePortfolio(positions) {
+  try { await kvPost("portfolio", { positions }); }
+  catch (e) { console.error("Portföy kaydedilemedi:", e); throw e; }
 }
 
 posAddBtn.addEventListener("click", addPosition);
@@ -860,7 +863,7 @@ posAddBtn.addEventListener("click", addPosition);
   el.addEventListener("keydown", (e) => { if (e.key === "Enter") addPosition(); });
 });
 
-function addPosition() {
+async function addPosition() {
   posError.textContent = "";
   const symbol = posSymbol.value.toUpperCase().trim().replace(/[^A-Z0-9]/g, "");
   const qty = parseFloat(posQty.value);
@@ -870,33 +873,40 @@ function addPosition() {
   if (!qty || qty <= 0) { posError.textContent = "Geçerli bir adet gir."; return; }
   if (!cost || cost <= 0) { posError.textContent = "Geçerli bir maliyet gir."; return; }
 
-  const positions = loadPortfolio();
-  const existing = positions.find((p) => p.symbol === symbol);
-  if (existing) {
-    // Aynı hisseden tekrar eklenirse ortalama maliyeti güncelle
-    const totalQty = existing.qty + qty;
-    existing.cost = (existing.qty * existing.cost + qty * cost) / totalQty;
-    existing.qty = totalQty;
-  } else {
-    positions.push({ symbol, qty, cost });
+  try {
+    const positions = await loadPortfolio();
+    const existing = positions.find((p) => p.symbol === symbol);
+    if (existing) {
+      const totalQty = existing.qty + qty;
+      existing.cost = (existing.qty * existing.cost + qty * cost) / totalQty;
+      existing.qty = totalQty;
+    } else {
+      positions.push({ symbol, qty, cost });
+    }
+    await savePortfolio(positions);
+
+    posSymbol.value = "";
+    posQty.value = "";
+    posCost.value = "";
+    renderPortfolio();
+  } catch (e) {
+    posError.textContent = "Portföy kaydedilemedi: " + e.message;
   }
-  savePortfolio(positions);
-
-  posSymbol.value = "";
-  posQty.value = "";
-  posCost.value = "";
-  renderPortfolio();
 }
 
-function removePosition(symbol) {
-  const positions = loadPortfolio().filter((p) => p.symbol !== symbol);
-  savePortfolio(positions);
-  renderPortfolio();
+async function removePosition(symbol) {
+  try {
+    const positions = await loadPortfolio();
+    const filtered = positions.filter((p) => p.symbol !== symbol);
+    await savePortfolio(filtered);
+    renderPortfolio();
+  } catch (e) {
+    console.error("Pozisyon silinemedi:", e);
+  }
 }
 
-// Portföy için hafif güncel fiyat sorgusu (son 5 gün, sadece son fiyat + günlük değişim gerekiyor)
 async function fetchQuickPrice(symbol) {
-  const pass = localStorage.getItem(LS_PASS_KEY) || "";
+  const pass = getPass();
   const res = await fetchJSON(`${WORKER_URL}/api/chart?symbol=${symbol}&pass=${encodeURIComponent(pass)}&range=5d&interval=1d`);
   if (res.error) throw new Error(res.error);
   const result = res.data?.chart?.result?.[0];
@@ -910,7 +920,7 @@ async function fetchQuickPrice(symbol) {
 }
 
 async function renderPortfolio() {
-  const positions = loadPortfolio();
+  const positions = await loadPortfolio();
   portfolioEmpty.classList.toggle("visible", positions.length === 0);
   portfolioTableBody.innerHTML = "";
   portfolioSummary.innerHTML = "";
@@ -958,7 +968,7 @@ async function renderPortfolio() {
           <td><button class="remove-btn" data-symbol="${p.symbol}">Sil</button></td>
         </tr>`);
     } else {
-      totalValue += costValue; // veri gelmezse en azından maliyeti say
+      totalValue += costValue;
       rows.push(`
         <tr>
           <td class="symbol-cell">${p.symbol}</td>
@@ -1044,7 +1054,166 @@ function drawDonut(allocation, total) {
 }
 
 // ==========================================================================
-// 11) KARŞILAŞTIRMA EKRANI
+// 12) TAKİP LİSTESİ (KV tabanlı)
+// ==========================================================================
+async function loadWatchlist() {
+  try { return await kvGet("watchlist"); }
+  catch (e) { console.error("Takip listesi yüklenemedi:", e); return []; }
+}
+
+async function saveWatchlist(items) {
+  try { await kvPost("watchlist", { items }); }
+  catch (e) { console.error("Takip listesi kaydedilemedi:", e); throw e; }
+}
+
+wlAddBtn.addEventListener("click", addWatchlistItem);
+wlSymbol.addEventListener("keydown", (e) => { if (e.key === "Enter") addWatchlistItem(); });
+
+async function addWatchlistItem() {
+  wlError.textContent = "";
+  const symbol = wlSymbol.value.toUpperCase().trim().replace(/[^A-Z0-9]/g, "");
+
+  if (!symbol) { wlError.textContent = "Hisse kodu gir (örn: ALARK)."; return; }
+
+  try {
+    // Güncel fiyatı al
+    let price = null;
+    try {
+      const p = await fetchQuickPrice(symbol);
+      price = p.price;
+    } catch (e) {
+      wlError.textContent = `"${symbol}" için fiyat alınamadı. Kodu kontrol et.`;
+      return;
+    }
+
+    const items = await loadWatchlist();
+    // Zaten varsa uyar, yoksa ekle
+    if (items.find((item) => item.symbol === symbol)) {
+      wlError.textContent = `${symbol} zaten takip listende.`;
+      return;
+    }
+
+    items.push({
+      symbol,
+      addedAt: Date.now(),
+      addedPrice: price,
+    });
+    await saveWatchlist(items);
+
+    wlSymbol.value = "";
+    wlError.textContent = "";
+    renderWatchlist();
+    if (currentSymbol === symbol) syncWatchlistState();
+  } catch (e) {
+    wlError.textContent = "Takip listesine eklenemedi: " + e.message;
+  }
+}
+
+async function removeWatchlistItem(symbol) {
+  try {
+    const items = await loadWatchlist();
+    const filtered = items.filter((item) => item.symbol !== symbol);
+    await saveWatchlist(filtered);
+    renderWatchlist();
+    if (currentSymbol === symbol) syncWatchlistState();
+  } catch (e) {
+    console.error("Takip öğesi silinemedi:", e);
+  }
+}
+
+// Sonuç ekranındaki ★ butonuna tıklandığında
+watchlistToggleBtn.addEventListener("click", async () => {
+  if (!currentSymbol) return;
+  try {
+    const items = await loadWatchlist();
+    const exists = items.find((item) => item.symbol === currentSymbol);
+    if (exists) {
+      await removeWatchlistItem(currentSymbol);
+    } else {
+      // Güncel fiyatı al ve ekle
+      try {
+        const p = await fetchQuickPrice(currentSymbol);
+        items.push({
+          symbol: currentSymbol,
+          addedAt: Date.now(),
+          addedPrice: p.price,
+        });
+        await saveWatchlist(items);
+      } catch (e) {
+        console.error("Takip eklenemedi:", e);
+      }
+    }
+    syncWatchlistState();
+  } catch (e) {
+    console.error("Takip durumu değiştirilemedi:", e);
+  }
+});
+
+// Takip butonu görünümünü güncelle (takip ediliyorsa ★ dolu, değilse boş)
+async function syncWatchlistState() {
+  if (!currentSymbol) {
+    watchlistToggleBtn.textContent = "★ Takip Ekle";
+    watchlistToggleBtn.classList.remove("following");
+    return;
+  }
+  try {
+    const items = await loadWatchlist();
+    const exists = items.find((item) => item.symbol === currentSymbol);
+    if (exists) {
+      watchlistToggleBtn.textContent = "★ Takip Ediliyor";
+      watchlistToggleBtn.classList.add("following");
+    } else {
+      watchlistToggleBtn.textContent = "★ Takip Ekle";
+      watchlistToggleBtn.classList.remove("following");
+    }
+  } catch (e) {
+    console.error("Takip durumu kontrol edilemedi:", e);
+  }
+}
+
+async function renderWatchlist() {
+  const items = await loadWatchlist();
+  watchlistEmpty.classList.toggle("visible", items.length === 0);
+  watchlistTableBody.innerHTML = "";
+
+  if (items.length === 0) return;
+
+  // Her hisse için güncel fiyatı çek
+  const results = await Promise.allSettled(items.map((item) => fetchQuickPrice(item.symbol)));
+
+  const rows = items.map((item, i) => {
+    const r = results[i];
+    if (r.status === "fulfilled") {
+      const { price, dailyChangePct } = r.value;
+      const addedChangePct = item.addedPrice ? ((price - item.addedPrice) / item.addedPrice) * 100 : null;
+      return `
+        <tr>
+          <td class="symbol-cell">${item.symbol}</td>
+          <td>${fmtTL(price)}</td>
+          <td class="${changeClass(dailyChangePct)}">${fmtPct(dailyChangePct)}</td>
+          <td>${fmtDate(item.addedAt)}</td>
+          <td>${fmtTL(item.addedPrice)}</td>
+          <td class="${changeClass(addedChangePct)}">${addedChangePct != null ? fmtPct(addedChangePct) : "—"}</td>
+          <td><button class="remove-btn" data-symbol="${item.symbol}">Çıkar</button></td>
+        </tr>`;
+    } else {
+      return `
+        <tr>
+          <td class="symbol-cell">${item.symbol}</td>
+          <td colspan="5" style="text-align:left;color:var(--down)">Veri alınamadı</td>
+          <td><button class="remove-btn" data-symbol="${item.symbol}">Çıkar</button></td>
+        </tr>`;
+    }
+  });
+
+  watchlistTableBody.innerHTML = rows.join("");
+  watchlistTableBody.querySelectorAll(".remove-btn").forEach((btn) => {
+    btn.addEventListener("click", () => removeWatchlistItem(btn.dataset.symbol));
+  });
+}
+
+// ==========================================================================
+// 13) KARŞILAŞTIRMA EKRANI
 // ==========================================================================
 cmpBtn.addEventListener("click", runCompare);
 [cmpSymbol1, cmpSymbol2, cmpSymbol3].forEach((el) => {
@@ -1052,7 +1221,7 @@ cmpBtn.addEventListener("click", runCompare);
 });
 
 async function fetchFullData(symbol) {
-  const pass = localStorage.getItem(LS_PASS_KEY) || "";
+  const pass = getPass();
   const [chartRes, quoteRes] = await Promise.all([
     fetchJSON(`${WORKER_URL}/api/chart?symbol=${symbol}&pass=${encodeURIComponent(pass)}`),
     fetchJSON(`${WORKER_URL}/api/quote?symbol=${symbol}&pass=${encodeURIComponent(pass)}`),
@@ -1092,8 +1261,6 @@ async function runCompare() {
   }
 }
 
-// Bir metrik satırında hangi sütunun "en iyi" olduğunu bulup gold renkle işaretler.
-// higherIsBetter: true ise en yüksek değer, false ise en düşük değer öne çıkar.
 function buildMetricRow(label, results, getValue, formatter, higherIsBetter = true) {
   const values = results.map((r) => getValue(r));
   const validValues = values.filter((v) => v != null && !isNaN(v));
@@ -1131,7 +1298,6 @@ function renderCompareTable(results) {
     buildMetricRow("Ort. Hacim (TL)", results, (r) => r.d.avgVolumeTL, (v) => fmtCompactTL(v), true),
   ];
 
-  // AL/SAT ve Değerleme skorları: etiketleri doğrudan sonuç objesinden alıyoruz (score eşleşmesine güvenmeden)
   const recScores = results.map((r) => r.rec.score);
   const bestRecScore = Math.max(...recScores);
   rows.push(`<tr><td>AL/SAT Skoru</td>${results.map((r) => `<td class="${r.rec.score === bestRecScore ? "best-value" : ""}">${fmtNum(r.rec.score, 0)} (${r.rec.label})</td>`).join("")}</tr>`);
