@@ -24,7 +24,7 @@
     </div>
   </div>
 
-  <!-- ============ ANA UYGULAMA (kilit açılınca gösterilir) ============ -->
+  <!-- ============ ANA UYGULAMA ============ -->
   <div id="app" style="display:none;">
 
     <div class="topbar">
@@ -32,6 +32,7 @@
       <div class="nav-buttons">
         <button class="nav-btn active" id="navSearchBtn">Ara</button>
         <button class="nav-btn" id="navPortfolioBtn">Portföy</button>
+        <button class="nav-btn" id="navWatchlistBtn">Takip</button>
         <button class="nav-btn" id="navCompareBtn">Karşılaştır</button>
         <button class="logout-btn" id="logoutBtn">Çıkış</button>
       </div>
@@ -59,6 +60,7 @@
       <div class="new-search-bar">
         <input type="text" id="newSearchInput" placeholder="Başka bir hisse ara..." autocomplete="off" />
         <button id="newSearchBtn">Ara</button>
+        <button id="watchlistToggleBtn" class="wl-toggle-btn" data-symbol="">★ Takip Ekle</button>
       </div>
 
       <!-- Fiyat özeti -->
@@ -219,7 +221,37 @@
         </div>
       </div>
 
-      <footer class="data-source">Portföy verileri sadece bu cihazda (tarayıcında) saklanır.</footer>
+      <footer class="data-source">Portföy verileri bulutta saklanır — tüm cihazlarında erişebilirsin.</footer>
+    </div>
+
+    <!-- ============ TAKİP LİSTESİ EKRANI ============ -->
+    <div class="watchlist-screen" id="watchlistScreen">
+
+      <div class="panel-card" style="margin-bottom:20px">
+        <div class="card-title" style="margin-bottom:16px">Hisse Ekle</div>
+        <div class="add-position-form">
+          <input type="text" id="wlSymbol" placeholder="Hisse kodu (örn. ALARK)" autocomplete="off" />
+          <button id="wlAddBtn">Takip Et</button>
+        </div>
+        <div class="search-error" id="wlError" style="text-align:left;margin-top:10px"></div>
+      </div>
+
+      <div class="panel-card">
+        <div class="card-title" style="margin-bottom:16px">Takip Listesi</div>
+        <div class="portfolio-table-wrap">
+          <table class="portfolio-table" id="watchlistTable">
+            <thead>
+              <tr>
+                <th>Hisse</th><th>Güncel Fiyat</th><th>Günlük Değişim</th><th>Eklenme Tarihi</th><th>Eklenme Fiyatı</th><th>Eklenmeden Beri</th><th></th>
+              </tr>
+            </thead>
+            <tbody id="watchlistTableBody"></tbody>
+          </table>
+        </div>
+        <div id="watchlistEmpty" class="portfolio-empty">Henüz takip ettiğin hisse yok. Yukarıdan ekleyebilir veya hisse aratırken ★ butonuna tıklayabilirsin.</div>
+      </div>
+
+      <footer class="data-source">Takip listesi bulutta saklanır — tüm cihazlarında erişebilirsin.</footer>
     </div>
 
     <!-- ============ KARŞILAŞTIRMA EKRANI ============ -->
