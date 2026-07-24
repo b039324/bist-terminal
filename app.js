@@ -73,9 +73,7 @@ let currentSymbol = null;
 // ==========================================================================
 if ("serviceWorker" in navigator) {
   window.addEventListener("load", () => {
-    navigator.serviceWorker.register("sw.js").catch(() => {
-      // Service worker kaydı başarısız olursa sessizce devam et
-    });
+    navigator.serviceWorker.register("sw.js").catch(() => {});
   });
 }
 
@@ -122,7 +120,7 @@ newSearchInput.addEventListener("keydown", (e) => {
 });
 
 // ==========================================================================
-// EKRAN GEÇİŞLERİ (Ara <-> Portföy <-> Takip <-> Karşılaştır)
+// EKRAN GEÇİŞLERİ
 // ==========================================================================
 function setActiveNav(activeBtn) {
   [navSearchBtn, navPortfolioBtn, navWatchlistBtn, navCompareBtn].forEach((b) => b.classList.remove("active"));
@@ -205,7 +203,7 @@ async function runSearch(rawSymbol) {
 
     const chartResult = chartRes.data?.chart?.result?.[0];
     if (!chartResult || !chartResult.timestamp) {
-      throw new Error(`"${symbol}" için veri bulunamadı. Kodu kontrol et (örn: ALARK, THYAO).`);
+      throw new Error(`"${symbol}" için veri bulunamadı.`);
     }
 
     const processed = processChartData(chartResult);
@@ -222,7 +220,7 @@ async function runSearch(rawSymbol) {
     showLoading(false);
     searchScreen.classList.remove("hidden");
     resultScreen.classList.remove("active");
-    searchError.textContent = err.message || "Bir hata oluştu, tekrar dene.";
+    searchError.textContent = err.message || "Bir hata oluştu.";
   }
 }
 
@@ -233,7 +231,7 @@ async function fetchJSON(url) {
     if (!res.ok) return { error: data.error || "Bilinmeyen hata", status: res.status };
     return { data };
   } catch (e) {
-    return { error: "Sunucuya ulaşılamadı. Worker adresini (config.js) kontrol et." };
+    return { error: "Sunucuya ulaşılamadı." };
   }
 }
 
@@ -250,7 +248,6 @@ function processChartData(result) {
   const ts = result.timestamp;
   const quote = result.indicators.quote[0];
   const meta = result.meta || {};
-  const adjClose = result.indicators.adjclose?.[0]?.adjclose;
 
   const candles = [];
   const volumesTL = [];
@@ -324,7 +321,6 @@ function processFundamentals(raw) {
   const dks = r.defaultKeyStatistics || {};
   const fd = r.financialData || {};
   const price = r.price || {};
-  const rec = r.recommendationTrend?.trend?.[0] || {};
 
   const g = (obj, key) => {
     const v = obj?.[key];
@@ -352,14 +348,11 @@ function processFundamentals(raw) {
     fiftyTwoWeekHigh: g(sd, "fiftyTwoWeekHigh"),
     priceToSales: g(sd, "priceToSalesTrailing12Months"),
     enterpriseToEbitda: g(dks, "enterpriseToEbitda"),
-    // Analist hedef fiyatları
     targetMeanPrice: g(fd, "targetMeanPrice"),
     targetHighPrice: g(fd, "targetHighPrice"),
     targetLowPrice: g(fd, "targetLowPrice"),
     targetMedianPrice: g(fd, "targetMedianPrice"),
-    // 5 yıllık ortalamalar
-    fiveYearAvgPE: g(dks, "fiveYearAvgDividendYield") ? null : null, // Yahoo'da doğrudan yok, alternatif olarak kullanılabilir
-    bookValue: g(dks, "bookValue"), // Hisse başı defter değeri
+    bookValue: g(dks, "bookValue"),
   };
 }
 
@@ -397,7 +390,6 @@ function calcRSI(closes, period = 14) {
   }
   let avgGain = gains / period, avgLoss = losses / period;
   out[period] = 100 - 100 / (1 + (avgLoss === 0 ? 100 : avgGain / avgLoss));
-
   for (let i = period + 1; i < closes.length; i++) {
     const diff = closes[i] - closes[i - 1];
     const gain = diff > 0 ? diff : 0;
@@ -505,9 +497,8 @@ function computeRecommendation(d, f) {
     else { score -= 12; factors.push(["MACD negatif kesişim", "-12"]); }
   }
 
-  const y = d.changes.yearly;
-  if (y > 25) { score += 8; factors.push(["Güçlü yıllık momentum", "+8"]); }
-  else if (y < -25) { score -= 8; factors.push(["Zayıf yıllık momentum", "-8"]); }
+  if (d.changes.yearly > 25) { score += 8; factors.push(["Güçlü yıllık momentum", "+8"]); }
+  else if (d.changes.yearly < -25) { score -= 8; factors.push(["Zayıf yıllık momentum", "-8"]); }
 
   if (f.recommendationMean != null) {
     const rm = f.recommendationMean;
@@ -542,7 +533,7 @@ function computeValuationScore(f) {
     else if (f.trailingPE <= 40) { score -= 15; factors.push(["F/K yüksek", "-15"]); }
     else { score -= 25; factors.push(["F/K aşırı yüksek", "-25"]); }
   } else if (f.trailingPE != null && f.trailingPE <= 0) {
-    score -= 10; factors.push(["Şirket zarar ediyor (F/K negatif)", "-10"]);
+    score -= 10; factors.push(["Şirket zarar ediyor", "-10"]);
   }
 
   if (f.priceToBook != null && f.priceToBook > 0) {
@@ -561,8 +552,8 @@ function computeValuationScore(f) {
   }
 
   if (f.forwardPE != null && f.trailingPE != null && f.trailingPE > 0 && f.forwardPE > 0) {
-    if (f.forwardPE < f.trailingPE * 0.8) { score += 8; factors.push(["Beklenen kâr artışı (Forward F/K düşük)", "+8"]); }
-    else if (f.forwardPE > f.trailingPE * 1.2) { score -= 8; factors.push(["Beklenen kâr düşüşü (Forward F/K yüksek)", "-8"]); }
+    if (f.forwardPE < f.trailingPE * 0.8) { score += 8; factors.push(["Beklenen kâr artışı", "+8"]); }
+    else if (f.forwardPE > f.trailingPE * 1.2) { score -= 8; factors.push(["Beklenen kâr düşüşü", "-8"]); }
   }
 
   score = Math.max(0, Math.min(100, score));
@@ -578,19 +569,26 @@ function computeValuationScore(f) {
 }
 
 // ==========================================================================
-// 6) GAUGE (AL/SAT yarım-ay göstergesi) - SVG çizimi
+// 6) GAUGE - SVG çizimi (düzeltilmiş, ibre dışarı taşmaz)
 // ==========================================================================
 function drawGauge(score, svgId = "gaugeSvg") {
   const svg = document.getElementById(svgId);
   svg.innerHTML = "";
-  const cx = 140, cy = 140, r = 110;
+  const cx = 140, cy = 140, r = 100;
   const startAngle = Math.PI;
   const endAngle = 0;
+  const totalArc = startAngle - endAngle;
 
-  const segments = 40;
+  // Skoru 3-97 aralığına sıkıştır (ibre asla uçlara yapışmasın)
+  const clamped = Math.max(3, Math.min(97, score));
+  const fraction = clamped / 100;
+  const angle = startAngle - totalArc * fraction;
+
+  // Arka plan yayı
+  const segments = 50;
   for (let i = 0; i < segments; i++) {
-    const a1 = startAngle - (startAngle - endAngle) * (i / segments);
-    const a2 = startAngle - (startAngle - endAngle) * ((i + 1) / segments);
+    const a1 = startAngle - totalArc * (i / segments);
+    const a2 = startAngle - totalArc * ((i + 1) / segments);
     const x1 = cx + r * Math.cos(a1), y1 = cy - r * Math.sin(a1);
     const x2 = cx + r * Math.cos(a2), y2 = cy - r * Math.sin(a2);
     const t = i / segments;
@@ -606,10 +604,11 @@ function drawGauge(score, svgId = "gaugeSvg") {
     svg.appendChild(path);
   }
 
-  const angle = startAngle - (startAngle - endAngle) * (score / 100);
-  const needleLen = r - 16;
+  // İbre — yayın 20px içerisinde biter, asla dışarı taşmaz
+  const needleLen = r - 20;
   const nx = cx + needleLen * Math.cos(angle);
   const ny = cy - needleLen * Math.sin(angle);
+
   const needle = document.createElementNS("http://www.w3.org/2000/svg", "line");
   needle.setAttribute("x1", cx); needle.setAttribute("y1", cy);
   needle.setAttribute("x2", nx); needle.setAttribute("y2", ny);
@@ -618,11 +617,13 @@ function drawGauge(score, svgId = "gaugeSvg") {
   needle.setAttribute("stroke-linecap", "round");
   svg.appendChild(needle);
 
+  // Merkez noktası
   const hub = document.createElementNS("http://www.w3.org/2000/svg", "circle");
   hub.setAttribute("cx", cx); hub.setAttribute("cy", cy); hub.setAttribute("r", "7");
   hub.setAttribute("fill", "#e6eaf0");
   svg.appendChild(hub);
 
+  // Uç etiketleri
   const labelStyle = { "font-family": "JetBrains Mono, monospace", "font-size": "10.5px", fill: "#4c5768" };
   const leftLabel = svgId === "valueGaugeSvg" ? "PAHALI" : "SAT";
   const rightLabel = svgId === "valueGaugeSvg" ? "UCUZ" : "AL";
@@ -673,7 +674,7 @@ function drawMiniVolume(volumesTL) {
 }
 
 // ==========================================================================
-// 8) LIGHTWEIGHT-CHARTS FİYAT + HACİM GRAFİĞİ
+// 8) LIGHTWEIGHT-CHARTS
 // ==========================================================================
 function renderChart(candles, volumesTL) {
   const priceEl = document.getElementById("priceChart");
@@ -730,7 +731,7 @@ document.getElementById("rangeTabs").addEventListener("click", (e) => {
 });
 
 // ==========================================================================
-// 9) TÜM SONUÇ EKRANINI RENDER ET
+// 9) SONUÇ EKRANI RENDER
 // ==========================================================================
 function renderAll(symbol, d, f) {
   fullChartData = d;
@@ -752,53 +753,31 @@ function renderAll(symbol, d, f) {
     analystEl.style.display = "block";
     analystEl.innerHTML = `
       <div class="target-row">
-        <div class="target-item">
-          <div class="target-label">Hedef Düşük</div>
-          <div class="target-value">${f.targetLowPrice ? fmtTL(f.targetLowPrice) : "—"}</div>
-        </div>
-        <div class="target-item">
-          <div class="target-label">Hedef Ortalama</div>
-          <div class="target-value" style="color:var(--gold)">${fmtTL(f.targetMeanPrice)}</div>
-        </div>
-        <div class="target-item">
-          <div class="target-label">Hedef Yüksek</div>
-          <div class="target-value">${f.targetHighPrice ? fmtTL(f.targetHighPrice) : "—"}</div>
-        </div>
-        <div class="target-item">
-          <div class="target-label">Potansiyel</div>
-          <div class="target-value target-potential ${potCls}">${fmtPct(pot)}</div>
-        </div>
+        <div class="target-item"><div class="target-label">Hedef Düşük</div><div class="target-value">${f.targetLowPrice ? fmtTL(f.targetLowPrice) : "—"}</div></div>
+        <div class="target-item"><div class="target-label">Hedef Ort.</div><div class="target-value" style="color:var(--gold)">${fmtTL(f.targetMeanPrice)}</div></div>
+        <div class="target-item"><div class="target-label">Hedef Yüksek</div><div class="target-value">${f.targetHighPrice ? fmtTL(f.targetHighPrice) : "—"}</div></div>
+        <div class="target-item"><div class="target-label">Potansiyel</div><div class="target-value target-potential ${potCls}">${fmtPct(pot)}</div></div>
       </div>`;
   } else {
     analystEl.style.display = "none";
   }
 
   const badgeDefs = [
-    ["Günlük", d.changes.daily],
-    ["Haftalık", d.changes.weekly],
-    ["Aylık", d.changes.monthly],
-    ["6 Aylık", d.changes.sixMonth],
-    ["Yıllık", d.changes.yearly],
+    ["Günlük", d.changes.daily], ["Haftalık", d.changes.weekly], ["Aylık", d.changes.monthly],
+    ["6 Aylık", d.changes.sixMonth], ["Yıllık", d.changes.yearly],
   ];
   document.getElementById("changeBadges").innerHTML = badgeDefs
-    .map(([label, val]) => `
-      <div class="badge">
-        <div class="badge-label">${label}</div>
-        <div class="badge-value ${changeClass(val)}">${fmtPct(val)}</div>
-      </div>`)
+    .map(([label, val]) => `<div class="badge"><div class="badge-label">${label}</div><div class="badge-value ${changeClass(val)}">${fmtPct(val)}</div></div>`)
     .join("");
 
   const lo = f.fiftyTwoWeekLow ?? d.week52Low;
   const hi = f.fiftyTwoWeekHigh ?? d.week52High;
   document.getElementById("range52Low").textContent = fmtTL(lo);
   document.getElementById("range52High").textContent = fmtTL(hi);
-  const pct = hi > lo ? ((d.lastClose - lo) / (hi - lo)) * 100 : 50;
-  document.getElementById("rangeMarker").style.left = `${Math.max(2, Math.min(98, pct))}%`;
-
-  const distHigh = ((hi - d.lastClose) / d.lastClose) * 100;
-  const distLow = ((d.lastClose - lo) / d.lastClose) * 100;
-  document.getElementById("distToHigh").textContent = `+ ${fmtNum(distHigh)}%`;
-  document.getElementById("distToLow").textContent = `- ${fmtNum(distLow)}%`;
+  const rangePct = hi > lo ? ((d.lastClose - lo) / (hi - lo)) * 100 : 50;
+  document.getElementById("rangeMarker").style.left = `${Math.max(2, Math.min(98, rangePct))}%`;
+  document.getElementById("distToHigh").textContent = `+ ${fmtNum(((hi - d.lastClose) / d.lastClose) * 100)}%`;
+  document.getElementById("distToLow").textContent = `- ${fmtNum(((d.lastClose - lo) / d.lastClose) * 100)}%`;
 
   renderChart(d.candles, d.volumesTL);
 
@@ -811,10 +790,9 @@ function renderAll(symbol, d, f) {
   const rsiTag = d.rsi < 30 ? ["Aşırı Satım", "buy"] : d.rsi > 70 ? ["Aşırı Alım", "sell"] : ["Nötr", "neutral"];
   const maTag = d.lastClose > d.ma50 ? ["Fiyat > MA50", "buy"] : ["Fiyat < MA50", "sell"];
   const macdTag = d.macd > d.macdSignal ? ["Pozitif", "buy"] : ["Negatif", "sell"];
-  const bollTag = d.lastClose > d.bollingerUpper ? ["Üst Bandın Üstü", "sell"]
-    : d.lastClose < d.bollingerLower ? ["Alt Bandın Altı", "buy"]
-    : ["Bant İçi", "neutral"];
+  const bollTag = d.lastClose > d.bollingerUpper ? ["Üst Bandın Üstü", "sell"] : d.lastClose < d.bollingerLower ? ["Alt Bandın Altı", "buy"] : ["Bant İçi", "neutral"];
   const stochTag = d.stochRsi > 80 ? ["Aşırı Alım", "sell"] : d.stochRsi < 20 ? ["Aşırı Satım", "buy"] : ["Nötr", "neutral"];
+
   document.getElementById("technicalRows").innerHTML = [
     rowHTML("RSI (14)", fmtNum(d.rsi), rsiTag),
     rowHTML("Stochastic RSI", fmtNum(d.stochRsi), stochTag),
@@ -828,12 +806,11 @@ function renderAll(symbol, d, f) {
     rowHTML("Beta", fmtNum(f.beta)),
   ].join("");
 
-  // Defter değeri hesaplama (Fiyat / PD/DD)
-  let bookValuePerShare = null;
-  let bookValueNote = "";
+  // Defter değeri
+  let bookValuePerShare = null, bookNote = "";
   if (f.priceToBook != null && f.priceToBook > 0) {
     bookValuePerShare = d.lastClose / f.priceToBook;
-    bookValueNote = f.priceToBook < 1 ? " (iskontolu)" : f.priceToBook > 2 ? " (primli)" : "";
+    bookNote = f.priceToBook < 1 ? " (iskontolu)" : f.priceToBook > 2 ? " (primli)" : "";
   } else if (f.bookValue != null) {
     bookValuePerShare = f.bookValue;
   }
@@ -845,7 +822,7 @@ function renderAll(symbol, d, f) {
     rowHTML("PD/DD", fmtNum(f.priceToBook)),
     rowHTML("PD/Satış", fmtNum(f.priceToSales)),
     bookValuePerShare != null
-      ? `<div class="data-row highlight-book"><span class="row-label">Defter Değeri (Hisse Başı)</span><span class="row-value" style="color:var(--gold)">${fmtTL(bookValuePerShare)}<span style="font-size:10px;color:var(--text-faint);margin-left:4px">${bookValueNote}</span></span></div>`
+      ? `<div class="data-row highlight-book"><span class="row-label">Defter Değeri (Hisse Başı)</span><span class="row-value" style="color:var(--gold)">${fmtTL(bookValuePerShare)}<span style="font-size:10px;color:var(--text-faint);margin-left:4px">${bookNote}</span></span></div>`
       : rowHTML("Defter Değeri (Hisse Başı)", "—"),
     rowHTML("Temettü Verimi", f.dividendYield != null ? fmtPct(f.dividendYield * 100) : "—"),
     rowHTML("Özkaynak Karlılığı (ROE)", f.returnOnEquity != null ? fmtPct(f.returnOnEquity * 100) : "—"),
@@ -854,35 +831,32 @@ function renderAll(symbol, d, f) {
     rowHTML("Analist Sayısı", fmtNum(f.numberOfAnalysts, 0)),
   ].join("");
 
+  // AL/SAT gauge
   const rec = computeRecommendation(d, f);
   drawGauge(rec.score, "gaugeSvg");
-  const gaugeLabelEl = document.getElementById("gaugeLabel");
-  gaugeLabelEl.textContent = rec.label;
-  gaugeLabelEl.className = `gauge-label-big ${rec.cls}`;
+  const gl = document.getElementById("gaugeLabel");
+  gl.textContent = rec.label;
+  gl.className = `gauge-label-big ${rec.cls}`;
   document.getElementById("gaugeScoreText").textContent = `SKOR: ${fmtNum(rec.score, 0)} / 100`;
-  document.getElementById("gaugeFactors").innerHTML = rec.factors
-    .map(([label, val]) => `<div class="factor">${label}: <b>${val}</b></div>`)
-    .join("");
+  document.getElementById("gaugeFactors").innerHTML = rec.factors.map(([l, v]) => `<div class="factor">${l}: <b>${v}</b></div>`).join("");
 
+  // Değerleme gauge
   const val = computeValuationScore(f);
   drawGauge(val.score, "valueGaugeSvg");
-  const valueGaugeLabelEl = document.getElementById("valueGaugeLabel");
-  valueGaugeLabelEl.textContent = val.label;
-  valueGaugeLabelEl.className = `gauge-label-big ${val.cls}`;
+  const vgl = document.getElementById("valueGaugeLabel");
+  vgl.textContent = val.label;
+  vgl.className = `gauge-label-big ${val.cls}`;
   document.getElementById("valueGaugeScoreText").textContent = `SKOR: ${fmtNum(val.score, 0)} / 100`;
-  document.getElementById("valueGaugeFactors").innerHTML = val.factors
-    .map(([label, v]) => `<div class="factor">${label}: <b>${v}</b></div>`)
-    .join("");
+  document.getElementById("valueGaugeFactors").innerHTML = val.factors.map(([l, v]) => `<div class="factor">${l}: <b>${v}</b></div>`).join("");
 }
 
 function rowHTML(label, value, tag) {
-  const tagCls = tag ? tag[1] : null;
-  const tagHtml = tag ? `<span class="status-tag ${tagCls}">${tag[0]}</span>` : "";
+  const tagHtml = tag ? `<span class="status-tag ${tag[1]}">${tag[0]}</span>` : "";
   return `<div class="data-row"><span class="row-label">${label}</span><span class="row-value">${value}${tagHtml}</span></div>`;
 }
 
 // ==========================================================================
-// 10) KV (BULUT) VERİ YARDIMCILARI
+// 10) KV YARDIMCILARI
 // ==========================================================================
 function getPass() { return localStorage.getItem(LS_PASS_KEY) || ""; }
 
@@ -907,33 +881,22 @@ async function kvPost(key, body) {
 }
 
 // ==========================================================================
-// 11) PORTFÖY (KV tabanlı)
+// 11) PORTFÖY
 // ==========================================================================
-async function loadPortfolio() {
-  try { return await kvGet("portfolio"); }
-  catch (e) { console.error("Portföy yüklenemedi:", e); return []; }
-}
-
-async function savePortfolio(positions) {
-  try { await kvPost("portfolio", { positions }); }
-  catch (e) { console.error("Portföy kaydedilemedi:", e); throw e; }
-}
+async function loadPortfolio() { try { return await kvGet("portfolio"); } catch (e) { return []; } }
+async function savePortfolio(positions) { await kvPost("portfolio", { positions }); }
 
 posAddBtn.addEventListener("click", addPosition);
-[posSymbol, posQty, posCost].forEach((el) => {
-  el.addEventListener("keydown", (e) => { if (e.key === "Enter") addPosition(); });
-});
+[posSymbol, posQty, posCost].forEach((el) => el.addEventListener("keydown", (e) => { if (e.key === "Enter") addPosition(); }));
 
 async function addPosition() {
   posError.textContent = "";
   const symbol = posSymbol.value.toUpperCase().trim().replace(/[^A-Z0-9]/g, "");
   const qty = parseFloat(posQty.value);
   const cost = parseFloat(posCost.value);
-
-  if (!symbol) { posError.textContent = "Hisse kodu gir (örn: ALARK)."; return; }
-  if (!qty || qty <= 0) { posError.textContent = "Geçerli bir adet gir."; return; }
-  if (!cost || cost <= 0) { posError.textContent = "Geçerli bir maliyet gir."; return; }
-
+  if (!symbol) { posError.textContent = "Hisse kodu gir."; return; }
+  if (!qty || qty <= 0) { posError.textContent = "Geçerli adet gir."; return; }
+  if (!cost || cost <= 0) { posError.textContent = "Geçerli maliyet gir."; return; }
   try {
     const positions = await loadPortfolio();
     const existing = positions.find((p) => p.symbol === symbol);
@@ -945,25 +908,15 @@ async function addPosition() {
       positions.push({ symbol, qty, cost });
     }
     await savePortfolio(positions);
-
-    posSymbol.value = "";
-    posQty.value = "";
-    posCost.value = "";
+    posSymbol.value = posQty.value = posCost.value = "";
     renderPortfolio();
-  } catch (e) {
-    posError.textContent = "Portföy kaydedilemedi: " + e.message;
-  }
+  } catch (e) { posError.textContent = "Kaydedilemedi: " + e.message; }
 }
 
 async function removePosition(symbol) {
-  try {
-    const positions = await loadPortfolio();
-    const filtered = positions.filter((p) => p.symbol !== symbol);
-    await savePortfolio(filtered);
-    renderPortfolio();
-  } catch (e) {
-    console.error("Pozisyon silinemedi:", e);
-  }
+  const positions = (await loadPortfolio()).filter((p) => p.symbol !== symbol);
+  await savePortfolio(positions);
+  renderPortfolio();
 }
 
 async function fetchQuickPrice(symbol) {
@@ -976,156 +929,81 @@ async function fetchQuickPrice(symbol) {
   const closes = (result.indicators.quote[0].close || []).filter((c) => c != null);
   const price = meta.regularMarketPrice != null ? meta.regularMarketPrice : closes[closes.length - 1];
   const prevClose = closes[closes.length - 2] ?? price;
-  const dailyChangePct = prevClose ? ((price - prevClose) / prevClose) * 100 : 0;
-  return { price, dailyChangePct };
+  return { price, dailyChangePct: prevClose ? ((price - prevClose) / prevClose) * 100 : 0 };
 }
 
 async function renderPortfolio() {
   const positions = await loadPortfolio();
   portfolioEmpty.classList.toggle("visible", positions.length === 0);
-  portfolioTableBody.innerHTML = "";
-  portfolioSummary.innerHTML = "";
-  donutSvg.innerHTML = "";
-  donutLegend.innerHTML = "";
-
+  portfolioTableBody.innerHTML = portfolioSummary.innerHTML = "";
+  donutSvg.innerHTML = donutLegend.innerHTML = "";
   if (positions.length === 0) return;
 
-  portfolioTableBody.innerHTML = positions
-    .map((p) => `<tr data-symbol="${p.symbol}"><td class="symbol-cell">${p.symbol}</td><td colspan="6" style="text-align:left;color:var(--text-faint)">Yükleniyor...</td></tr>`)
-    .join("");
-
+  portfolioTableBody.innerHTML = positions.map((p) => `<tr><td class="symbol-cell">${p.symbol}</td><td colspan="6" style="color:var(--text-faint)">Yükleniyor...</td></tr>`).join("");
   const results = await Promise.allSettled(positions.map((p) => fetchQuickPrice(p.symbol)));
 
-  let totalCost = 0, totalValue = 0, totalDailyChangeValue = 0;
-  const rows = [];
-  const allocation = [];
+  let totalCost = 0, totalValue = 0, totalDailyChange = 0;
+  const rows = [], allocation = [];
 
   positions.forEach((p, i) => {
+    const costVal = p.qty * p.cost;
+    totalCost += costVal;
     const r = results[i];
-    const costValue = p.qty * p.cost;
-    totalCost += costValue;
-
     if (r.status === "fulfilled") {
       const { price, dailyChangePct } = r.value;
-      const value = p.qty * price;
-      const gainValue = value - costValue;
-      const gainPct = costValue ? (gainValue / costValue) * 100 : 0;
-      const prevValue = value / (1 + dailyChangePct / 100);
-      const dailyChangeValue = value - prevValue;
-
-      totalValue += value;
-      totalDailyChangeValue += dailyChangeValue;
-      allocation.push({ symbol: p.symbol, value });
-
-      rows.push(`
-        <tr>
-          <td class="symbol-cell">${p.symbol}</td>
-          <td>${fmtNum(p.qty, 0)}</td>
-          <td>${fmtTL(p.cost)}</td>
-          <td>${fmtTL(price)}</td>
-          <td>${fmtTL(value)}</td>
-          <td class="${changeClass(gainValue)}">${gainValue >= 0 ? "+" : ""}${fmtTL(gainValue)}</td>
-          <td class="${changeClass(gainPct)}">${fmtPct(gainPct)}</td>
-          <td><button class="remove-btn" data-symbol="${p.symbol}">Sil</button></td>
-        </tr>`);
+      const val = p.qty * price;
+      const gain = val - costVal;
+      const gainPct = costVal ? (gain / costVal) * 100 : 0;
+      const prevVal = val / (1 + dailyChangePct / 100);
+      totalValue += val;
+      totalDailyChange += val - prevVal;
+      allocation.push({ symbol: p.symbol, value: val });
+      rows.push(`<tr><td class="symbol-cell">${p.symbol}</td><td>${fmtNum(p.qty, 0)}</td><td>${fmtTL(p.cost)}</td><td>${fmtTL(price)}</td><td>${fmtTL(val)}</td><td class="${changeClass(gain)}">${gain >= 0 ? "+" : ""}${fmtTL(gain)}</td><td class="${changeClass(gainPct)}">${fmtPct(gainPct)}</td><td><button class="remove-btn" data-symbol="${p.symbol}">Sil</button></td></tr>`);
     } else {
-      totalValue += costValue;
-      rows.push(`
-        <tr>
-          <td class="symbol-cell">${p.symbol}</td>
-          <td>${fmtNum(p.qty, 0)}</td>
-          <td>${fmtTL(p.cost)}</td>
-          <td colspan="4" style="text-align:left;color:var(--down)">Veri alınamadı</td>
-          <td><button class="remove-btn" data-symbol="${p.symbol}">Sil</button></td>
-        </tr>`);
+      totalValue += costVal;
+      rows.push(`<tr><td class="symbol-cell">${p.symbol}</td><td>${fmtNum(p.qty, 0)}</td><td>${fmtTL(p.cost)}</td><td colspan="4" style="color:var(--down)">Veri alınamadı</td><td><button class="remove-btn" data-symbol="${p.symbol}">Sil</button></td></tr>`);
     }
   });
 
   portfolioTableBody.innerHTML = rows.join("");
-  portfolioTableBody.querySelectorAll(".remove-btn").forEach((btn) => {
-    btn.addEventListener("click", () => removePosition(btn.dataset.symbol));
-  });
+  portfolioTableBody.querySelectorAll(".remove-btn").forEach((btn) => btn.addEventListener("click", () => removePosition(btn.dataset.symbol)));
 
-  const totalGainValue = totalValue - totalCost;
-  const totalGainPct = totalCost ? (totalGainValue / totalCost) * 100 : 0;
-  const dailyChangePctOfTotal = totalValue ? (totalDailyChangeValue / (totalValue - totalDailyChangeValue)) * 100 : 0;
+  const totalGain = totalValue - totalCost;
+  const totalGainPct = totalCost ? (totalGain / totalCost) * 100 : 0;
+  const dailyPct = totalValue ? (totalDailyChange / (totalValue - totalDailyChange)) * 100 : 0;
 
   portfolioSummary.innerHTML = `
-    <div class="summary-card">
-      <div class="summary-label">Toplam Değer</div>
-      <div class="summary-value">${fmtTL(totalValue)}</div>
-    </div>
-    <div class="summary-card">
-      <div class="summary-label">Toplam Maliyet</div>
-      <div class="summary-value">${fmtTL(totalCost)}</div>
-    </div>
-    <div class="summary-card">
-      <div class="summary-label">Toplam Kâr/Zarar</div>
-      <div class="summary-value ${changeClass(totalGainValue)}">${totalGainValue >= 0 ? "+" : ""}${fmtTL(totalGainValue)} (${fmtPct(totalGainPct)})</div>
-    </div>
-    <div class="summary-card">
-      <div class="summary-label">Bugünkü Değişim</div>
-      <div class="summary-value ${changeClass(totalDailyChangeValue)}">${totalDailyChangeValue >= 0 ? "+" : ""}${fmtTL(totalDailyChangeValue)} (${fmtPct(dailyChangePctOfTotal)})</div>
-    </div>`;
+    <div class="summary-card"><div class="summary-label">Toplam Değer</div><div class="summary-value">${fmtTL(totalValue)}</div></div>
+    <div class="summary-card"><div class="summary-label">Toplam Maliyet</div><div class="summary-value">${fmtTL(totalCost)}</div></div>
+    <div class="summary-card"><div class="summary-label">Toplam Kâr/Zarar</div><div class="summary-value ${changeClass(totalGain)}">${totalGain >= 0 ? "+" : ""}${fmtTL(totalGain)} (${fmtPct(totalGainPct)})</div></div>
+    <div class="summary-card"><div class="summary-label">Bugünkü Değişim</div><div class="summary-value ${changeClass(totalDailyChange)}">${totalDailyChange >= 0 ? "+" : ""}${fmtTL(totalDailyChange)} (${fmtPct(dailyPct)})</div></div>`;
 
   drawDonut(allocation, totalValue);
 }
 
 function drawDonut(allocation, total) {
-  donutSvg.innerHTML = "";
-  donutLegend.innerHTML = "";
+  donutSvg.innerHTML = donutLegend.innerHTML = "";
   if (!total || allocation.length === 0) return;
-
   const colors = ["#d4af37", "#4098d7", "#17c987", "#ff4757", "#a672e0", "#e08f4a", "#4ac4c4", "#e05d9e"];
   const cx = 100, cy = 100, r = 80, innerR = 48;
-  let startAngle = -Math.PI / 2;
-
-  allocation
-    .sort((a, b) => b.value - a.value)
-    .forEach((a, i) => {
-      const fraction = a.value / total;
-      const endAngle = startAngle + fraction * Math.PI * 2;
-      const color = colors[i % colors.length];
-
-      const path = document.createElementNS("http://www.w3.org/2000/svg", "path");
-      const x1 = cx + r * Math.cos(startAngle), y1 = cy + r * Math.sin(startAngle);
-      const x2 = cx + r * Math.cos(endAngle), y2 = cy + r * Math.sin(endAngle);
-      const ix1 = cx + innerR * Math.cos(endAngle), iy1 = cy + innerR * Math.sin(endAngle);
-      const ix2 = cx + innerR * Math.cos(startAngle), iy2 = cy + innerR * Math.sin(startAngle);
-      const largeArc = fraction > 0.5 ? 1 : 0;
-
-      path.setAttribute(
-        "d",
-        `M ${x1} ${y1} A ${r} ${r} 0 ${largeArc} 1 ${x2} ${y2} L ${ix1} ${iy1} A ${innerR} ${innerR} 0 ${largeArc} 0 ${ix2} ${iy2} Z`
-      );
-      path.setAttribute("fill", color);
-      donutSvg.appendChild(path);
-
-      const pct = fraction * 100;
-      donutLegend.insertAdjacentHTML(
-        "beforeend",
-        `<div class="legend-row">
-           <div class="legend-left"><span class="legend-dot" style="background:${color}"></span>${a.symbol}</div>
-           <span class="legend-pct">${fmtNum(pct)}%</span>
-         </div>`
-      );
-
-      startAngle = endAngle;
-    });
+  let start = -Math.PI / 2;
+  allocation.sort((a, b) => b.value - a.value).forEach((a, i) => {
+    const frac = a.value / total;
+    const end = start + frac * Math.PI * 2;
+    const path = document.createElementNS("http://www.w3.org/2000/svg", "path");
+    path.setAttribute("d", `M ${cx + r * Math.cos(start)} ${cy + r * Math.sin(start)} A ${r} ${r} 0 ${frac > 0.5 ? 1 : 0} 1 ${cx + r * Math.cos(end)} ${cy + r * Math.sin(end)} L ${cx + innerR * Math.cos(end)} ${cy + innerR * Math.sin(end)} A ${innerR} ${innerR} 0 ${frac > 0.5 ? 1 : 0} 0 ${cx + innerR * Math.cos(start)} ${cy + innerR * Math.sin(start)} Z`);
+    path.setAttribute("fill", colors[i % colors.length]);
+    donutSvg.appendChild(path);
+    donutLegend.insertAdjacentHTML("beforeend", `<div class="legend-row"><div class="legend-left"><span class="legend-dot" style="background:${colors[i % colors.length]}"></span>${a.symbol}</div><span class="legend-pct">${fmtNum(frac * 100)}%</span></div>`);
+    start = end;
+  });
 }
 
 // ==========================================================================
-// 12) TAKİP LİSTESİ (KV tabanlı)
+// 12) TAKİP LİSTESİ
 // ==========================================================================
-async function loadWatchlist() {
-  try { return await kvGet("watchlist"); }
-  catch (e) { console.error("Takip listesi yüklenemedi:", e); return []; }
-}
-
-async function saveWatchlist(items) {
-  try { await kvPost("watchlist", { items }); }
-  catch (e) { console.error("Takip listesi kaydedilemedi:", e); throw e; }
-}
+async function loadWatchlist() { try { return await kvGet("watchlist"); } catch (e) { return []; } }
+async function saveWatchlist(items) { await kvPost("watchlist", { items }); }
 
 wlAddBtn.addEventListener("click", addWatchlistItem);
 wlSymbol.addEventListener("keydown", (e) => { if (e.key === "Enter") addWatchlistItem(); });
@@ -1133,51 +1011,26 @@ wlSymbol.addEventListener("keydown", (e) => { if (e.key === "Enter") addWatchlis
 async function addWatchlistItem() {
   wlError.textContent = "";
   const symbol = wlSymbol.value.toUpperCase().trim().replace(/[^A-Z0-9]/g, "");
-
-  if (!symbol) { wlError.textContent = "Hisse kodu gir (örn: ALARK)."; return; }
-
+  if (!symbol) { wlError.textContent = "Hisse kodu gir."; return; }
   try {
     let price = null;
-    try {
-      const p = await fetchQuickPrice(symbol);
-      price = p.price;
-    } catch (e) {
-      wlError.textContent = `"${symbol}" için fiyat alınamadı. Kodu kontrol et.`;
-      return;
-    }
-
+    try { price = (await fetchQuickPrice(symbol)).price; } catch (e) { wlError.textContent = `"${symbol}" için fiyat alınamadı.`; return; }
     const items = await loadWatchlist();
-    if (items.find((item) => item.symbol === symbol)) {
-      wlError.textContent = `${symbol} zaten takip listende.`;
-      return;
-    }
-
-    items.push({
-      symbol,
-      addedAt: Date.now(),
-      addedPrice: price,
-    });
+    if (items.find((item) => item.symbol === symbol)) { wlError.textContent = `${symbol} zaten listede.`; return; }
+    items.push({ symbol, addedAt: Date.now(), addedPrice: price });
     await saveWatchlist(items);
-
     wlSymbol.value = "";
     wlError.textContent = "";
     renderWatchlist();
     if (currentSymbol === symbol) syncWatchlistState();
-  } catch (e) {
-    wlError.textContent = "Takip listesine eklenemedi: " + e.message;
-  }
+  } catch (e) { wlError.textContent = "Eklenemedi: " + e.message; }
 }
 
 async function removeWatchlistItem(symbol) {
-  try {
-    const items = await loadWatchlist();
-    const filtered = items.filter((item) => item.symbol !== symbol);
-    await saveWatchlist(filtered);
-    renderWatchlist();
-    if (currentSymbol === symbol) syncWatchlistState();
-  } catch (e) {
-    console.error("Takip öğesi silinemedi:", e);
-  }
+  const items = (await loadWatchlist()).filter((item) => item.symbol !== symbol);
+  await saveWatchlist(items);
+  renderWatchlist();
+  if (currentSymbol === symbol) syncWatchlistState();
 }
 
 watchlistToggleBtn.addEventListener("click", async () => {
@@ -1188,92 +1041,52 @@ watchlistToggleBtn.addEventListener("click", async () => {
     if (exists) {
       await removeWatchlistItem(currentSymbol);
     } else {
-      try {
-        const p = await fetchQuickPrice(currentSymbol);
-        items.push({
-          symbol: currentSymbol,
-          addedAt: Date.now(),
-          addedPrice: p.price,
-        });
-        await saveWatchlist(items);
-      } catch (e) {
-        console.error("Takip eklenemedi:", e);
-      }
+      const p = await fetchQuickPrice(currentSymbol);
+      items.push({ symbol: currentSymbol, addedAt: Date.now(), addedPrice: p.price });
+      await saveWatchlist(items);
     }
     syncWatchlistState();
-  } catch (e) {
-    console.error("Takip durumu değiştirilemedi:", e);
-  }
+  } catch (e) { console.error(e); }
 });
 
 async function syncWatchlistState() {
-  if (!currentSymbol) {
-    watchlistToggleBtn.textContent = "★ Takip Ekle";
-    watchlistToggleBtn.classList.remove("following");
-    return;
-  }
+  if (!currentSymbol) { watchlistToggleBtn.textContent = "★ Takip Ekle"; watchlistToggleBtn.classList.remove("following"); return; }
   try {
     const items = await loadWatchlist();
-    const exists = items.find((item) => item.symbol === currentSymbol);
-    if (exists) {
+    if (items.find((item) => item.symbol === currentSymbol)) {
       watchlistToggleBtn.textContent = "★ Takip Ediliyor";
       watchlistToggleBtn.classList.add("following");
     } else {
       watchlistToggleBtn.textContent = "★ Takip Ekle";
       watchlistToggleBtn.classList.remove("following");
     }
-  } catch (e) {
-    console.error("Takip durumu kontrol edilemedi:", e);
-  }
+  } catch (e) {}
 }
 
 async function renderWatchlist() {
   const items = await loadWatchlist();
   watchlistEmpty.classList.toggle("visible", items.length === 0);
   watchlistTableBody.innerHTML = "";
-
   if (items.length === 0) return;
 
   const results = await Promise.allSettled(items.map((item) => fetchQuickPrice(item.symbol)));
-
-  const rows = items.map((item, i) => {
+  watchlistTableBody.innerHTML = items.map((item, i) => {
     const r = results[i];
     if (r.status === "fulfilled") {
       const { price, dailyChangePct } = r.value;
-      const addedChangePct = item.addedPrice ? ((price - item.addedPrice) / item.addedPrice) * 100 : null;
-      return `
-        <tr>
-          <td class="symbol-cell">${item.symbol}</td>
-          <td>${fmtTL(price)}</td>
-          <td class="${changeClass(dailyChangePct)}">${fmtPct(dailyChangePct)}</td>
-          <td>${fmtDate(item.addedAt)}</td>
-          <td>${fmtTL(item.addedPrice)}</td>
-          <td class="${changeClass(addedChangePct)}">${addedChangePct != null ? fmtPct(addedChangePct) : "—"}</td>
-          <td><button class="remove-btn" data-symbol="${item.symbol}">Çıkar</button></td>
-        </tr>`;
-    } else {
-      return `
-        <tr>
-          <td class="symbol-cell">${item.symbol}</td>
-          <td colspan="5" style="text-align:left;color:var(--down)">Veri alınamadı</td>
-          <td><button class="remove-btn" data-symbol="${item.symbol}">Çıkar</button></td>
-        </tr>`;
+      const addedPct = item.addedPrice ? ((price - item.addedPrice) / item.addedPrice) * 100 : null;
+      return `<tr><td class="symbol-cell">${item.symbol}</td><td>${fmtTL(price)}</td><td class="${changeClass(dailyChangePct)}">${fmtPct(dailyChangePct)}</td><td>${fmtDate(item.addedAt)}</td><td>${fmtTL(item.addedPrice)}</td><td class="${changeClass(addedPct)}">${addedPct != null ? fmtPct(addedPct) : "—"}</td><td><button class="remove-btn" data-symbol="${item.symbol}">Çıkar</button></td></tr>`;
     }
-  });
-
-  watchlistTableBody.innerHTML = rows.join("");
-  watchlistTableBody.querySelectorAll(".remove-btn").forEach((btn) => {
-    btn.addEventListener("click", () => removeWatchlistItem(btn.dataset.symbol));
-  });
+    return `<tr><td class="symbol-cell">${item.symbol}</td><td colspan="5" style="color:var(--down)">Veri alınamadı</td><td><button class="remove-btn" data-symbol="${item.symbol}">Çıkar</button></td></tr>`;
+  }).join("");
+  watchlistTableBody.querySelectorAll(".remove-btn").forEach((btn) => btn.addEventListener("click", () => removeWatchlistItem(btn.dataset.symbol)));
 }
 
 // ==========================================================================
-// 13) KARŞILAŞTIRMA EKRANI
+// 13) KARŞILAŞTIRMA
 // ==========================================================================
 cmpBtn.addEventListener("click", runCompare);
-[cmpSymbol1, cmpSymbol2, cmpSymbol3].forEach((el) => {
-  el.addEventListener("keydown", (e) => { if (e.key === "Enter") runCompare(); });
-});
+[cmpSymbol1, cmpSymbol2, cmpSymbol3].forEach((el) => el.addEventListener("keydown", (e) => { if (e.key === "Enter") runCompare(); }));
 
 async function fetchFullData(symbol) {
   const pass = getPass();
@@ -1286,55 +1099,33 @@ async function fetchFullData(symbol) {
   if (!chartResult || !chartResult.timestamp) throw new Error(`"${symbol}" bulunamadı.`);
   const d = processChartData(chartResult);
   const f = processFundamentals(quoteRes.data);
-  const rec = computeRecommendation(d, f);
-  const val = computeValuationScore(f);
-  return { symbol, d, f, rec, val };
+  return { symbol, d, f, rec: computeRecommendation(d, f), val: computeValuationScore(f) };
 }
 
 async function runCompare() {
   cmpError.textContent = "";
-  const symbols = [cmpSymbol1.value, cmpSymbol2.value, cmpSymbol3.value]
-    .map((v) => v.toUpperCase().trim().replace(/[^A-Z0-9]/g, ""))
-    .filter(Boolean);
-
-  if (symbols.length < 2) {
-    cmpError.textContent = "Karşılaştırmak için en az 2 hisse kodu gir.";
-    return;
-  }
-
+  const symbols = [cmpSymbol1.value, cmpSymbol2.value, cmpSymbol3.value].map((v) => v.toUpperCase().trim().replace(/[^A-Z0-9]/g, "")).filter(Boolean);
+  if (symbols.length < 2) { cmpError.textContent = "En az 2 hisse kodu gir."; return; }
   cmpResultCard.style.display = "none";
   cmpLoading.classList.add("active");
-
   try {
     const results = await Promise.all(symbols.map((s) => fetchFullData(s)));
     renderCompareTable(results);
     cmpLoading.classList.remove("active");
     cmpResultCard.style.display = "block";
-  } catch (err) {
-    cmpLoading.classList.remove("active");
-    cmpError.textContent = err.message || "Bir hata oluştu, tekrar dene.";
-  }
+  } catch (err) { cmpLoading.classList.remove("active"); cmpError.textContent = err.message; }
 }
 
 function buildMetricRow(label, results, getValue, formatter, higherIsBetter = true) {
   const values = results.map((r) => getValue(r));
-  const validValues = values.filter((v) => v != null && !isNaN(v));
-  let bestValue = null;
-  if (validValues.length > 1) {
-    bestValue = higherIsBetter ? Math.max(...validValues) : Math.min(...validValues);
-  }
-  const cells = values
-    .map((v) => {
-      const isBest = bestValue != null && v === bestValue;
-      return `<td class="${isBest ? "best-value" : ""}">${formatter(v)}</td>`;
-    })
-    .join("");
-  return `<tr><td>${label}</td>${cells}</tr>`;
+  const valid = values.filter((v) => v != null && !isNaN(v));
+  let best = null;
+  if (valid.length > 1) best = higherIsBetter ? Math.max(...valid) : Math.min(...valid);
+  return `<tr><td>${label}</td>${values.map((v) => `<td class="${best != null && v === best ? "best-value" : ""}">${formatter(v)}</td>`).join("")}</tr>`;
 }
 
 function renderCompareTable(results) {
-  const headerRow = `<tr><th>Metrik</th>${results.map((r) => `<th class="symbol-cell">${r.symbol}</th>`).join("")}</tr>`;
-
+  const header = `<tr><th>Metrik</th>${results.map((r) => `<th class="symbol-cell">${r.symbol}</th>`).join("")}</tr>`;
   const rows = [
     buildMetricRow("Güncel Fiyat", results, (r) => r.d.lastClose, (v) => fmtTL(v), true),
     buildMetricRow("Günlük Değişim", results, (r) => r.d.changes.daily, (v) => fmtPct(v), true),
@@ -1348,18 +1139,12 @@ function renderCompareTable(results) {
     buildMetricRow("PD/Satış", results, (r) => r.f.priceToSales, (v) => fmtNum(v), false),
     buildMetricRow("Temettü Verimi", results, (r) => (r.f.dividendYield != null ? r.f.dividendYield * 100 : null), (v) => (v != null ? fmtPct(v) : "—"), true),
     buildMetricRow("ROE", results, (r) => (r.f.returnOnEquity != null ? r.f.returnOnEquity * 100 : null), (v) => (v != null ? fmtPct(v) : "—"), true),
-    buildMetricRow("Net Kar Marjı", results, (r) => (r.f.profitMargins != null ? r.f.profitMargins * 100 : null), (v) => (v != null ? fmtPct(v) : "—"), true),
     buildMetricRow("RSI (14)", results, (r) => r.d.rsi, (v) => fmtNum(v), false),
     buildMetricRow("Ort. Hacim (TL)", results, (r) => r.d.avgVolumeTL, (v) => fmtCompactTL(v), true),
   ];
-
-  const recScores = results.map((r) => r.rec.score);
-  const bestRecScore = Math.max(...recScores);
-  rows.push(`<tr><td>AL/SAT Skoru</td>${results.map((r) => `<td class="${r.rec.score === bestRecScore ? "best-value" : ""}">${fmtNum(r.rec.score, 0)} (${r.rec.label})</td>`).join("")}</tr>`);
-
-  const valScores = results.map((r) => r.val.score);
-  const bestValScore = Math.max(...valScores);
-  rows.push(`<tr><td>Değerleme Skoru</td>${results.map((r) => `<td class="${r.val.score === bestValScore ? "best-value" : ""}">${fmtNum(r.val.score, 0)} (${r.val.label})</td>`).join("")}</tr>`);
-
-  compareTable.innerHTML = `<thead>${headerRow}</thead><tbody>${rows.join("")}</tbody>`;
+  const bestRec = Math.max(...results.map((r) => r.rec.score));
+  const bestVal = Math.max(...results.map((r) => r.val.score));
+  rows.push(`<tr><td>AL/SAT Skoru</td>${results.map((r) => `<td class="${r.rec.score === bestRec ? "best-value" : ""}">${fmtNum(r.rec.score, 0)} (${r.rec.label})</td>`).join("")}</tr>`);
+  rows.push(`<tr><td>Değerleme Skoru</td>${results.map((r) => `<td class="${r.val.score === bestVal ? "best-value" : ""}">${fmtNum(r.val.score, 0)} (${r.val.label})</td>`).join("")}</tr>`);
+  compareTable.innerHTML = `<thead>${header}</thead><tbody>${rows.join("")}</tbody>`;
 }
