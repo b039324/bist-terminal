@@ -1,22 +1,22 @@
 /**
- * BIST Terminal - Cloudflare Worker
- * ---------------------------------
- * Bu worker üç iş yapar:
- *  1) Basit bir şifre kontrolü (env.AUTH_PASSWORD ile karşılaştırma)
- *  2) Yahoo Finance'in "cookie + crumb" bot-koruması akışını tamamlama
- *     (Yahoo artık düz istekleri 401 ile reddediyor, önce bir cookie
- *      sonra ona bağlı bir "crumb" token'ı almak gerekiyor)
- *  3) Yahoo'nun gayri resmi endpoint'lerine sunucu taraflı istek atıp
- *     CORS engelini aşarak veriyi tarayıcıya güvenli şekilde döndürme.
+ * BIST Terminal - Cloudflare Worker (KV Destekli)
+ * -------------------------------------------------
+ * Bu worker şu işleri yapar:
+ *  1) Şifre kontrolü (env.AUTH_PASSWORD)
+ *  2) Yahoo Finance cookie+crumb bot-koruması akışı
+ *  3) Yahoo'nun chart ve quote endpoint'lerine proxy
+ *  4) Portföy ve Takip Listesi verilerini KV'de saklama (cihazlar arası senkron)
  *
- * DEPLOY SONRASI YAPILMASI GEREKEN:
- *  Cloudflare Dashboard > Workers > (bu worker) > Settings > Variables
- *  içine "AUTH_PASSWORD" adında bir "Secret" ekle ve kendi şifreni yaz.
+ * KURULUM:
+ *  1) Bu kodu Worker'a yapıştır.
+ *  2) Cloudflare Dashboard > Workers & Pages > [Worker Adın] > Settings > Variables
+ *     - KV Namespace Bindings → "PORTFOLIO_KV" adında bir KV bağla
+ *     - Secret Text → "AUTH_PASSWORD" (şifren)
  */
 
 const CORS_HEADERS = {
   "Access-Control-Allow-Origin": "*",
-  "Access-Control-Allow-Methods": "GET, OPTIONS",
+  "Access-Control-Allow-Methods": "GET, POST, PUT, DELETE, OPTIONS",
   "Access-Control-Allow-Headers": "Content-Type",
 };
 
@@ -34,11 +34,10 @@ function json(body, status = 200) {
   });
 }
 
-// Worker instance'ı canlı kaldığı sürece cookie/crumb'ı tekrar tekrar almamak için basit bellek-içi cache
-let authCache = null; // { cookie, crumb, expires }
+// Bellek-içi cookie/crumb cache (25 dakika)
+let authCache = null;
 
 function extractCookie(res) {
-  // Bazı runtime'larda birden fazla Set-Cookie başlığı olabilir
   if (typeof res.headers.getSetCookie === "function") {
     const all = res.headers.getSetCookie();
     if (all && all.length) return all.map((c) => c.split(";")[0]).join("; ");
@@ -50,14 +49,12 @@ function extractCookie(res) {
 async function getAuth() {
   if (authCache && authCache.expires > Date.now()) return authCache;
 
-  // 1) Cookie almak için Yahoo'nun cookie-veren ucuna istek at
   const cookieRes = await fetch("https://fc.yahoo.com/", {
     headers: BROWSER_HEADERS,
     redirect: "manual",
   });
   const cookie = extractCookie(cookieRes);
 
-  // 2) O cookie ile crumb (kısa ömürlü kimlik jetonu) al
   const crumbRes = await fetch("https://query2.finance.yahoo.com/v1/test/getcrumb", {
     headers: { ...BROWSER_HEADERS, Cookie: cookie },
   });
@@ -67,7 +64,7 @@ async function getAuth() {
     throw new Error(`Crumb alınamadı (status ${crumbRes.status}).`);
   }
 
-  authCache = { cookie, crumb, expires: Date.now() + 25 * 60 * 1000 }; // 25 dk cache
+  authCache = { cookie, crumb, expires: Date.now() + 25 * 60 * 1000 };
   return authCache;
 }
 
@@ -89,8 +86,17 @@ export default {
       return new Response(null, { headers: CORS_HEADERS });
     }
 
-    // --- Şifre kontrolü ---
-    const pass = url.searchParams.get("pass") || "";
+    // --- Şifre kontrolü (GET ve POST/PUT/DELETE için) ---
+    let pass = url.searchParams.get("pass") || "";
+    if (!pass && (request.method === "POST" || request.method === "PUT" || request.method === "DELETE")) {
+      try {
+        const body = await request.clone().json();
+        pass = body.pass || "";
+      } catch (e) {
+        // body JSON değilse boş bırak
+      }
+    }
+
     if (!env.AUTH_PASSWORD) {
       return json({ error: "Sunucu yapılandırması eksik: AUTH_PASSWORD tanımlı değil." }, 500);
     }
@@ -98,7 +104,76 @@ export default {
       return json({ error: "Yetkisiz erişim. Şifre hatalı." }, 401);
     }
 
-    // --- Sembol doğrulama ---
+    // =====================================================================
+    // PORTFÖY API'leri (KV tabanlı, cihazlar arası senkron)
+    // =====================================================================
+    if (url.pathname === "/api/portfolio") {
+      if (!env.PORTFOLIO_KV) {
+        return json({ error: "Portföy KV veritabanı Worker'a bağlanmamış." }, 500);
+      }
+
+      // GET → Portföyü oku
+      if (request.method === "GET") {
+        try {
+          const raw = await env.PORTFOLIO_KV.get("portfolio");
+          return json(raw ? JSON.parse(raw) : []);
+        } catch (e) {
+          return json({ error: "Portföy okunamadı.", detail: String(e) }, 500);
+        }
+      }
+
+      // POST → Portföyü kaydet (tam liste olarak)
+      if (request.method === "POST") {
+        try {
+          const body = await request.json();
+          const positions = body.positions || [];
+          await env.PORTFOLIO_KV.put("portfolio", JSON.stringify(positions));
+          return json({ ok: true });
+        } catch (e) {
+          return json({ error: "Portföy kaydedilemedi.", detail: String(e) }, 500);
+        }
+      }
+
+      return json({ error: "Desteklenmeyen metod." }, 405);
+    }
+
+    // =====================================================================
+    // TAKİP LİSTESİ API'leri (KV tabanlı)
+    // =====================================================================
+    if (url.pathname === "/api/watchlist") {
+      if (!env.PORTFOLIO_KV) {
+        return json({ error: "KV veritabanı Worker'a bağlanmamış." }, 500);
+      }
+
+      // GET → Takip listesini oku
+      if (request.method === "GET") {
+        try {
+          const raw = await env.PORTFOLIO_KV.get("watchlist");
+          return json(raw ? JSON.parse(raw) : []);
+        } catch (e) {
+          return json({ error: "Takip listesi okunamadı.", detail: String(e) }, 500);
+        }
+      }
+
+      // POST → Takip listesini kaydet (tam liste olarak)
+      if (request.method === "POST") {
+        try {
+          const body = await request.json();
+          const items = body.items || [];
+          await env.PORTFOLIO_KV.put("watchlist", JSON.stringify(items));
+          return json({ ok: true });
+        } catch (e) {
+          return json({ error: "Takip listesi kaydedilemedi.", detail: String(e) }, 500);
+        }
+      }
+
+      return json({ error: "Desteklenmeyen metod." }, 405);
+    }
+
+    // =====================================================================
+    // YAHOO FINANCE API'leri
+    // =====================================================================
+
     const rawSymbol = (url.searchParams.get("symbol") || "").toUpperCase().trim();
     const symbol = rawSymbol.replace(/[^A-Z0-9]/g, "");
     if (!symbol) {
@@ -107,10 +182,12 @@ export default {
     const yahooSymbol = `${symbol}.IS`;
 
     try {
-      // --- Fiyat / hacim / grafik verisi (son 1 yıl, günlük) ---
+      // --- Fiyat / hacim / grafik verisi ---
       if (url.pathname === "/api/chart") {
+        const range = url.searchParams.get("range") || "1y";
+        const interval = url.searchParams.get("interval") || "1d";
         const res = await yahooFetch(
-          `https://query2.finance.yahoo.com/v8/finance/chart/${yahooSymbol}?range=1y&interval=1d&includeAdjustedClose=true`
+          `https://query2.finance.yahoo.com/v8/finance/chart/${yahooSymbol}?range=${range}&interval=${interval}&includeAdjustedClose=true`
         );
         const text = await res.text();
         if (!res.ok) {
@@ -122,7 +199,7 @@ export default {
         return json(JSON.parse(text));
       }
 
-      // --- Temel veriler (F/K, PD/DD, ROE, temettü, analist görüşü vb.) ---
+      // --- Temel veriler ---
       if (url.pathname === "/api/quote") {
         const modules = [
           "summaryDetail",
