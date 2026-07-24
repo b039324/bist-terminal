@@ -23,6 +23,35 @@ const resultScreen = document.getElementById("resultScreen");
 const newSearchInput = document.getElementById("newSearchInput");
 const newSearchBtn = document.getElementById("newSearchBtn");
 
+// ---------- Portföy DOM referansları ----------
+const navSearchBtn = document.getElementById("navSearchBtn");
+const navPortfolioBtn = document.getElementById("navPortfolioBtn");
+const portfolioScreen = document.getElementById("portfolioScreen");
+const posSymbol = document.getElementById("posSymbol");
+const posQty = document.getElementById("posQty");
+const posCost = document.getElementById("posCost");
+const posAddBtn = document.getElementById("posAddBtn");
+const posError = document.getElementById("posError");
+const portfolioSummary = document.getElementById("portfolioSummary");
+const portfolioTableBody = document.getElementById("portfolioTableBody");
+const portfolioEmpty = document.getElementById("portfolioEmpty");
+const donutSvg = document.getElementById("donutSvg");
+const donutLegend = document.getElementById("donutLegend");
+
+const LS_PORTFOLIO_KEY = "bist_terminal_portfolio";
+
+// ---------- Karşılaştırma DOM referansları ----------
+const navCompareBtn = document.getElementById("navCompareBtn");
+const compareScreen = document.getElementById("compareScreen");
+const cmpSymbol1 = document.getElementById("cmpSymbol1");
+const cmpSymbol2 = document.getElementById("cmpSymbol2");
+const cmpSymbol3 = document.getElementById("cmpSymbol3");
+const cmpBtn = document.getElementById("cmpBtn");
+const cmpError = document.getElementById("cmpError");
+const cmpLoading = document.getElementById("cmpLoading");
+const cmpResultCard = document.getElementById("cmpResultCard");
+const compareTable = document.getElementById("compareTable");
+
 let priceChartApi = null;
 let volumeChartApi = null;
 let candleSeries = null;
@@ -72,6 +101,46 @@ newSearchBtn.addEventListener("click", () => runSearch(newSearchInput.value));
 newSearchInput.addEventListener("keydown", (e) => {
   if (e.key === "Enter") runSearch(newSearchInput.value);
 });
+
+// ==========================================================================
+// EKRAN GEÇİŞLERİ (Ara <-> Portföy)
+// ==========================================================================
+function showSearchNav() {
+  navSearchBtn.classList.add("active");
+  navPortfolioBtn.classList.remove("active");
+  navCompareBtn.classList.remove("active");
+  portfolioScreen.classList.remove("active");
+  compareScreen.classList.remove("active");
+  searchScreen.classList.remove("hidden");
+  // Eğer daha önce bir hisse aranmışsa sonuç ekranı zaten "active" kalmış olabilir, bu normal.
+}
+
+function showPortfolioNav() {
+  navPortfolioBtn.classList.add("active");
+  navSearchBtn.classList.remove("active");
+  navCompareBtn.classList.remove("active");
+  searchScreen.classList.add("hidden");
+  resultScreen.classList.remove("active");
+  loadingScreen.classList.remove("active");
+  compareScreen.classList.remove("active");
+  portfolioScreen.classList.add("active");
+  renderPortfolio();
+}
+
+function showCompareNav() {
+  navCompareBtn.classList.add("active");
+  navSearchBtn.classList.remove("active");
+  navPortfolioBtn.classList.remove("active");
+  searchScreen.classList.add("hidden");
+  resultScreen.classList.remove("active");
+  loadingScreen.classList.remove("active");
+  portfolioScreen.classList.remove("active");
+  compareScreen.classList.add("active");
+}
+
+navSearchBtn.addEventListener("click", showSearchNav);
+navPortfolioBtn.addEventListener("click", showPortfolioNav);
+navCompareBtn.addEventListener("click", showCompareNav);
 
 async function runSearch(rawSymbol) {
   const symbol = (rawSymbol || "").toUpperCase().trim().replace(/[^A-Z0-9]/g, "");
@@ -209,6 +278,8 @@ function processChartData(result) {
   const ma50 = sma(closes, 50);
   const ma200 = sma(closes, 200);
   const macd = calcMACD(closes);
+  const bollinger = calcBollinger(closes, 20, 2);
+  const stochRsi = calcStochRSI(closes, 14, 14);
 
   return {
     candles,
@@ -226,6 +297,10 @@ function processChartData(result) {
     ma200: ma200[ma200.length - 1],
     macd: macd.macdLine[macd.macdLine.length - 1],
     macdSignal: macd.signalLine[macd.signalLine.length - 1],
+    bollingerUpper: bollinger.upper[bollinger.upper.length - 1],
+    bollingerMid: bollinger.mid[bollinger.mid.length - 1],
+    bollingerLower: bollinger.lower[bollinger.lower.length - 1],
+    stochRsi: stochRsi[stochRsi.length - 1],
   };
 }
 
@@ -261,6 +336,8 @@ function processFundamentals(raw) {
     numberOfAnalysts: g(fd, "numberOfAnalystOpinions"),
     fiftyTwoWeekLow: g(sd, "fiftyTwoWeekLow"),
     fiftyTwoWeekHigh: g(sd, "fiftyTwoWeekHigh"),
+    priceToSales: g(sd, "priceToSalesTrailing12Months"),
+    enterpriseToEbitda: g(dks, "enterpriseToEbitda"),
   };
 }
 
@@ -317,6 +394,37 @@ function calcMACD(closes) {
   const macdLine = closes.map((_, i) => (ema12[i] != null && ema26[i] != null ? ema12[i] - ema26[i] : null));
   const signalLine = ema(macdLine.map((v) => (v == null ? 0 : v)), 9);
   return { macdLine, signalLine };
+}
+
+// Bollinger Bantları: SMA(20) ± 2 standart sapma
+function calcBollinger(closes, period = 20, mult = 2) {
+  const mid = sma(closes, period);
+  const upper = [], lower = [];
+  for (let i = 0; i < closes.length; i++) {
+    if (mid[i] == null) { upper.push(null); lower.push(null); continue; }
+    let sumSq = 0;
+    for (let j = i - period + 1; j <= i; j++) sumSq += Math.pow(closes[j] - mid[i], 2);
+    const stdDev = Math.sqrt(sumSq / period);
+    upper.push(mid[i] + mult * stdDev);
+    lower.push(mid[i] - mult * stdDev);
+  }
+  return { mid, upper, lower };
+}
+
+// Stochastic RSI: RSI değerinin kendi son N günlük aralığındaki göreli konumu (0-100)
+function calcStochRSI(closes, rsiPeriod = 14, stochPeriod = 14) {
+  const rsi = calcRSI(closes, rsiPeriod);
+  const out = new Array(closes.length).fill(null);
+  for (let i = 0; i < rsi.length; i++) {
+    if (rsi[i] == null) continue;
+    const windowStart = Math.max(0, i - stochPeriod + 1);
+    const windowVals = rsi.slice(windowStart, i + 1).filter((v) => v != null);
+    if (windowVals.length < stochPeriod) continue;
+    const minRsi = Math.min(...windowVals);
+    const maxRsi = Math.max(...windowVals);
+    out[i] = maxRsi > minRsi ? ((rsi[i] - minRsi) / (maxRsi - minRsi)) * 100 : 50;
+  }
+  return out;
 }
 
 // ==========================================================================
@@ -401,10 +509,65 @@ function computeRecommendation(d, f) {
 }
 
 // ==========================================================================
+// 5b) DEĞERLEME SAĞLIĞI PUANLAMA — "şişirilmiş mi" sorusuna sadece temel
+// verilerle (teknik momentum hariç) cevap veren ayrı bir puanlama.
+// 100 = çok ucuz, 0 = aşırı pahalı (şişirilmiş)
+// ==========================================================================
+function computeValuationScore(f) {
+  let score = 50;
+  const factors = [];
+
+  // F/K (Trailing) — genel/piyasa-geneli eşikler, sektöre özel değil
+  if (f.trailingPE != null && f.trailingPE > 0) {
+    if (f.trailingPE < 8) { score += 20; factors.push(["F/K çok düşük", "+20"]); }
+    else if (f.trailingPE < 15) { score += 8; factors.push(["F/K makul", "+8"]); }
+    else if (f.trailingPE <= 25) { factors.push(["F/K normal aralıkta", "0"]); }
+    else if (f.trailingPE <= 40) { score -= 15; factors.push(["F/K yüksek", "-15"]); }
+    else { score -= 25; factors.push(["F/K aşırı yüksek", "-25"]); }
+  } else if (f.trailingPE != null && f.trailingPE <= 0) {
+    score -= 10; factors.push(["Şirket zarar ediyor (F/K negatif)", "-10"]);
+  }
+
+  // PD/DD (Piyasa Değeri / Defter Değeri)
+  if (f.priceToBook != null && f.priceToBook > 0) {
+    if (f.priceToBook < 1) { score += 15; factors.push(["PD/DD defter değerinin altında", "+15"]); }
+    else if (f.priceToBook < 2) { score += 5; factors.push(["PD/DD makul", "+5"]); }
+    else if (f.priceToBook <= 4) { factors.push(["PD/DD normal aralıkta", "0"]); }
+    else if (f.priceToBook <= 7) { score -= 12; factors.push(["PD/DD yüksek prim", "-12"]); }
+    else { score -= 20; factors.push(["PD/DD aşırı prim", "-20"]); }
+  }
+
+  // PD/Satış (Price to Sales)
+  if (f.priceToSales != null && f.priceToSales > 0) {
+    if (f.priceToSales < 1) { score += 10; factors.push(["PD/Satış düşük", "+10"]); }
+    else if (f.priceToSales <= 3) { factors.push(["PD/Satış normal", "0"]); }
+    else if (f.priceToSales <= 6) { score -= 10; factors.push(["PD/Satış yüksek", "-10"]); }
+    else { score -= 15; factors.push(["PD/Satış aşırı yüksek", "-15"]); }
+  }
+
+  // Forward F/K, Trailing F/K'dan belirgin düşükse (kâr büyümesi bekleniyor demektir) hafif olumlu
+  if (f.forwardPE != null && f.trailingPE != null && f.trailingPE > 0 && f.forwardPE > 0) {
+    if (f.forwardPE < f.trailingPE * 0.8) { score += 8; factors.push(["Beklenen kâr artışı (Forward F/K düşük)", "+8"]); }
+    else if (f.forwardPE > f.trailingPE * 1.2) { score -= 8; factors.push(["Beklenen kâr düşüşü (Forward F/K yüksek)", "-8"]); }
+  }
+
+  score = Math.max(0, Math.min(100, score));
+
+  let label, cls;
+  if (score >= 80) { label = "UCUZ"; cls = "strong-buy"; }
+  else if (score >= 60) { label = "MAKUL"; cls = "buy"; }
+  else if (score >= 40) { label = "NÖTR"; cls = "neutral"; }
+  else if (score >= 20) { label = "PAHALI"; cls = "sell"; }
+  else { label = "AŞIRI PAHALI"; cls = "strong-sell"; }
+
+  return { score, label, cls, factors };
+}
+
+// ==========================================================================
 // 6) GAUGE (AL/SAT yarım-ay göstergesi) - SVG çizimi
 // ==========================================================================
-function drawGauge(score) {
-  const svg = document.getElementById("gaugeSvg");
+function drawGauge(score, svgId = "gaugeSvg") {
+  const svg = document.getElementById(svgId);
   svg.innerHTML = "";
   const cx = 140, cy = 140, r = 110;
   const startAngle = Math.PI; // 180°
@@ -450,8 +613,10 @@ function drawGauge(score) {
 
   // Uç etiketleri
   const labelStyle = { "font-family": "JetBrains Mono, monospace", "font-size": "10.5px", fill: "#4c5768" };
-  addSvgText(svg, cx - r - 4, cy + 18, "SAT", labelStyle);
-  addSvgText(svg, cx + r - 14, cy + 18, "AL", labelStyle);
+  const leftLabel = svgId === "valueGaugeSvg" ? "PAHALI" : "SAT";
+  const rightLabel = svgId === "valueGaugeSvg" ? "UCUZ" : "AL";
+  addSvgText(svg, cx - r - 4, cy + 18, leftLabel, labelStyle);
+  addSvgText(svg, cx + r - 14, cy + 18, rightLabel, labelStyle);
 }
 
 function addSvgText(svg, x, y, text, styles) {
@@ -614,12 +779,20 @@ function renderAll(symbol, d, f) {
   const rsiTag = d.rsi < 30 ? ["Aşırı Satım", "buy"] : d.rsi > 70 ? ["Aşırı Alım", "sell"] : ["Nötr", "neutral"];
   const maTag = d.lastClose > d.ma50 ? ["Fiyat > MA50", "buy"] : ["Fiyat < MA50", "sell"];
   const macdTag = d.macd > d.macdSignal ? ["Pozitif", "buy"] : ["Negatif", "sell"];
+  const bollTag = d.lastClose > d.bollingerUpper ? ["Üst Bandın Üstü", "sell"]
+    : d.lastClose < d.bollingerLower ? ["Alt Bandın Altı", "buy"]
+    : ["Bant İçi", "neutral"];
+  const stochTag = d.stochRsi > 80 ? ["Aşırı Alım", "sell"] : d.stochRsi < 20 ? ["Aşırı Satım", "buy"] : ["Nötr", "neutral"];
   document.getElementById("technicalRows").innerHTML = [
     rowHTML("RSI (14)", fmtNum(d.rsi), rsiTag),
+    rowHTML("Stochastic RSI", fmtNum(d.stochRsi), stochTag),
     rowHTML("MA 50", fmtTL(d.ma50)),
     rowHTML("MA 200", fmtTL(d.ma200), maTag),
     rowHTML("MACD", fmtNum(d.macd, 3), macdTag),
     rowHTML("MACD Sinyal", fmtNum(d.macdSignal, 3)),
+    rowHTML("Bollinger Üst Bant", fmtTL(d.bollingerUpper), bollTag),
+    rowHTML("Bollinger Orta (MA20)", fmtTL(d.bollingerMid)),
+    rowHTML("Bollinger Alt Bant", fmtTL(d.bollingerLower)),
     rowHTML("Beta", fmtNum(f.beta)),
   ].join("");
 
@@ -629,6 +802,7 @@ function renderAll(symbol, d, f) {
     rowHTML("F/K (Trailing)", fmtNum(f.trailingPE)),
     rowHTML("F/K (Forward)", fmtNum(f.forwardPE)),
     rowHTML("PD/DD", fmtNum(f.priceToBook)),
+    rowHTML("PD/Satış", fmtNum(f.priceToSales)),
     rowHTML("Temettü Verimi", f.dividendYield != null ? fmtPct(f.dividendYield * 100) : "—"),
     rowHTML("Özkaynak Karlılığı (ROE)", f.returnOnEquity != null ? fmtPct(f.returnOnEquity * 100) : "—"),
     rowHTML("Net Kar Marjı", f.profitMargins != null ? fmtPct(f.profitMargins * 100) : "—"),
@@ -638,7 +812,7 @@ function renderAll(symbol, d, f) {
 
   // AL/SAT gauge
   const rec = computeRecommendation(d, f);
-  drawGauge(rec.score);
+  drawGauge(rec.score, "gaugeSvg");
   const gaugeLabelEl = document.getElementById("gaugeLabel");
   gaugeLabelEl.textContent = rec.label;
   gaugeLabelEl.className = `gauge-label-big ${rec.cls}`;
@@ -646,10 +820,325 @@ function renderAll(symbol, d, f) {
   document.getElementById("gaugeFactors").innerHTML = rec.factors
     .map(([label, val]) => `<div class="factor">${label}: <b>${val}</b></div>`)
     .join("");
+
+  // Değerleme Sağlığı gauge
+  const val = computeValuationScore(f);
+  drawGauge(val.score, "valueGaugeSvg");
+  const valueGaugeLabelEl = document.getElementById("valueGaugeLabel");
+  valueGaugeLabelEl.textContent = val.label;
+  valueGaugeLabelEl.className = `gauge-label-big ${val.cls}`;
+  document.getElementById("valueGaugeScoreText").textContent = `SKOR: ${fmtNum(val.score, 0)} / 100`;
+  document.getElementById("valueGaugeFactors").innerHTML = val.factors
+    .map(([label, v]) => `<div class="factor">${label}: <b>${v}</b></div>`)
+    .join("");
 }
 
 function rowHTML(label, value, tag) {
   const tagCls = tag ? tag[1] : null;
   const tagHtml = tag ? `<span class="status-tag ${tagCls}">${tag[0]}</span>` : "";
   return `<div class="data-row"><span class="row-label">${label}</span><span class="row-value">${value}${tagHtml}</span></div>`;
+}
+
+// ==========================================================================
+// 10) PORTFÖY
+// ==========================================================================
+function loadPortfolio() {
+  try {
+    const raw = localStorage.getItem(LS_PORTFOLIO_KEY);
+    return raw ? JSON.parse(raw) : [];
+  } catch (e) {
+    return [];
+  }
+}
+
+function savePortfolio(positions) {
+  localStorage.setItem(LS_PORTFOLIO_KEY, JSON.stringify(positions));
+}
+
+posAddBtn.addEventListener("click", addPosition);
+[posSymbol, posQty, posCost].forEach((el) => {
+  el.addEventListener("keydown", (e) => { if (e.key === "Enter") addPosition(); });
+});
+
+function addPosition() {
+  posError.textContent = "";
+  const symbol = posSymbol.value.toUpperCase().trim().replace(/[^A-Z0-9]/g, "");
+  const qty = parseFloat(posQty.value);
+  const cost = parseFloat(posCost.value);
+
+  if (!symbol) { posError.textContent = "Hisse kodu gir (örn: ALARK)."; return; }
+  if (!qty || qty <= 0) { posError.textContent = "Geçerli bir adet gir."; return; }
+  if (!cost || cost <= 0) { posError.textContent = "Geçerli bir maliyet gir."; return; }
+
+  const positions = loadPortfolio();
+  const existing = positions.find((p) => p.symbol === symbol);
+  if (existing) {
+    // Aynı hisseden tekrar eklenirse ortalama maliyeti güncelle
+    const totalQty = existing.qty + qty;
+    existing.cost = (existing.qty * existing.cost + qty * cost) / totalQty;
+    existing.qty = totalQty;
+  } else {
+    positions.push({ symbol, qty, cost });
+  }
+  savePortfolio(positions);
+
+  posSymbol.value = "";
+  posQty.value = "";
+  posCost.value = "";
+  renderPortfolio();
+}
+
+function removePosition(symbol) {
+  const positions = loadPortfolio().filter((p) => p.symbol !== symbol);
+  savePortfolio(positions);
+  renderPortfolio();
+}
+
+// Portföy için hafif güncel fiyat sorgusu (son 5 gün, sadece son fiyat + günlük değişim gerekiyor)
+async function fetchQuickPrice(symbol) {
+  const pass = localStorage.getItem(LS_PASS_KEY) || "";
+  const res = await fetchJSON(`${WORKER_URL}/api/chart?symbol=${symbol}&pass=${encodeURIComponent(pass)}&range=5d&interval=1d`);
+  if (res.error) throw new Error(res.error);
+  const result = res.data?.chart?.result?.[0];
+  if (!result) throw new Error("veri yok");
+  const meta = result.meta || {};
+  const closes = (result.indicators.quote[0].close || []).filter((c) => c != null);
+  const price = meta.regularMarketPrice != null ? meta.regularMarketPrice : closes[closes.length - 1];
+  const prevClose = closes[closes.length - 2] ?? price;
+  const dailyChangePct = prevClose ? ((price - prevClose) / prevClose) * 100 : 0;
+  return { price, dailyChangePct };
+}
+
+async function renderPortfolio() {
+  const positions = loadPortfolio();
+  portfolioEmpty.classList.toggle("visible", positions.length === 0);
+  portfolioTableBody.innerHTML = "";
+  portfolioSummary.innerHTML = "";
+  donutSvg.innerHTML = "";
+  donutLegend.innerHTML = "";
+
+  if (positions.length === 0) return;
+
+  portfolioTableBody.innerHTML = positions
+    .map((p) => `<tr data-symbol="${p.symbol}"><td class="symbol-cell">${p.symbol}</td><td colspan="6" style="text-align:left;color:var(--text-faint)">Yükleniyor...</td></tr>`)
+    .join("");
+
+  const results = await Promise.allSettled(positions.map((p) => fetchQuickPrice(p.symbol)));
+
+  let totalCost = 0, totalValue = 0, totalDailyChangeValue = 0;
+  const rows = [];
+  const allocation = [];
+
+  positions.forEach((p, i) => {
+    const r = results[i];
+    const costValue = p.qty * p.cost;
+    totalCost += costValue;
+
+    if (r.status === "fulfilled") {
+      const { price, dailyChangePct } = r.value;
+      const value = p.qty * price;
+      const gainValue = value - costValue;
+      const gainPct = costValue ? (gainValue / costValue) * 100 : 0;
+      const prevValue = value / (1 + dailyChangePct / 100);
+      const dailyChangeValue = value - prevValue;
+
+      totalValue += value;
+      totalDailyChangeValue += dailyChangeValue;
+      allocation.push({ symbol: p.symbol, value });
+
+      rows.push(`
+        <tr>
+          <td class="symbol-cell">${p.symbol}</td>
+          <td>${fmtNum(p.qty, 0)}</td>
+          <td>${fmtTL(p.cost)}</td>
+          <td>${fmtTL(price)}</td>
+          <td>${fmtTL(value)}</td>
+          <td class="${changeClass(gainValue)}">${gainValue >= 0 ? "+" : ""}${fmtTL(gainValue)}</td>
+          <td class="${changeClass(gainPct)}">${fmtPct(gainPct)}</td>
+          <td><button class="remove-btn" data-symbol="${p.symbol}">Sil</button></td>
+        </tr>`);
+    } else {
+      totalValue += costValue; // veri gelmezse en azından maliyeti say
+      rows.push(`
+        <tr>
+          <td class="symbol-cell">${p.symbol}</td>
+          <td>${fmtNum(p.qty, 0)}</td>
+          <td>${fmtTL(p.cost)}</td>
+          <td colspan="4" style="text-align:left;color:var(--down)">Veri alınamadı</td>
+          <td><button class="remove-btn" data-symbol="${p.symbol}">Sil</button></td>
+        </tr>`);
+    }
+  });
+
+  portfolioTableBody.innerHTML = rows.join("");
+  portfolioTableBody.querySelectorAll(".remove-btn").forEach((btn) => {
+    btn.addEventListener("click", () => removePosition(btn.dataset.symbol));
+  });
+
+  const totalGainValue = totalValue - totalCost;
+  const totalGainPct = totalCost ? (totalGainValue / totalCost) * 100 : 0;
+  const dailyChangePctOfTotal = totalValue ? (totalDailyChangeValue / (totalValue - totalDailyChangeValue)) * 100 : 0;
+
+  portfolioSummary.innerHTML = `
+    <div class="summary-card">
+      <div class="summary-label">Toplam Değer</div>
+      <div class="summary-value">${fmtTL(totalValue)}</div>
+    </div>
+    <div class="summary-card">
+      <div class="summary-label">Toplam Maliyet</div>
+      <div class="summary-value">${fmtTL(totalCost)}</div>
+    </div>
+    <div class="summary-card">
+      <div class="summary-label">Toplam Kâr/Zarar</div>
+      <div class="summary-value ${changeClass(totalGainValue)}">${totalGainValue >= 0 ? "+" : ""}${fmtTL(totalGainValue)} (${fmtPct(totalGainPct)})</div>
+    </div>
+    <div class="summary-card">
+      <div class="summary-label">Bugünkü Değişim</div>
+      <div class="summary-value ${changeClass(totalDailyChangeValue)}">${totalDailyChangeValue >= 0 ? "+" : ""}${fmtTL(totalDailyChangeValue)} (${fmtPct(dailyChangePctOfTotal)})</div>
+    </div>`;
+
+  drawDonut(allocation, totalValue);
+}
+
+function drawDonut(allocation, total) {
+  donutSvg.innerHTML = "";
+  donutLegend.innerHTML = "";
+  if (!total || allocation.length === 0) return;
+
+  const colors = ["#d4af37", "#4098d7", "#17c987", "#ff4757", "#a672e0", "#e08f4a", "#4ac4c4", "#e05d9e"];
+  const cx = 100, cy = 100, r = 80, innerR = 48;
+  let startAngle = -Math.PI / 2;
+
+  allocation
+    .sort((a, b) => b.value - a.value)
+    .forEach((a, i) => {
+      const fraction = a.value / total;
+      const endAngle = startAngle + fraction * Math.PI * 2;
+      const color = colors[i % colors.length];
+
+      const path = document.createElementNS("http://www.w3.org/2000/svg", "path");
+      const x1 = cx + r * Math.cos(startAngle), y1 = cy + r * Math.sin(startAngle);
+      const x2 = cx + r * Math.cos(endAngle), y2 = cy + r * Math.sin(endAngle);
+      const ix1 = cx + innerR * Math.cos(endAngle), iy1 = cy + innerR * Math.sin(endAngle);
+      const ix2 = cx + innerR * Math.cos(startAngle), iy2 = cy + innerR * Math.sin(startAngle);
+      const largeArc = fraction > 0.5 ? 1 : 0;
+
+      path.setAttribute(
+        "d",
+        `M ${x1} ${y1} A ${r} ${r} 0 ${largeArc} 1 ${x2} ${y2} L ${ix1} ${iy1} A ${innerR} ${innerR} 0 ${largeArc} 0 ${ix2} ${iy2} Z`
+      );
+      path.setAttribute("fill", color);
+      donutSvg.appendChild(path);
+
+      const pct = fraction * 100;
+      donutLegend.insertAdjacentHTML(
+        "beforeend",
+        `<div class="legend-row">
+           <div class="legend-left"><span class="legend-dot" style="background:${color}"></span>${a.symbol}</div>
+           <span class="legend-pct">${fmtNum(pct)}%</span>
+         </div>`
+      );
+
+      startAngle = endAngle;
+    });
+}
+
+// ==========================================================================
+// 11) KARŞILAŞTIRMA EKRANI
+// ==========================================================================
+cmpBtn.addEventListener("click", runCompare);
+[cmpSymbol1, cmpSymbol2, cmpSymbol3].forEach((el) => {
+  el.addEventListener("keydown", (e) => { if (e.key === "Enter") runCompare(); });
+});
+
+async function fetchFullData(symbol) {
+  const pass = localStorage.getItem(LS_PASS_KEY) || "";
+  const [chartRes, quoteRes] = await Promise.all([
+    fetchJSON(`${WORKER_URL}/api/chart?symbol=${symbol}&pass=${encodeURIComponent(pass)}`),
+    fetchJSON(`${WORKER_URL}/api/quote?symbol=${symbol}&pass=${encodeURIComponent(pass)}`),
+  ]);
+  if (chartRes.error || quoteRes.error) throw new Error(chartRes.error || quoteRes.error);
+  const chartResult = chartRes.data?.chart?.result?.[0];
+  if (!chartResult || !chartResult.timestamp) throw new Error(`"${symbol}" bulunamadı.`);
+  const d = processChartData(chartResult);
+  const f = processFundamentals(quoteRes.data);
+  const rec = computeRecommendation(d, f);
+  const val = computeValuationScore(f);
+  return { symbol, d, f, rec, val };
+}
+
+async function runCompare() {
+  cmpError.textContent = "";
+  const symbols = [cmpSymbol1.value, cmpSymbol2.value, cmpSymbol3.value]
+    .map((v) => v.toUpperCase().trim().replace(/[^A-Z0-9]/g, ""))
+    .filter(Boolean);
+
+  if (symbols.length < 2) {
+    cmpError.textContent = "Karşılaştırmak için en az 2 hisse kodu gir.";
+    return;
+  }
+
+  cmpResultCard.style.display = "none";
+  cmpLoading.classList.add("active");
+
+  try {
+    const results = await Promise.all(symbols.map((s) => fetchFullData(s)));
+    renderCompareTable(results);
+    cmpLoading.classList.remove("active");
+    cmpResultCard.style.display = "block";
+  } catch (err) {
+    cmpLoading.classList.remove("active");
+    cmpError.textContent = err.message || "Bir hata oluştu, tekrar dene.";
+  }
+}
+
+// Bir metrik satırında hangi sütunun "en iyi" olduğunu bulup gold renkle işaretler.
+// higherIsBetter: true ise en yüksek değer, false ise en düşük değer öne çıkar.
+function buildMetricRow(label, results, getValue, formatter, higherIsBetter = true) {
+  const values = results.map((r) => getValue(r));
+  const validValues = values.filter((v) => v != null && !isNaN(v));
+  let bestValue = null;
+  if (validValues.length > 1) {
+    bestValue = higherIsBetter ? Math.max(...validValues) : Math.min(...validValues);
+  }
+  const cells = values
+    .map((v) => {
+      const isBest = bestValue != null && v === bestValue;
+      return `<td class="${isBest ? "best-value" : ""}">${formatter(v)}</td>`;
+    })
+    .join("");
+  return `<tr><td>${label}</td>${cells}</tr>`;
+}
+
+function renderCompareTable(results) {
+  const headerRow = `<tr><th>Metrik</th>${results.map((r) => `<th class="symbol-cell">${r.symbol}</th>`).join("")}</tr>`;
+
+  const rows = [
+    buildMetricRow("Güncel Fiyat", results, (r) => r.d.lastClose, (v) => fmtTL(v), true),
+    buildMetricRow("Günlük Değişim", results, (r) => r.d.changes.daily, (v) => fmtPct(v), true),
+    buildMetricRow("Yıllık Değişim", results, (r) => r.d.changes.yearly, (v) => fmtPct(v), true),
+    buildMetricRow("52H Konumu (%)", results, (r) => {
+      const lo = r.f.fiftyTwoWeekLow ?? r.d.week52Low, hi = r.f.fiftyTwoWeekHigh ?? r.d.week52High;
+      return hi > lo ? ((r.d.lastClose - lo) / (hi - lo)) * 100 : null;
+    }, (v) => (v != null ? `${fmtNum(v, 0)}%` : "—"), false),
+    buildMetricRow("F/K (Trailing)", results, (r) => r.f.trailingPE, (v) => fmtNum(v), false),
+    buildMetricRow("PD/DD", results, (r) => r.f.priceToBook, (v) => fmtNum(v), false),
+    buildMetricRow("PD/Satış", results, (r) => r.f.priceToSales, (v) => fmtNum(v), false),
+    buildMetricRow("Temettü Verimi", results, (r) => (r.f.dividendYield != null ? r.f.dividendYield * 100 : null), (v) => (v != null ? fmtPct(v) : "—"), true),
+    buildMetricRow("ROE", results, (r) => (r.f.returnOnEquity != null ? r.f.returnOnEquity * 100 : null), (v) => (v != null ? fmtPct(v) : "—"), true),
+    buildMetricRow("Net Kar Marjı", results, (r) => (r.f.profitMargins != null ? r.f.profitMargins * 100 : null), (v) => (v != null ? fmtPct(v) : "—"), true),
+    buildMetricRow("RSI (14)", results, (r) => r.d.rsi, (v) => fmtNum(v), false),
+    buildMetricRow("Ort. Hacim (TL)", results, (r) => r.d.avgVolumeTL, (v) => fmtCompactTL(v), true),
+  ];
+
+  // AL/SAT ve Değerleme skorları: etiketleri doğrudan sonuç objesinden alıyoruz (score eşleşmesine güvenmeden)
+  const recScores = results.map((r) => r.rec.score);
+  const bestRecScore = Math.max(...recScores);
+  rows.push(`<tr><td>AL/SAT Skoru</td>${results.map((r) => `<td class="${r.rec.score === bestRecScore ? "best-value" : ""}">${fmtNum(r.rec.score, 0)} (${r.rec.label})</td>`).join("")}</tr>`);
+
+  const valScores = results.map((r) => r.val.score);
+  const bestValScore = Math.max(...valScores);
+  rows.push(`<tr><td>Değerleme Skoru</td>${results.map((r) => `<td class="${r.val.score === bestValScore ? "best-value" : ""}">${fmtNum(r.val.score, 0)} (${r.val.label})</td>`).join("")}</tr>`);
+
+  compareTable.innerHTML = `<thead>${headerRow}</thead><tbody>${rows.join("")}</tbody>`;
 }
