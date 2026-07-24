@@ -424,7 +424,7 @@ function drawGauge(score, svgId = "gaugeSvg") {
   // skoru 1-99 arasına sıkıştır (uçlardan %1 pay)
   const clamped = Math.max(1, Math.min(99, score || 50));
   const frac = clamped / 100;
-  const needleA = startA - span * frac; // ibre açısı
+  const needleA = startA + span * (1 - frac); // ibre açısı
 
   // --- Renkli şerit (dilim dilim) ---
   const segs = 60;
