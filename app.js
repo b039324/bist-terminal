@@ -69,6 +69,17 @@ let fullChartData = null;
 let currentSymbol = null;
 
 // ==========================================================================
+// 0) PWA Service Worker Kaydı
+// ==========================================================================
+if ("serviceWorker" in navigator) {
+  window.addEventListener("load", () => {
+    navigator.serviceWorker.register("sw.js").catch(() => {
+      // Service worker kaydı başarısız olursa sessizce devam et
+    });
+  });
+}
+
+// ==========================================================================
 // 1) GİRİŞ / ŞİFRE
 // ==========================================================================
 function tryEnterApp() {
@@ -341,6 +352,14 @@ function processFundamentals(raw) {
     fiftyTwoWeekHigh: g(sd, "fiftyTwoWeekHigh"),
     priceToSales: g(sd, "priceToSalesTrailing12Months"),
     enterpriseToEbitda: g(dks, "enterpriseToEbitda"),
+    // Analist hedef fiyatları
+    targetMeanPrice: g(fd, "targetMeanPrice"),
+    targetHighPrice: g(fd, "targetHighPrice"),
+    targetLowPrice: g(fd, "targetLowPrice"),
+    targetMedianPrice: g(fd, "targetMedianPrice"),
+    // 5 yıllık ortalamalar
+    fiveYearAvgPE: g(dks, "fiveYearAvgDividendYield") ? null : null, // Yahoo'da doğrudan yok, alternatif olarak kullanılabilir
+    bookValue: g(dks, "bookValue"), // Hisse başı defter değeri
   };
 }
 
@@ -725,6 +744,35 @@ function renderAll(symbol, d, f) {
   dayEl.textContent = `${arrow(d.changes.daily)} ${fmtPct(d.changes.daily)} (bugün)`;
   dayEl.className = `day-change ${dayCls}`;
 
+  // Analist hedef fiyatı
+  const analystEl = document.getElementById("analystTarget");
+  if (f.targetMeanPrice != null && f.targetMeanPrice > 0) {
+    const pot = ((f.targetMeanPrice - d.lastClose) / d.lastClose) * 100;
+    const potCls = pot > 1 ? "up" : pot < -1 ? "down" : "";
+    analystEl.style.display = "block";
+    analystEl.innerHTML = `
+      <div class="target-row">
+        <div class="target-item">
+          <div class="target-label">Hedef Düşük</div>
+          <div class="target-value">${f.targetLowPrice ? fmtTL(f.targetLowPrice) : "—"}</div>
+        </div>
+        <div class="target-item">
+          <div class="target-label">Hedef Ortalama</div>
+          <div class="target-value" style="color:var(--gold)">${fmtTL(f.targetMeanPrice)}</div>
+        </div>
+        <div class="target-item">
+          <div class="target-label">Hedef Yüksek</div>
+          <div class="target-value">${f.targetHighPrice ? fmtTL(f.targetHighPrice) : "—"}</div>
+        </div>
+        <div class="target-item">
+          <div class="target-label">Potansiyel</div>
+          <div class="target-value target-potential ${potCls}">${fmtPct(pot)}</div>
+        </div>
+      </div>`;
+  } else {
+    analystEl.style.display = "none";
+  }
+
   const badgeDefs = [
     ["Günlük", d.changes.daily],
     ["Haftalık", d.changes.weekly],
@@ -780,12 +828,25 @@ function renderAll(symbol, d, f) {
     rowHTML("Beta", fmtNum(f.beta)),
   ].join("");
 
+  // Defter değeri hesaplama (Fiyat / PD/DD)
+  let bookValuePerShare = null;
+  let bookValueNote = "";
+  if (f.priceToBook != null && f.priceToBook > 0) {
+    bookValuePerShare = d.lastClose / f.priceToBook;
+    bookValueNote = f.priceToBook < 1 ? " (iskontolu)" : f.priceToBook > 2 ? " (primli)" : "";
+  } else if (f.bookValue != null) {
+    bookValuePerShare = f.bookValue;
+  }
+
   document.getElementById("fundamentalRows").innerHTML = [
     rowHTML("Piyasa Değeri", fmtCompactTL(f.marketCap)),
     rowHTML("F/K (Trailing)", fmtNum(f.trailingPE)),
     rowHTML("F/K (Forward)", fmtNum(f.forwardPE)),
     rowHTML("PD/DD", fmtNum(f.priceToBook)),
     rowHTML("PD/Satış", fmtNum(f.priceToSales)),
+    bookValuePerShare != null
+      ? `<div class="data-row highlight-book"><span class="row-label">Defter Değeri (Hisse Başı)</span><span class="row-value" style="color:var(--gold)">${fmtTL(bookValuePerShare)}<span style="font-size:10px;color:var(--text-faint);margin-left:4px">${bookValueNote}</span></span></div>`
+      : rowHTML("Defter Değeri (Hisse Başı)", "—"),
     rowHTML("Temettü Verimi", f.dividendYield != null ? fmtPct(f.dividendYield * 100) : "—"),
     rowHTML("Özkaynak Karlılığı (ROE)", f.returnOnEquity != null ? fmtPct(f.returnOnEquity * 100) : "—"),
     rowHTML("Net Kar Marjı", f.profitMargins != null ? fmtPct(f.profitMargins * 100) : "—"),
@@ -1076,7 +1137,6 @@ async function addWatchlistItem() {
   if (!symbol) { wlError.textContent = "Hisse kodu gir (örn: ALARK)."; return; }
 
   try {
-    // Güncel fiyatı al
     let price = null;
     try {
       const p = await fetchQuickPrice(symbol);
@@ -1087,7 +1147,6 @@ async function addWatchlistItem() {
     }
 
     const items = await loadWatchlist();
-    // Zaten varsa uyar, yoksa ekle
     if (items.find((item) => item.symbol === symbol)) {
       wlError.textContent = `${symbol} zaten takip listende.`;
       return;
@@ -1121,7 +1180,6 @@ async function removeWatchlistItem(symbol) {
   }
 }
 
-// Sonuç ekranındaki ★ butonuna tıklandığında
 watchlistToggleBtn.addEventListener("click", async () => {
   if (!currentSymbol) return;
   try {
@@ -1130,7 +1188,6 @@ watchlistToggleBtn.addEventListener("click", async () => {
     if (exists) {
       await removeWatchlistItem(currentSymbol);
     } else {
-      // Güncel fiyatı al ve ekle
       try {
         const p = await fetchQuickPrice(currentSymbol);
         items.push({
@@ -1149,7 +1206,6 @@ watchlistToggleBtn.addEventListener("click", async () => {
   }
 });
 
-// Takip butonu görünümünü güncelle (takip ediliyorsa ★ dolu, değilse boş)
 async function syncWatchlistState() {
   if (!currentSymbol) {
     watchlistToggleBtn.textContent = "★ Takip Ekle";
@@ -1178,7 +1234,6 @@ async function renderWatchlist() {
 
   if (items.length === 0) return;
 
-  // Her hisse için güncel fiyatı çek
   const results = await Promise.allSettled(items.map((item) => fetchQuickPrice(item.symbol)));
 
   const rows = items.map((item, i) => {
