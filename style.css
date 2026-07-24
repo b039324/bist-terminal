@@ -329,6 +329,39 @@ a { color: var(--blue); }
 .day-change.down { color: var(--down); }
 .day-change.flat { color: var(--text-dim); }
 
+/* ---------- Analist Hedef Fiyatı ---------- */
+.analyst-target {
+  font-family: var(--font-mono);
+  font-size: 12.5px;
+  color: var(--text-dim);
+  margin-top: 8px;
+  padding-top: 8px;
+  border-top: 1px solid var(--border);
+}
+.analyst-target .target-row {
+  display: flex;
+  justify-content: flex-end;
+  gap: 18px;
+  flex-wrap: wrap;
+}
+.analyst-target .target-item {
+  text-align: center;
+}
+.analyst-target .target-label {
+  font-size: 10px;
+  color: var(--text-faint);
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  margin-bottom: 2px;
+}
+.analyst-target .target-value {
+  font-weight: 600;
+  font-size: 13px;
+}
+.analyst-target .target-potential { color: var(--blue); }
+.analyst-target .target-potential.up { color: var(--up); }
+.analyst-target .target-potential.down { color: var(--down); }
+
 .change-badges {
   display: flex;
   gap: 10px;
@@ -477,6 +510,14 @@ a { color: var(--blue); }
 .data-row .row-value { font-family: var(--font-mono); font-weight: 600; }
 .data-row .row-value.up { color: var(--up); }
 .data-row .row-value.down { color: var(--down); }
+
+/* ---------- Defter Değeri vurgulu satır ---------- */
+.data-row.highlight-book {
+  background: rgba(212, 175, 55, 0.05);
+  border-radius: 6px;
+  padding-left: 8px;
+  padding-right: 8px;
+}
 
 .status-tag {
   font-size: 10.5px;
