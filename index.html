@@ -29,7 +29,12 @@
 
     <div class="topbar">
       <div class="brand">BIST<span class="dot">•</span>TERMINAL <small>YAHOO FINANCE VERİSİ</small></div>
-      <button class="logout-btn" id="logoutBtn">Çıkış</button>
+      <div class="nav-buttons">
+        <button class="nav-btn active" id="navSearchBtn">Ara</button>
+        <button class="nav-btn" id="navPortfolioBtn">Portföy</button>
+        <button class="nav-btn" id="navCompareBtn">Karşılaştır</button>
+        <button class="logout-btn" id="logoutBtn">Çıkış</button>
+      </div>
     </div>
 
     <!-- Boş arama ekranı -->
@@ -109,18 +114,34 @@
         <div id="volumeChart"></div>
       </div>
 
-      <!-- AL/SAT Göstergesi -->
-      <div class="gauge-card">
-        <div class="card-title">Genel Değerlendirme</div>
-        <div class="gauge-wrap">
-          <svg id="gaugeSvg" viewBox="0 0 280 160" width="280" height="160"></svg>
+      <!-- AL/SAT ve Değerleme Göstergeleri -->
+      <div class="two-col-grid">
+        <div class="gauge-card">
+          <div class="card-title">Genel Değerlendirme</div>
+          <div class="gauge-wrap">
+            <svg id="gaugeSvg" viewBox="0 0 280 160" width="280" height="160"></svg>
+          </div>
+          <div class="gauge-label-big" id="gaugeLabel">—</div>
+          <div class="gauge-score" id="gaugeScoreText">—</div>
+          <div class="gauge-factors" id="gaugeFactors"></div>
+          <div class="disclaimer">
+            RSI, hareketli ortalamalar, MACD ve analist ortalamasına dayalı kural tabanlı bir puanlamadır.
+            Yatırım tavsiyesi değildir.
+          </div>
         </div>
-        <div class="gauge-label-big" id="gaugeLabel">—</div>
-        <div class="gauge-score" id="gaugeScoreText">—</div>
-        <div class="gauge-factors" id="gaugeFactors"></div>
-        <div class="disclaimer">
-          Bu değerlendirme RSI, hareketli ortalamalar, MACD ve analist ortalamasına dayalı kural tabanlı bir puanlamadır.
-          Yatırım tavsiyesi değildir; yalnızca bilgilendirme amaçlıdır.
+
+        <div class="gauge-card">
+          <div class="card-title">Değerleme Sağlığı</div>
+          <div class="gauge-wrap">
+            <svg id="valueGaugeSvg" viewBox="0 0 280 160" width="280" height="160"></svg>
+          </div>
+          <div class="gauge-label-big" id="valueGaugeLabel">—</div>
+          <div class="gauge-score" id="valueGaugeScoreText">—</div>
+          <div class="gauge-factors" id="valueGaugeFactors"></div>
+          <div class="disclaimer">
+            F/K, PD/DD ve PD/Satış oranlarına dayalı, sadece değerlemeye odaklı ayrı bir puanlamadır
+            (teknik momentumu içermez). "Şişirilmiş" görünen hisseleri ayırt etmek için tasarlandı.
+          </div>
         </div>
       </div>
 
@@ -150,6 +171,79 @@
         </div>
         <div class="volume-mini-chart">
           <svg id="miniVolumeSvg" viewBox="0 0 300 60" width="100%" height="60" preserveAspectRatio="none"></svg>
+        </div>
+      </div>
+
+      <footer class="data-source">Veri kaynağı: Yahoo Finance · Gecikmeli fiyat verisi olabilir</footer>
+    </div>
+
+    <!-- ============ PORTFÖY EKRANI ============ -->
+    <div class="portfolio-screen" id="portfolioScreen">
+
+      <div class="panel-card" style="margin-bottom:20px">
+        <div class="card-title" style="margin-bottom:16px">Pozisyon Ekle</div>
+        <div class="add-position-form">
+          <input type="text" id="posSymbol" placeholder="Hisse kodu (örn. ALARK)" autocomplete="off" />
+          <input type="number" id="posQty" placeholder="Adet" min="0" step="1" />
+          <input type="number" id="posCost" placeholder="Maliyet (₺/adet)" min="0" step="0.01" />
+          <button id="posAddBtn">Ekle</button>
+        </div>
+        <div class="search-error" id="posError" style="text-align:left;margin-top:10px"></div>
+      </div>
+
+      <div class="portfolio-summary" id="portfolioSummary"></div>
+
+      <div class="two-col-grid" style="grid-template-columns: 1.6fr 1fr;">
+        <div class="panel-card">
+          <div class="card-title" style="margin-bottom:16px">Pozisyonlar</div>
+          <div class="portfolio-table-wrap">
+            <table class="portfolio-table" id="portfolioTable">
+              <thead>
+                <tr>
+                  <th>Hisse</th><th>Adet</th><th>Maliyet</th><th>Güncel</th>
+                  <th>Değer</th><th>K/Z (TL)</th><th>K/Z (%)</th><th></th>
+                </tr>
+              </thead>
+              <tbody id="portfolioTableBody"></tbody>
+            </table>
+          </div>
+          <div id="portfolioEmpty" class="portfolio-empty">Henüz pozisyon eklemedin. Yukarıdan ilk hisseni ekle.</div>
+        </div>
+
+        <div class="panel-card">
+          <div class="card-title" style="margin-bottom:16px">Dağılım</div>
+          <div style="text-align:center">
+            <svg id="donutSvg" viewBox="0 0 200 200" width="200" height="200"></svg>
+          </div>
+          <div id="donutLegend" class="donut-legend"></div>
+        </div>
+      </div>
+
+      <footer class="data-source">Portföy verileri sadece bu cihazda (tarayıcında) saklanır.</footer>
+    </div>
+
+    <!-- ============ KARŞILAŞTIRMA EKRANI ============ -->
+    <div class="compare-screen" id="compareScreen">
+
+      <div class="panel-card" style="margin-bottom:20px">
+        <div class="card-title" style="margin-bottom:16px">Hisseleri Karşılaştır</div>
+        <div class="compare-form">
+          <input type="text" id="cmpSymbol1" placeholder="1. Hisse (örn. THYAO)" autocomplete="off" />
+          <input type="text" id="cmpSymbol2" placeholder="2. Hisse (örn. PGSUS)" autocomplete="off" />
+          <input type="text" id="cmpSymbol3" placeholder="3. Hisse (opsiyonel)" autocomplete="off" />
+          <button id="cmpBtn">Karşılaştır</button>
+        </div>
+        <div class="search-error" id="cmpError" style="text-align:left;margin-top:10px"></div>
+      </div>
+
+      <div class="loading-screen" id="cmpLoading">
+        <div class="spinner"></div>
+        <span>VERİLER ÇEKİLİYOR...</span>
+      </div>
+
+      <div class="panel-card" id="cmpResultCard" style="display:none">
+        <div class="portfolio-table-wrap">
+          <table class="portfolio-table compare-table" id="compareTable"></table>
         </div>
       </div>
 
