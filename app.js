@@ -569,86 +569,81 @@ function computeValuationScore(f) {
 }
 
 // ==========================================================================
-// 6) GAUGE - SVG çizimi (düzeltilmiş, ibre dışarı taşmaz)
+// 6) GAUGE - SVG çizimi (tamamen yeniden yazıldı, ibre yay içinde kalır)
 // ==========================================================================
 function drawGauge(score, svgId = "gaugeSvg") {
   const svg = document.getElementById(svgId);
   svg.innerHTML = "";
-  const cx = 140, cy = 140, r = 100;
-  const startAngle = Math.PI;
-  const endAngle = 0;
-  const totalArc = startAngle - endAngle;
 
-  // Skoru 3-97 aralığına sıkıştır (ibre asla uçlara yapışmasın)
-  const clamped = Math.max(3, Math.min(97, score));
+  const w = 280, h = 160;
+  const cx = 140, cy = 135;     // merkez, yayın alt kısmında
+  const r = 105;                // yay çapı
+  const startAngle = Math.PI;   // 180° (sol)
+  const endAngle = 0;           // 0° (sağ)
+  const arcSpan = startAngle - endAngle; // 180°
+
+  // Skoru 2-98 aralığına sıkıştır (ibre asla uç noktalara gitmesin)
+  const clamped = Math.max(2, Math.min(98, score));
   const fraction = clamped / 100;
-  const angle = startAngle - totalArc * fraction;
+  const needleAngle = startAngle - arcSpan * fraction;
 
-  // Arka plan yayı
-  const segments = 50;
+  // --- Renkli arka plan yayı ---
+  const segments = 60;
+  const arcWidth = 16;
+  const innerR = r - arcWidth;
+
   for (let i = 0; i < segments; i++) {
-    const a1 = startAngle - totalArc * (i / segments);
-    const a2 = startAngle - totalArc * ((i + 1) / segments);
-    const x1 = cx + r * Math.cos(a1), y1 = cy - r * Math.sin(a1);
-    const x2 = cx + r * Math.cos(a2), y2 = cy - r * Math.sin(a2);
+    const a1 = startAngle - arcSpan * (i / segments);
+    const a2 = startAngle - arcSpan * ((i + 1) / segments);
     const t = i / segments;
     const color = t < 0.5
       ? lerpColor("#ff4757", "#d4af37", t / 0.5)
       : lerpColor("#d4af37", "#17c987", (t - 0.5) / 0.5);
+
+    const x1o = cx + r * Math.cos(a1), y1o = cy - r * Math.sin(a1);
+    const x2o = cx + r * Math.cos(a2), y2o = cy - r * Math.sin(a2);
+    const x1i = cx + innerR * Math.cos(a1), y1i = cy - innerR * Math.sin(a1);
+    const x2i = cx + innerR * Math.cos(a2), y2i = cy - innerR * Math.sin(a2);
+
     const path = document.createElementNS("http://www.w3.org/2000/svg", "path");
-    path.setAttribute("d", `M ${x1} ${y1} A ${r} ${r} 0 0 1 ${x2} ${y2}`);
-    path.setAttribute("stroke", color);
-    path.setAttribute("stroke-width", "14");
-    path.setAttribute("fill", "none");
-    path.setAttribute("stroke-linecap", "round");
+    path.setAttribute(
+      "d",
+      `M ${x1o} ${y1o} A ${r} ${r} 0 0 1 ${x2o} ${y2o} L ${x2i} ${y2i} A ${innerR} ${innerR} 0 0 0 ${x1i} ${y1i} Z`
+    );
+    path.setAttribute("fill", color);
+    path.setAttribute("opacity", "0.85");
     svg.appendChild(path);
   }
 
-  // İbre — yayın 20px içerisinde biter, asla dışarı taşmaz
-  const needleLen = r - 20;
-  const nx = cx + needleLen * Math.cos(angle);
-  const ny = cy - needleLen * Math.sin(angle);
+  // --- İbre (yayın içinde, dış sınırdan 22px içeride biter) ---
+  const needleLen = r - 22;
+  const nx = cx + needleLen * Math.cos(needleAngle);
+  const ny = cy - needleLen * Math.sin(needleAngle);
 
   const needle = document.createElementNS("http://www.w3.org/2000/svg", "line");
-  needle.setAttribute("x1", cx); needle.setAttribute("y1", cy);
-  needle.setAttribute("x2", nx); needle.setAttribute("y2", ny);
+  needle.setAttribute("x1", cx);
+  needle.setAttribute("y1", cy);
+  needle.setAttribute("x2", nx);
+  needle.setAttribute("y2", ny);
   needle.setAttribute("stroke", "#e6eaf0");
   needle.setAttribute("stroke-width", "3");
   needle.setAttribute("stroke-linecap", "round");
   svg.appendChild(needle);
 
-  // Merkez noktası
+  // --- Merkez noktası ---
   const hub = document.createElementNS("http://www.w3.org/2000/svg", "circle");
-  hub.setAttribute("cx", cx); hub.setAttribute("cy", cy); hub.setAttribute("r", "7");
+  hub.setAttribute("cx", cx);
+  hub.setAttribute("cy", cy);
+  hub.setAttribute("r", "8");
   hub.setAttribute("fill", "#e6eaf0");
   svg.appendChild(hub);
 
-  // Uç etiketleri
-  const labelStyle = { "font-family": "JetBrains Mono, monospace", "font-size": "10.5px", fill: "#4c5768" };
+  // --- Sol/sağ etiketleri ---
+  const lblStyle = { "font-family": "JetBrains Mono, monospace", "font-size": "10px", "fill": "#4c5768" };
   const leftLabel = svgId === "valueGaugeSvg" ? "PAHALI" : "SAT";
   const rightLabel = svgId === "valueGaugeSvg" ? "UCUZ" : "AL";
-  addSvgText(svg, cx - r - 4, cy + 18, leftLabel, labelStyle);
-  addSvgText(svg, cx + r - 14, cy + 18, rightLabel, labelStyle);
-}
-
-function addSvgText(svg, x, y, text, styles) {
-  const t = document.createElementNS("http://www.w3.org/2000/svg", "text");
-  t.setAttribute("x", x); t.setAttribute("y", y);
-  Object.entries(styles).forEach(([k, v]) => t.setAttribute(k, v));
-  t.textContent = text;
-  svg.appendChild(t);
-}
-
-function lerpColor(c1, c2, t) {
-  const p1 = hexToRgb(c1), p2 = hexToRgb(c2);
-  const r = Math.round(p1.r + (p2.r - p1.r) * t);
-  const g = Math.round(p1.g + (p2.g - p1.g) * t);
-  const b = Math.round(p1.b + (p2.b - p1.b) * t);
-  return `rgb(${r},${g},${b})`;
-}
-function hexToRgb(hex) {
-  const v = parseInt(hex.slice(1), 16);
-  return { r: (v >> 16) & 255, g: (v >> 8) & 255, b: v & 255 };
+  addSvgText(svg, cx - r - 2, cy + 6, leftLabel, { ...lblStyle, "text-anchor": "end" });
+  addSvgText(svg, cx + r + 2, cy + 6, rightLabel, { ...lblStyle, "text-anchor": "start" });
 }
 
 // ==========================================================================
