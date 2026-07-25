@@ -166,7 +166,7 @@ function drawGauge(score, svgId) {
   const svg = document.getElementById(svgId);
   svg.innerHTML = "";
   const cx = 140, cy = 140, r = 110, sa = Math.PI, ea = 0, span = sa - ea;
-  const clamped = Math.max(2, Math.min(98, score || 50));
+  const clamped = Math.max(2, Math.min(98, (score != null && !isNaN(score)) ? score : 50));
   const frac = clamped / 100;
   const angle = sa - span * frac;
   const segs = 40;
