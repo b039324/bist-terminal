@@ -155,7 +155,12 @@ function processChartData(r) {
 }
 function processFundamentals(raw) {
   const r = raw?.quoteSummary?.result?.[0] || {}, sd = r.summaryDetail || {}, dks = r.defaultKeyStatistics || {}, fd = r.financialData || {}, price = r.price || {};
-  const g = (o, k) => { const v = o?.[k]; if (v == null) return null; return (typeof v === "object" && "raw" in v) ? v.raw : v; };
+  const g = (o, k) => {
+    const v = o?.[k];
+    if (v == null) return null;
+    if (typeof v === "object") return ("raw" in v && v.raw != null) ? v.raw : null; // boş obje {} -> null
+    return v;
+  };
   return { companyName: price.longName || price.shortName || "—", marketCap: g(price, "marketCap"), trailingPE: g(sd, "trailingPE"), forwardPE: g(sd, "forwardPE"), priceToBook: g(dks, "priceToBook"), dividendYield: g(sd, "dividendYield"), beta: g(sd, "beta"), returnOnEquity: g(fd, "returnOnEquity"), profitMargins: g(dks, "profitMargins"), revenueGrowth: g(fd, "revenueGrowth"), recommendationMean: g(fd, "recommendationMean"), numberOfAnalysts: g(fd, "numberOfAnalystOpinions"), fiftyTwoWeekLow: g(sd, "fiftyTwoWeekLow"), fiftyTwoWeekHigh: g(sd, "fiftyTwoWeekHigh"), priceToSales: g(sd, "priceToSalesTrailing12Months"), targetMeanPrice: g(fd, "targetMeanPrice"), targetHighPrice: g(fd, "targetHighPrice"), targetLowPrice: g(fd, "targetLowPrice"), bookValue: g(dks, "bookValue") };
 }
 
@@ -203,7 +208,8 @@ function computeRecommendation(d, f) {
   if (d.ma50 != null && d.ma200 != null) { if (d.lastClose > d.ma50 && d.ma50 > d.ma200) { s += 18; fa.push(["Trend yükseliş", "+18"]); } else if (d.lastClose < d.ma50 && d.ma50 < d.ma200) { s -= 18; fa.push(["Trend düşüş", "-18"]); } else { fa.push(["Trend karışık", "0"]); } }
   if (d.macd != null && d.macdSignal != null) { if (d.macd > d.macdSignal) { s += 12; fa.push(["MACD pozitif", "+12"]); } else { s -= 12; fa.push(["MACD negatif", "-12"]); } }
   if (d.changes.yearly > 25) { s += 8; fa.push(["Yıllık momentum", "+8"]); } else if (d.changes.yearly < -25) { s -= 8; fa.push(["Yıllık momentum", "-8"]); }
-  if (f.recommendationMean != null) { const as = ((3 - f.recommendationMean) / 2) * 15; s += as; fa.push(["Analist ort.", (as >= 0 ? "+" : "") + fmtNum(as, 0)]); }
+  if (typeof f.recommendationMean === "number" && !isNaN(f.recommendationMean)) { const as = ((3 - f.recommendationMean) / 2) * 15; s += as; fa.push(["Analist ort.", (as >= 0 ? "+" : "") + fmtNum(as, 0)]); }
+  if (isNaN(s)) s = 50; // güvenlik ağı: hesaplamada NaN oluşursa nötr'e düş
   s = Math.max(0, Math.min(100, s));
   let lb, cl; if (s >= 80) { lb = "GÜÇLÜ AL"; cl = "strong-buy"; } else if (s >= 60) { lb = "AL"; cl = "buy"; } else if (s >= 40) { lb = "NÖTR"; cl = "neutral"; } else if (s >= 20) { lb = "SAT"; cl = "sell"; } else { lb = "GÜÇLÜ SAT"; cl = "strong-sell"; }
   return { score: s, label: lb, cls: cl, factors: fa };
@@ -214,6 +220,7 @@ function computeValuationScore(f) {
   if (f.priceToBook != null && f.priceToBook > 0) { if (f.priceToBook < 1) { s += 15; fa.push(["PD/DD düşük", "+15"]); } else if (f.priceToBook < 2) { s += 5; fa.push(["PD/DD makul", "+5"]); } else if (f.priceToBook <= 4) { fa.push(["PD/DD normal", "0"]); } else if (f.priceToBook <= 7) { s -= 12; fa.push(["PD/DD yüksek", "-12"]); } else { s -= 20; fa.push(["PD/DD aşırı", "-20"]); } }
   if (f.priceToSales != null && f.priceToSales > 0) { if (f.priceToSales < 1) { s += 10; fa.push(["PD/Satış düşük", "+10"]); } else if (f.priceToSales <= 3) { fa.push(["PD/Satış normal", "0"]); } else if (f.priceToSales <= 6) { s -= 10; fa.push(["PD/Satış yüksek", "-10"]); } else { s -= 15; fa.push(["PD/Satış aşırı", "-15"]); } }
   if (f.forwardPE != null && f.trailingPE != null && f.trailingPE > 0 && f.forwardPE > 0) { if (f.forwardPE < f.trailingPE * 0.8) { s += 8; fa.push(["Kâr artışı", "+8"]); } else if (f.forwardPE > f.trailingPE * 1.2) { s -= 8; fa.push(["Kâr düşüşü", "-8"]); } }
+  if (isNaN(s)) s = 50; // güvenlik ağı: hesaplamada NaN oluşursa nötr'e düş
   s = Math.max(0, Math.min(100, s));
   let lb, cl; if (s >= 80) { lb = "UCUZ"; cl = "strong-buy"; } else if (s >= 60) { lb = "MAKUL"; cl = "buy"; } else if (s >= 40) { lb = "NÖTR"; cl = "neutral"; } else if (s >= 20) { lb = "PAHALI"; cl = "sell"; } else { lb = "AŞIRI PAHALI"; cl = "strong-sell"; }
   return { score: s, label: lb, cls: cl, factors: fa };
