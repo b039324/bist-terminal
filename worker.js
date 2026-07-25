@@ -210,7 +210,7 @@ export default {
           "earnings",
         ].join(",");
         const res = await yahooFetch(
-          `https://query2.finance.yahoo.com/v10/finance/quoteSummary/${yahooSymbol}?modules=${modules}`
+          `https://query2.finance.yahoo.com/v10/finance/quoteSummary/${yahooSymbol}?modules=${modules}&formatted=false&corsDomain=finance.yahoo.com`
         );
         const text = await res.text();
         if (!res.ok) {
