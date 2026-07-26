@@ -617,7 +617,13 @@ async function runCompare() {
   const syms = [cmpSymbol1.value, cmpSymbol2.value, cmpSymbol3.value].map((v) => v.toUpperCase().trim().replace(/[^A-Z0-9]/g, "")).filter(Boolean);
   if (syms.length < 2) { cmpError.textContent = "En az 2 hisse gir."; return; }
   cmpResultCard.style.display = "none"; cmpLoading.classList.add("active");
-  try { const results = await Promise.all(syms.map((s) => fetchFullData(s))); renderCompareTable(results); renderCompareChart(results); cmpLoading.classList.remove("active"); cmpResultCard.style.display = "block"; } catch (err) { cmpLoading.classList.remove("active"); cmpError.textContent = err.message; }
+  try {
+    const results = await Promise.all(syms.map((s) => fetchFullData(s)));
+    renderCompareTable(results);
+    cmpLoading.classList.remove("active");
+    cmpResultCard.style.display = "block"; // ÖNCE görünür yap...
+    renderCompareChart(results); // ...SONRA grafiği çiz (aksi halde container 0 genişlik ölçer)
+  } catch (err) { cmpLoading.classList.remove("active"); cmpError.textContent = err.message; }
 }
 function buildMetricRow(label, results, getValue, formatter, higherIsBetter) {
   const vals = results.map((r) => getValue(r)), valid = vals.filter((v) => v != null && !isNaN(v));
@@ -930,13 +936,22 @@ function renderGaugeDistribution(results) {
     { label: "SAT", cls: "sell", color: "#ff8a94" },
     { label: "GÜÇLÜ SAT", cls: "strong-sell", color: "#ff4757" },
   ];
-  const counts = bands.map((b) => results.filter((r) => r.rec.label === b.label).length);
-  const maxCount = Math.max(1, ...counts);
+  const groups = bands.map((b) => results.filter((r) => r.rec.label === b.label));
+  const maxCount = Math.max(1, ...groups.map((g) => g.length));
 
-  gaugeDistRow.innerHTML = bands.map((b, i) => `
-    <div class="dist-row">
-      <div class="dist-label">${b.label}</div>
-      <div class="dist-bar-wrap"><div class="dist-bar" style="width:${(counts[i] / maxCount) * 100}%; background:${b.color}"></div></div>
-      <div class="dist-count">${counts[i]}</div>
-    </div>`).join("");
+  gaugeDistRow.innerHTML = bands.map((b, i) => {
+    const symbolsHtml = groups[i]
+      .sort((a, b2) => b2.rec.score - a.rec.score)
+      .map((r) => `<span class="dist-symbol clickable-symbol" onclick="goToStock('${r.symbol}')">${r.symbol}</span>`)
+      .join("");
+    return `
+    <div class="dist-row-wrap">
+      <div class="dist-row" onclick="this.nextElementSibling.classList.toggle('open')">
+        <div class="dist-label">${b.label}</div>
+        <div class="dist-bar-wrap"><div class="dist-bar" style="width:${(groups[i].length / maxCount) * 100}%; background:${b.color}"></div></div>
+        <div class="dist-count">${groups[i].length}</div>
+      </div>
+      <div class="dist-symbols">${symbolsHtml || '<span class="sub-note">Bu bantta hisse yok.</span>'}</div>
+    </div>`;
+  }).join("");
 }
