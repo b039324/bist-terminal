@@ -803,3 +803,24 @@ footer.data-source {
 }
 .compare-table td.symbol-cell { font-size: 15px; }
 .compare-table .best-value { color: var(--gold); font-weight: 700; }
+
+/* ---------- Trendler ekranı ---------- */
+.trends-screen {
+  display: none;
+  max-width: 1180px;
+  margin: 0 auto;
+  padding: 24px 24px 60px;
+}
+.trends-screen.active { display: block; }
+.sub-note { color: var(--text-faint); font-size: 12.5px; }
+.primary-btn {
+  background: var(--gold);
+  color: #0a0d12;
+  border: none;
+  padding: 10px 22px;
+  border-radius: 7px;
+  font-weight: 600;
+  font-size: 13px;
+}
+.primary-btn:hover { opacity: 0.88; }
+.primary-btn:disabled { opacity: 0.5; cursor: not-allowed; }
