@@ -56,6 +56,21 @@ const trendsResults = document.getElementById("trendsResults");
 const trendsGainersTable = document.getElementById("trendsGainersTable");
 const trendsLosersTable = document.getElementById("trendsLosersTable");
 const trendsVolumeTable = document.getElementById("trendsVolumeTable");
+const trends52HighTable = document.getElementById("trends52HighTable");
+const trends52HighEmpty = document.getElementById("trends52HighEmpty");
+const trends52LowTable = document.getElementById("trends52LowTable");
+const trends52LowEmpty = document.getElementById("trends52LowEmpty");
+const deepScanBtn = document.getElementById("deepScanBtn");
+const deepScanError = document.getElementById("deepScanError");
+const deepScanLoading = document.getElementById("deepScanLoading");
+const deepScanLoadingText = document.getElementById("deepScanLoadingText");
+const deepScanResults = document.getElementById("deepScanResults");
+const deepScanMcapTable = document.getElementById("deepScanMcapTable");
+const gaugeDistRow = document.getElementById("gaugeDistRow");
+const detailToggleBtn = document.getElementById("detailToggleBtn");
+const realizedSummary = document.getElementById("realizedSummary");
+const realizedTableBody = document.getElementById("realizedTableBody");
+const realizedEmpty = document.getElementById("realizedEmpty");
 const pulseRow = document.getElementById("pulseRow");
 const heatmapGrid = document.getElementById("heatmapGrid");
 const cmpSymbol1 = document.getElementById("cmpSymbol1");
@@ -65,10 +80,12 @@ const cmpBtn = document.getElementById("cmpBtn");
 const cmpError = document.getElementById("cmpError");
 const cmpLoading = document.getElementById("cmpLoading");
 const cmpResultCard = document.getElementById("cmpResultCard");
+const cmpChartEl = document.getElementById("cmpChart");
 const compareTable = document.getElementById("compareTable");
 
 let priceChartApi = null, volumeChartApi = null, candleSeries = null, volumeSeries = null;
 let fullChartData = null, currentSymbol = null;
+let cmpChartApi = null;
 
 // ==========================================================================
 // 0) PWA
@@ -385,6 +402,9 @@ async function kvPost(key, body) { const r = await fetch(WORKER_URL + "/api/" + 
 // ==========================================================================
 async function loadPortfolio() { try { return await kvGet("portfolio"); } catch (e) { return []; } }
 async function savePortfolio(p) { await kvPost("portfolio", { positions: p }); }
+async function loadRealized() { try { return await kvGet("realized"); } catch (e) { return []; } }
+async function saveRealized(items) { await kvPost("realized", { items }); }
+
 posAddBtn.addEventListener("click", addPosition);
 [posSymbol, posQty, posCost].forEach((el) => el.addEventListener("keydown", (e) => { if (e.key === "Enter") addPosition(); }));
 async function addPosition() {
@@ -401,6 +421,65 @@ async function addPosition() {
   } catch (e) { posError.textContent = "Kaydedilemedi: " + e.message; }
 }
 async function removePosition(sym) { await savePortfolio((await loadPortfolio()).filter((p) => p.symbol !== sym)); renderPortfolio(); }
+
+// Bir pozisyonun bir kısmını (veya tamamını) "sat" — realize edilmiş K/Z geçmişine kaydeder,
+// kalan adedi günceller (0'a düşerse pozisyonu tamamen kaldırır).
+async function sellPosition(symbol, currentPrice) {
+  const pos = await loadPortfolio();
+  const p = pos.find((x) => x.symbol === symbol);
+  if (!p) return;
+
+  const qtyStr = window.prompt(`${symbol} — kaç adet satmak istiyorsun? (Elindeki: ${p.qty})`, p.qty);
+  if (qtyStr == null) return;
+  const qty = parseFloat(qtyStr);
+  if (!qty || qty <= 0 || qty > p.qty) { alert("Geçersiz adet."); return; }
+
+  const priceStr = window.prompt(`${symbol} — satış fiyatını (₺) gir:`, currentPrice != null ? currentPrice.toFixed(2) : "");
+  if (priceStr == null) return;
+  const sellPrice = parseFloat(priceStr);
+  if (!sellPrice || sellPrice <= 0) { alert("Geçersiz fiyat."); return; }
+
+  const realizedPnL = qty * (sellPrice - p.cost);
+  const realizedPct = p.cost ? ((sellPrice - p.cost) / p.cost) * 100 : 0;
+
+  const realized = await loadRealized();
+  realized.push({ symbol, qty, buyCost: p.cost, sellPrice, date: Date.now(), realizedPnL, realizedPct });
+  await saveRealized(realized);
+
+  p.qty -= qty;
+  const newPositions = p.qty <= 0.0001 ? pos.filter((x) => x.symbol !== symbol) : pos;
+  await savePortfolio(newPositions);
+
+  renderPortfolio();
+  renderRealized();
+}
+
+function renderRealized() {
+  loadRealized().then((items) => {
+    realizedEmpty.classList.toggle("visible", items.length === 0);
+    if (items.length === 0) { realizedTableBody.innerHTML = ""; realizedSummary.innerHTML = ""; return; }
+
+    const sorted = [...items].sort((a, b) => b.date - a.date);
+    realizedTableBody.innerHTML = sorted.map((r, idx) => {
+      const origIdx = items.indexOf(r);
+      return '<tr><td class="symbol-cell clickable-symbol" onclick="goToStock(\'' + r.symbol + '\')">' + r.symbol + '</td><td>' + fmtNum(r.qty, 0) + '</td><td>' + fmtTL(r.buyCost) + '</td><td>' + fmtTL(r.sellPrice) + '</td><td>' + fmtDate(r.date) + '</td><td class="' + changeClass(r.realizedPnL) + '">' + (r.realizedPnL >= 0 ? "+" : "") + fmtTL(r.realizedPnL) + '</td><td class="' + changeClass(r.realizedPct) + '">' + fmtPct(r.realizedPct) + '</td><td><button class="remove-btn" data-idx="' + origIdx + '">Sil</button></td></tr>';
+    }).join("");
+
+    realizedTableBody.querySelectorAll(".remove-btn").forEach((b) => b.addEventListener("click", async () => {
+      const idx = parseInt(b.dataset.idx, 10);
+      const current = await loadRealized();
+      current.splice(idx, 1);
+      await saveRealized(current);
+      renderRealized();
+    }));
+
+    const totalPnL = items.reduce((s, r) => s + r.realizedPnL, 0);
+    const totalCost = items.reduce((s, r) => s + r.qty * r.buyCost, 0);
+    const totalPct = totalCost ? (totalPnL / totalCost) * 100 : 0;
+    realizedSummary.innerHTML = '<div class="summary-card"><div class="summary-label">Toplam Realize K/Z</div><div class="summary-value ' + changeClass(totalPnL) + '">' + (totalPnL >= 0 ? "+" : "") + fmtTL(totalPnL) + '</div></div><div class="summary-card"><div class="summary-label">Realize Getiri %</div><div class="summary-value ' + changeClass(totalPct) + '">' + fmtPct(totalPct) + '</div></div><div class="summary-card"><div class="summary-label">İşlem Sayısı</div><div class="summary-value">' + items.length + '</div></div>';
+  });
+}
+
 async function fetchQuickPrice(sym) {
   const r = await fetchJSON(WORKER_URL + "/api/chart?symbol=" + sym + "&pass=" + encodeURIComponent(getPass()) + "&range=5d&interval=1d");
   if (r.error) throw new Error(r.error);
@@ -410,24 +489,61 @@ async function fetchQuickPrice(sym) {
   const prev = closes[closes.length - 2] ?? price;
   return { price, dailyChangePct: prev ? ((price - prev) / prev) * 100 : 0 };
 }
+
+// "Detaylı Görünüm" — açıksa her pozisyon için tam veri (AL/SAT skoru dahil) çeker.
+// Kapalıyken hafif (sadece fiyat) sorgu kullanılır, portföy ekranı hızlı kalır.
+let portfolioDetailMode = false;
+detailToggleBtn.addEventListener("click", () => {
+  portfolioDetailMode = !portfolioDetailMode;
+  detailToggleBtn.textContent = portfolioDetailMode ? "− Basit Görünüme Dön" : "+ Detaylı Görünüm (AL/SAT Skoru)";
+  renderPortfolio();
+});
+
 async function renderPortfolio() {
   const pos = await loadPortfolio();
   portfolioEmpty.classList.toggle("visible", pos.length === 0);
   portfolioTableBody.innerHTML = portfolioSummary.innerHTML = ""; donutSvg.innerHTML = donutLegend.innerHTML = "";
+
+  const headEl = document.getElementById("portfolioTableHead");
+  headEl.innerHTML = portfolioDetailMode
+    ? "<tr><th>Hisse</th><th>Adet</th><th>Maliyet</th><th>Güncel</th><th>Değer</th><th>K/Z (TL)</th><th>K/Z (%)</th><th>AL/SAT</th><th></th></tr>"
+    : "<tr><th>Hisse</th><th>Adet</th><th>Maliyet</th><th>Güncel</th><th>Değer</th><th>K/Z (TL)</th><th>K/Z (%)</th><th></th></tr>";
+
+  renderRealized();
   if (pos.length === 0) return;
-  portfolioTableBody.innerHTML = pos.map((p) => '<tr><td class="symbol-cell clickable-symbol" onclick="goToStock(\'' + p.symbol + '\')">' + p.symbol + '</td><td colspan="6" style="color:var(--text-faint)">Yükleniyor...</td></tr>').join("");
-  const results = await Promise.allSettled(pos.map((p) => fetchQuickPrice(p.symbol)));
+
+  const colspanEmpty = portfolioDetailMode ? 7 : 6;
+  portfolioTableBody.innerHTML = pos.map((p) => '<tr><td class="symbol-cell clickable-symbol" onclick="goToStock(\'' + p.symbol + '\')">' + p.symbol + '</td><td colspan="' + colspanEmpty + '" style="color:var(--text-faint)">Yükleniyor...</td></tr>').join("");
+
+  const results = await Promise.allSettled(pos.map((p) => (portfolioDetailMode ? fetchFullData(p.symbol) : fetchQuickPrice(p.symbol))));
   let tc = 0, tv = 0, tdc = 0; const rows = [], alloc = [];
+
   pos.forEach((p, i) => {
     const cv = p.qty * p.cost; tc += cv; const r = results[i];
     if (r.status === "fulfilled") {
-      const { price, dailyChangePct } = r.value, val = p.qty * price, gain = val - cv, gp = cv ? (gain / cv) * 100 : 0;
+      const price = portfolioDetailMode ? r.value.d.lastClose : r.value.price;
+      const dailyChangePct = portfolioDetailMode ? r.value.d.changes.daily : r.value.dailyChangePct;
+      const val = p.qty * price, gain = val - cv, gp = cv ? (gain / cv) * 100 : 0;
       tv += val; tdc += val - val / (1 + dailyChangePct / 100); alloc.push({ symbol: p.symbol, value: val });
-      rows.push('<tr><td class="symbol-cell clickable-symbol" onclick="goToStock(\'' + p.symbol + '\')">' + p.symbol + "</td><td>" + fmtNum(p.qty, 0) + "</td><td>" + fmtTL(p.cost) + "</td><td>" + fmtTL(price) + "</td><td>" + fmtTL(val) + '</td><td class="' + changeClass(gain) + '">' + (gain >= 0 ? "+" : "") + fmtTL(gain) + '</td><td class="' + changeClass(gp) + '">' + fmtPct(gp) + '</td><td><button class="remove-btn" data-symbol="' + p.symbol + '">Sil</button></td></tr>');
-    } else { tv += cv; rows.push('<tr><td class="symbol-cell clickable-symbol" onclick="goToStock(\'' + p.symbol + '\')">' + p.symbol + "</td><td>" + fmtNum(p.qty, 0) + "</td><td>" + fmtTL(p.cost) + '</td><td colspan="4" style="color:var(--down)">Veri alınamadı</td><td><button class="remove-btn" data-symbol="' + p.symbol + '">Sil</button></td></tr>'); }
+
+      let detailCell = "";
+      if (portfolioDetailMode) {
+        const rec = r.value.rec;
+        detailCell = '<td class="' + rec.cls + '" style="font-weight:700">' + rec.label + '</td>';
+      }
+
+      rows.push('<tr><td class="symbol-cell clickable-symbol" onclick="goToStock(\'' + p.symbol + '\')">' + p.symbol + "</td><td>" + fmtNum(p.qty, 0) + "</td><td>" + fmtTL(p.cost) + "</td><td>" + fmtTL(price) + "</td><td>" + fmtTL(val) + '</td><td class="' + changeClass(gain) + '">' + (gain >= 0 ? "+" : "") + fmtTL(gain) + '</td><td class="' + changeClass(gp) + '">' + fmtPct(gp) + "</td>" + detailCell + '<td><button class="sell-btn" data-symbol="' + p.symbol + '" data-price="' + price + '">Sat</button><button class="remove-btn" data-symbol="' + p.symbol + '">Sil</button></td></tr>');
+    } else {
+      tv += cv;
+      const errColspan = portfolioDetailMode ? 5 : 4;
+      rows.push('<tr><td class="symbol-cell clickable-symbol" onclick="goToStock(\'' + p.symbol + '\')">' + p.symbol + "</td><td>" + fmtNum(p.qty, 0) + "</td><td>" + fmtTL(p.cost) + '</td><td colspan="' + errColspan + '" style="color:var(--down)">Veri alınamadı</td><td><button class="remove-btn" data-symbol="' + p.symbol + '">Sil</button></td></tr>');
+    }
   });
+
   portfolioTableBody.innerHTML = rows.join("");
   portfolioTableBody.querySelectorAll(".remove-btn").forEach((b) => b.addEventListener("click", () => removePosition(b.dataset.symbol)));
+  portfolioTableBody.querySelectorAll(".sell-btn").forEach((b) => b.addEventListener("click", () => sellPosition(b.dataset.symbol, parseFloat(b.dataset.price))));
+
   const tg = tv - tc, tgp = tc ? (tg / tc) * 100 : 0;
   portfolioSummary.innerHTML = '<div class="summary-card"><div class="summary-label">Toplam Değer</div><div class="summary-value">' + fmtTL(tv) + '</div></div><div class="summary-card"><div class="summary-label">Toplam Maliyet</div><div class="summary-value">' + fmtTL(tc) + '</div></div><div class="summary-card"><div class="summary-label">Kâr/Zarar</div><div class="summary-value ' + changeClass(tg) + '">' + (tg >= 0 ? "+" : "") + fmtTL(tg) + " (" + fmtPct(tgp) + ')</div></div><div class="summary-card"><div class="summary-label">Bugünkü Değişim</div><div class="summary-value ' + changeClass(tdc) + '">' + (tdc >= 0 ? "+" : "") + fmtTL(tdc) + " (" + fmtPct(tv ? (tdc / (tv - tdc)) * 100 : 0) + ")</div></div>";
   drawDonut(alloc, tv);
@@ -501,7 +617,7 @@ async function runCompare() {
   const syms = [cmpSymbol1.value, cmpSymbol2.value, cmpSymbol3.value].map((v) => v.toUpperCase().trim().replace(/[^A-Z0-9]/g, "")).filter(Boolean);
   if (syms.length < 2) { cmpError.textContent = "En az 2 hisse gir."; return; }
   cmpResultCard.style.display = "none"; cmpLoading.classList.add("active");
-  try { const results = await Promise.all(syms.map((s) => fetchFullData(s))); renderCompareTable(results); cmpLoading.classList.remove("active"); cmpResultCard.style.display = "block"; } catch (err) { cmpLoading.classList.remove("active"); cmpError.textContent = err.message; }
+  try { const results = await Promise.all(syms.map((s) => fetchFullData(s))); renderCompareTable(results); renderCompareChart(results); cmpLoading.classList.remove("active"); cmpResultCard.style.display = "block"; } catch (err) { cmpLoading.classList.remove("active"); cmpError.textContent = err.message; }
 }
 function buildMetricRow(label, results, getValue, formatter, higherIsBetter) {
   const vals = results.map((r) => getValue(r)), valid = vals.filter((v) => v != null && !isNaN(v));
@@ -527,6 +643,32 @@ function renderCompareTable(results) {
   rows.push("<tr><td>AL/SAT</td>" + results.map((r) => '<td class="' + (r.rec.score === bestRec ? "best-value" : "") + '">' + fmtNum(r.rec.score, 0) + " (" + r.rec.label + ")</td>").join("") + "</tr>");
   rows.push("<tr><td>Değerleme</td>" + results.map((r) => '<td class="' + (r.val.score === bestVal ? "best-value" : "") + '">' + fmtNum(r.val.score, 0) + " (" + r.val.label + ")</td>").join("") + "</tr>");
   compareTable.innerHTML = "<thead>" + hdr + "</thead><tbody>" + rows.join("") + "</tbody>";
+}
+
+// Normalize edilmiş (yüzdesel) performans grafiği — her hissenin serinin ilk gününe göre
+// % değişimini üst üste çizer. Zaten çekilmiş olan 1 yıllık veriyi kullanır, ek istek atmaz.
+function renderCompareChart(results) {
+  cmpChartEl.innerHTML = "";
+  if (cmpChartApi) { cmpChartApi.remove(); cmpChartApi = null; }
+
+  cmpChartApi = LightweightCharts.createChart(cmpChartEl, {
+    height: 320,
+    layout: { background: { color: "transparent" }, textColor: "#7d8a9c", fontFamily: "JetBrains Mono, monospace" },
+    grid: { vertLines: { color: "#1a1f29" }, horzLines: { color: "#1a1f29" } },
+    timeScale: { borderColor: "#232a36" },
+    rightPriceScale: { borderColor: "#232a36" },
+  });
+
+  const colors = ["#d4af37", "#4098d7", "#17c987", "#ff4757"];
+  results.forEach((r, i) => {
+    const candles = r.d.candles;
+    if (!candles || candles.length === 0) return;
+    const firstClose = candles[0].close;
+    const series = cmpChartApi.addLineSeries({ color: colors[i % colors.length], lineWidth: 2, title: r.symbol });
+    series.setData(candles.map((c) => ({ time: c.time, value: firstClose ? ((c.close - firstClose) / firstClose) * 100 : 0 })));
+  });
+
+  cmpChartApi.timeScale().fitContent();
 }
 
 // ==========================================================================
@@ -566,7 +708,11 @@ async function fetchTrendPoint(symbol) {
   const price = meta.regularMarketPrice != null ? meta.regularMarketPrice : closes[closes.length - 1];
   const prevClose = closes[closes.length - 2] ?? price;
   const changePct = prevClose ? ((price - prevClose) / prevClose) * 100 : 0;
-  return { symbol, price, changePct, volumeTL: lastVolume * price };
+  return {
+    symbol, price, changePct, volumeTL: lastVolume * price,
+    week52High: meta.fiftyTwoWeekHigh ?? null,
+    week52Low: meta.fiftyTwoWeekLow ?? null,
+  };
 }
 
 // Çok sayıda isteği tek seferde Yahoo'ya patlatmamak için küçük gruplar halinde işliyoruz
@@ -605,6 +751,7 @@ async function runTrendsScan() {
     renderTrendsTable(trendsVolumeTable, byVolume, true, true);
     renderMarketPulse(points);
     renderHeatmap(points);
+    render52WeekBreakouts(points);
 
     trendsLoading.classList.remove("active");
     trendsResults.style.display = "block";
@@ -684,4 +831,112 @@ function renderHeatmap(points) {
       </div>`;
     })
     .join("");
+}
+
+// 52 hafta zirvesine/dibine yakın veya kıran hisseler — aynı hafif taramanın verisini kullanır (ek istek yok)
+function render52WeekBreakouts(points) {
+  const withHigh = points.filter((p) => p.week52High && p.week52High > 0);
+  const withLow = points.filter((p) => p.week52Low && p.week52Low > 0);
+
+  const nearHigh = withHigh
+    .map((p) => ({ ...p, ratio: p.price / p.week52High }))
+    .filter((p) => p.ratio >= 0.97)
+    .sort((a, b) => b.ratio - a.ratio)
+    .slice(0, TRENDS_TOP_N);
+
+  const nearLow = withLow
+    .map((p) => ({ ...p, ratio: p.price / p.week52Low }))
+    .filter((p) => p.ratio <= 1.03)
+    .sort((a, b) => a.ratio - b.ratio)
+    .slice(0, TRENDS_TOP_N);
+
+  trends52HighEmpty.classList.toggle("visible", nearHigh.length === 0);
+  trends52LowEmpty.classList.toggle("visible", nearLow.length === 0);
+
+  trends52HighTable.innerHTML = nearHigh.length === 0 ? "" :
+    "<thead><tr><th>Hisse</th><th>Fiyat</th><th>52H Yüksek</th><th>Fark</th></tr></thead><tbody>" +
+    nearHigh.map((p) => {
+      const diff = (p.ratio - 1) * 100;
+      const tag = p.price >= p.week52High ? ' <span class="status-tag buy">Yeni Zirve!</span>' : "";
+      return `<tr><td class="symbol-cell clickable-symbol" onclick="goToStock('${p.symbol}')">${p.symbol}${tag}</td><td>${fmtTL(p.price)}</td><td>${fmtTL(p.week52High)}</td><td class="${changeClass(diff)}">${fmtPct(diff)}</td></tr>`;
+    }).join("") + "</tbody>";
+
+  trends52LowTable.innerHTML = nearLow.length === 0 ? "" :
+    "<thead><tr><th>Hisse</th><th>Fiyat</th><th>52H Düşük</th><th>Fark</th></tr></thead><tbody>" +
+    nearLow.map((p) => {
+      const diff = (p.ratio - 1) * 100;
+      const tag = p.price <= p.week52Low ? ' <span class="status-tag sell">Yeni Dip!</span>' : "";
+      return `<tr><td class="symbol-cell clickable-symbol" onclick="goToStock('${p.symbol}')">${p.symbol}${tag}</td><td>${fmtTL(p.price)}</td><td>${fmtTL(p.week52Low)}</td><td class="${changeClass(diff)}">${fmtPct(diff)}</td></tr>`;
+    }).join("") + "</tbody>";
+}
+
+// ==========================================================================
+// 14) DETAYLI TARA (opsiyonel, ağır) — Piyasa Değeri Bazlı Sıralama + AL/SAT Skor Dağılımı
+// fetchFullData'yı (Karşılaştırma ekranıyla aynı fonksiyon) BIST 100'ün tamamına uygular.
+// Normal Trendler taramasından çok daha ağırdır, bu yüzden ayrı ve opsiyonel bir buton.
+// ==========================================================================
+deepScanBtn.addEventListener("click", runDeepScan);
+
+async function runDeepScan() {
+  deepScanError.textContent = "";
+  deepScanResults.style.display = "none";
+  deepScanBtn.disabled = true;
+  deepScanLoading.classList.add("active");
+  deepScanLoadingText.textContent = `DETAYLI TARANIYOR... (0 / ${BIST100_SYMBOLS.length})`;
+
+  try {
+    const settled = await fetchInBatches(BIST100_SYMBOLS, 5, fetchFullData, (done, total) => {
+      deepScanLoadingText.textContent = `DETAYLI TARANIYOR... (${done} / ${total})`;
+    });
+
+    const results = settled.filter((r) => r.status === "fulfilled").map((r) => r.value);
+    if (results.length === 0) throw new Error("Hiçbir hisse verisi alınamadı.");
+
+    renderDeepScanMcap(results);
+    renderGaugeDistribution(results);
+
+    deepScanLoading.classList.remove("active");
+    deepScanResults.style.display = "block";
+
+    const failedCount = settled.length - results.length;
+    if (failedCount > 0) {
+      deepScanError.textContent = `${failedCount} hisse için veri alınamadı (atlandı), ${results.length} hisse başarıyla tarandı.`;
+    }
+  } catch (err) {
+    deepScanLoading.classList.remove("active");
+    deepScanError.textContent = err.message || "Detaylı tarama sırasında bir hata oluştu.";
+  } finally {
+    deepScanBtn.disabled = false;
+  }
+}
+
+function renderDeepScanMcap(results) {
+  const withMcap = results.filter((r) => r.f.marketCap != null && r.f.marketCap > 0);
+  const ranked = withMcap
+    .map((r) => ({ symbol: r.symbol, marketCap: r.f.marketCap, changePct: r.d.changes.daily, valueChangeTL: r.f.marketCap * (r.d.changes.daily / 100) }))
+    .sort((a, b) => b.valueChangeTL - a.valueChangeTL)
+    .slice(0, TRENDS_TOP_N);
+
+  deepScanMcapTable.innerHTML = "<thead><tr><th>Hisse</th><th>Piyasa Değeri</th><th>Günlük %</th><th>Tahmini Değer Artışı</th></tr></thead><tbody>" +
+    ranked.map((r) => `<tr><td class="symbol-cell clickable-symbol" onclick="goToStock('${r.symbol}')">${r.symbol}</td><td>${fmtCompactTL(r.marketCap)}</td><td class="${changeClass(r.changePct)}">${fmtPct(r.changePct)}</td><td class="${changeClass(r.valueChangeTL)}">${r.valueChangeTL >= 0 ? "+" : ""}${fmtCompactTL(r.valueChangeTL)}</td></tr>`).join("") +
+    "</tbody>";
+}
+
+function renderGaugeDistribution(results) {
+  const bands = [
+    { label: "GÜÇLÜ AL", cls: "strong-buy", color: "#17c987" },
+    { label: "AL", cls: "buy", color: "#5fd9a8" },
+    { label: "NÖTR", cls: "neutral", color: "#7d8a9c" },
+    { label: "SAT", cls: "sell", color: "#ff8a94" },
+    { label: "GÜÇLÜ SAT", cls: "strong-sell", color: "#ff4757" },
+  ];
+  const counts = bands.map((b) => results.filter((r) => r.rec.label === b.label).length);
+  const maxCount = Math.max(1, ...counts);
+
+  gaugeDistRow.innerHTML = bands.map((b, i) => `
+    <div class="dist-row">
+      <div class="dist-label">${b.label}</div>
+      <div class="dist-bar-wrap"><div class="dist-bar" style="width:${(counts[i] / maxCount) * 100}%; background:${b.color}"></div></div>
+      <div class="dist-count">${counts[i]}</div>
+    </div>`).join("");
 }
