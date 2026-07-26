@@ -56,6 +56,8 @@ const trendsResults = document.getElementById("trendsResults");
 const trendsGainersTable = document.getElementById("trendsGainersTable");
 const trendsLosersTable = document.getElementById("trendsLosersTable");
 const trendsVolumeTable = document.getElementById("trendsVolumeTable");
+const pulseRow = document.getElementById("pulseRow");
+const heatmapGrid = document.getElementById("heatmapGrid");
 const cmpSymbol1 = document.getElementById("cmpSymbol1");
 const cmpSymbol2 = document.getElementById("cmpSymbol2");
 const cmpSymbol3 = document.getElementById("cmpSymbol3");
@@ -594,6 +596,8 @@ async function runTrendsScan() {
     renderTrendsTable(trendsGainersTable, gainers, true);
     renderTrendsTable(trendsLosersTable, losers, true);
     renderTrendsTable(trendsVolumeTable, byVolume, true, true);
+    renderMarketPulse(points);
+    renderHeatmap(points);
 
     trendsLoading.classList.remove("active");
     trendsResults.style.display = "block";
@@ -627,4 +631,50 @@ function renderTrendsTable(tableEl, list, showChange, showVolume) {
   });
 
   tableEl.innerHTML = head + `<tbody>${rows.join("")}</tbody>`;
+}
+
+// ==========================================================================
+// 13) PİYASA NABZI + ISI HARİTASI — Trendler taramasındaki AYNI veriyi kullanır,
+// ekstra istek atmaz.
+// ==========================================================================
+function renderMarketPulse(points) {
+  const up = points.filter((p) => p.changePct > 0.05).length;
+  const down = points.filter((p) => p.changePct < -0.05).length;
+  const flat = points.length - up - down;
+  const avgChange = points.reduce((s, p) => s + p.changePct, 0) / points.length;
+
+  const upPct = (up / points.length) * 100;
+  const downPct = (down / points.length) * 100;
+  const flatPct = 100 - upPct - downPct;
+
+  pulseRow.innerHTML = `
+    <div class="pulse-stat up"><div class="pulse-num">${up}</div><div class="pulse-label">Yükselen</div></div>
+    <div class="pulse-stat down"><div class="pulse-num">${down}</div><div class="pulse-label">Düşen</div></div>
+    <div class="pulse-stat flat"><div class="pulse-num">${flat}</div><div class="pulse-label">Sabit</div></div>
+    <div class="pulse-stat ${changeClass(avgChange)}"><div class="pulse-num">${fmtPct(avgChange)}</div><div class="pulse-label">Ortalama Değişim</div></div>
+    <div class="pulse-bar">
+      <div style="width:${upPct}%; background:var(--up)"></div>
+      <div style="width:${flatPct}%; background:var(--text-faint)"></div>
+      <div style="width:${downPct}%; background:var(--down)"></div>
+    </div>
+  `;
+}
+
+function renderHeatmap(points) {
+  // Değişime göre büyükten küçüğe sıralayıp ısı haritasını daha okunaklı hale getiriyoruz
+  const sorted = [...points].sort((a, b) => b.changePct - a.changePct);
+  const maxAbs = Math.max(1, ...sorted.map((p) => Math.abs(p.changePct)));
+
+  heatmapGrid.innerHTML = sorted
+    .map((p) => {
+      const intensity = Math.min(1, Math.abs(p.changePct) / maxAbs);
+      const color = p.changePct >= 0
+        ? lerpColor("#1a2e28", "#17c987", intensity)
+        : lerpColor("#2e1a1e", "#ff4757", intensity);
+      return `<div class="heatmap-cell" style="background:${color}" title="${p.symbol}: ${fmtPct(p.changePct)}">
+        <div class="hc-symbol">${p.symbol}</div>
+        <div class="hc-change">${fmtPct(p.changePct, 1)}</div>
+      </div>`;
+    })
+    .join("");
 }
