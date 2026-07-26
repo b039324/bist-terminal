@@ -278,6 +278,12 @@
       </div>
 
       <div id="trendsResults" style="display:none">
+        <!-- Piyasa Nabzı -->
+        <div class="panel-card" style="margin-bottom:20px">
+          <div class="card-title" style="margin-bottom:16px">Piyasa Nabzı (BIST 100)</div>
+          <div class="pulse-row" id="pulseRow"></div>
+        </div>
+
         <div class="two-col-grid" style="grid-template-columns: 1fr 1fr; margin-bottom:20px;">
           <div class="panel-card">
             <div class="card-title" style="margin-bottom:16px">🟢 En Çok Yükselen 5</div>
@@ -292,11 +298,18 @@
             </div>
           </div>
         </div>
-        <div class="panel-card">
+        <div class="panel-card" style="margin-bottom:20px">
           <div class="card-title" style="margin-bottom:16px">📊 En Yüksek Hacimli 5 (TL)</div>
           <div class="portfolio-table-wrap">
             <table class="portfolio-table" id="trendsVolumeTable"></table>
           </div>
+        </div>
+
+        <!-- Isı Haritası -->
+        <div class="panel-card">
+          <div class="card-title" style="margin-bottom:4px">BIST 100 Isı Haritası</div>
+          <div class="sub-note" style="margin-bottom:14px">Günlük değişime göre — her kutu bir hisse</div>
+          <div class="heatmap-grid" id="heatmapGrid"></div>
         </div>
       </div>
 
