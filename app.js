@@ -120,6 +120,13 @@ function showTrendsNav() { setActiveNav(navTrendsBtn); searchScreen.classList.ad
 function showCompareNav() { setActiveNav(navCompareBtn); searchScreen.classList.add("hidden"); hideAllScreens(); compareScreen.classList.add("active"); }
 navSearchBtn.addEventListener("click", showSearchNav); navPortfolioBtn.addEventListener("click", showPortfolioNav); navWatchlistBtn.addEventListener("click", showWatchlistNav); navTrendsBtn.addEventListener("click", showTrendsNav); navCompareBtn.addEventListener("click", showCompareNav);
 
+// Portföy, Takip, Trendler ve Isı Haritası'ndaki hisse isimlerine tıklayınca
+// o hisseyi arayıp sonuç ekranına götürür — mevcut arama akışını aynen kullanır.
+function goToStock(symbol) {
+  showSearchNav();
+  runSearch(symbol);
+}
+
 // ==========================================================================
 // 4) ARAMA
 // ==========================================================================
@@ -408,7 +415,7 @@ async function renderPortfolio() {
   portfolioEmpty.classList.toggle("visible", pos.length === 0);
   portfolioTableBody.innerHTML = portfolioSummary.innerHTML = ""; donutSvg.innerHTML = donutLegend.innerHTML = "";
   if (pos.length === 0) return;
-  portfolioTableBody.innerHTML = pos.map((p) => '<tr><td class="symbol-cell">' + p.symbol + '</td><td colspan="6" style="color:var(--text-faint)">Yükleniyor...</td></tr>').join("");
+  portfolioTableBody.innerHTML = pos.map((p) => '<tr><td class="symbol-cell clickable-symbol" onclick="goToStock(\'' + p.symbol + '\')">' + p.symbol + '</td><td colspan="6" style="color:var(--text-faint)">Yükleniyor...</td></tr>').join("");
   const results = await Promise.allSettled(pos.map((p) => fetchQuickPrice(p.symbol)));
   let tc = 0, tv = 0, tdc = 0; const rows = [], alloc = [];
   pos.forEach((p, i) => {
@@ -416,8 +423,8 @@ async function renderPortfolio() {
     if (r.status === "fulfilled") {
       const { price, dailyChangePct } = r.value, val = p.qty * price, gain = val - cv, gp = cv ? (gain / cv) * 100 : 0;
       tv += val; tdc += val - val / (1 + dailyChangePct / 100); alloc.push({ symbol: p.symbol, value: val });
-      rows.push('<tr><td class="symbol-cell">' + p.symbol + "</td><td>" + fmtNum(p.qty, 0) + "</td><td>" + fmtTL(p.cost) + "</td><td>" + fmtTL(price) + "</td><td>" + fmtTL(val) + '</td><td class="' + changeClass(gain) + '">' + (gain >= 0 ? "+" : "") + fmtTL(gain) + '</td><td class="' + changeClass(gp) + '">' + fmtPct(gp) + '</td><td><button class="remove-btn" data-symbol="' + p.symbol + '">Sil</button></td></tr>');
-    } else { tv += cv; rows.push('<tr><td class="symbol-cell">' + p.symbol + "</td><td>" + fmtNum(p.qty, 0) + "</td><td>" + fmtTL(p.cost) + '</td><td colspan="4" style="color:var(--down)">Veri alınamadı</td><td><button class="remove-btn" data-symbol="' + p.symbol + '">Sil</button></td></tr>'); }
+      rows.push('<tr><td class="symbol-cell clickable-symbol" onclick="goToStock(\'' + p.symbol + '\')">' + p.symbol + "</td><td>" + fmtNum(p.qty, 0) + "</td><td>" + fmtTL(p.cost) + "</td><td>" + fmtTL(price) + "</td><td>" + fmtTL(val) + '</td><td class="' + changeClass(gain) + '">' + (gain >= 0 ? "+" : "") + fmtTL(gain) + '</td><td class="' + changeClass(gp) + '">' + fmtPct(gp) + '</td><td><button class="remove-btn" data-symbol="' + p.symbol + '">Sil</button></td></tr>');
+    } else { tv += cv; rows.push('<tr><td class="symbol-cell clickable-symbol" onclick="goToStock(\'' + p.symbol + '\')">' + p.symbol + "</td><td>" + fmtNum(p.qty, 0) + "</td><td>" + fmtTL(p.cost) + '</td><td colspan="4" style="color:var(--down)">Veri alınamadı</td><td><button class="remove-btn" data-symbol="' + p.symbol + '">Sil</button></td></tr>'); }
   });
   portfolioTableBody.innerHTML = rows.join("");
   portfolioTableBody.querySelectorAll(".remove-btn").forEach((b) => b.addEventListener("click", () => removePosition(b.dataset.symbol)));
@@ -470,8 +477,8 @@ async function renderWatchlist() {
   const results = await Promise.allSettled(items.map((i) => fetchQuickPrice(i.symbol)));
   watchlistTableBody.innerHTML = items.map((item, idx) => {
     const r = results[idx];
-    if (r.status === "fulfilled") { const { price, dailyChangePct } = r.value; const ap = item.addedPrice ? ((price - item.addedPrice) / item.addedPrice) * 100 : null; return '<tr><td class="symbol-cell">' + item.symbol + "</td><td>" + fmtTL(price) + '</td><td class="' + changeClass(dailyChangePct) + '">' + fmtPct(dailyChangePct) + "</td><td>" + fmtDate(item.addedAt) + "</td><td>" + fmtTL(item.addedPrice) + '</td><td class="' + changeClass(ap) + '">' + (ap != null ? fmtPct(ap) : "—") + '</td><td><button class="remove-btn" data-symbol="' + item.symbol + '">Çıkar</button></td></tr>'; }
-    return '<tr><td class="symbol-cell">' + item.symbol + '</td><td colspan="5" style="color:var(--down)">Veri alınamadı</td><td><button class="remove-btn" data-symbol="' + item.symbol + '">Çıkar</button></td></tr>';
+    if (r.status === "fulfilled") { const { price, dailyChangePct } = r.value; const ap = item.addedPrice ? ((price - item.addedPrice) / item.addedPrice) * 100 : null; return '<tr><td class="symbol-cell clickable-symbol" onclick="goToStock(\'' + item.symbol + '\')">' + item.symbol + "</td><td>" + fmtTL(price) + '</td><td class="' + changeClass(dailyChangePct) + '">' + fmtPct(dailyChangePct) + "</td><td>" + fmtDate(item.addedAt) + "</td><td>" + fmtTL(item.addedPrice) + '</td><td class="' + changeClass(ap) + '">' + (ap != null ? fmtPct(ap) : "—") + '</td><td><button class="remove-btn" data-symbol="' + item.symbol + '">Çıkar</button></td></tr>'; }
+    return '<tr><td class="symbol-cell clickable-symbol" onclick="goToStock(\'' + item.symbol + '\')">' + item.symbol + '</td><td colspan="5" style="color:var(--down)">Veri alınamadı</td><td><button class="remove-btn" data-symbol="' + item.symbol + '">Çıkar</button></td></tr>';
   }).join("");
   watchlistTableBody.querySelectorAll(".remove-btn").forEach((b) => b.addEventListener("click", () => removeWatchlistItem(b.dataset.symbol)));
 }
@@ -502,7 +509,7 @@ function buildMetricRow(label, results, getValue, formatter, higherIsBetter) {
   return "<tr><td>" + label + "</td>" + vals.map((v) => '<td class="' + (best != null && v === best ? "best-value" : "") + '">' + formatter(v) + "</td>").join("") + "</tr>";
 }
 function renderCompareTable(results) {
-  const hdr = "<tr><th>Metrik</th>" + results.map((r) => '<th class="symbol-cell">' + r.symbol + "</th>").join("") + "</tr>";
+  const hdr = "<tr><th>Metrik</th>" + results.map((r) => '<th class="symbol-cell clickable-symbol" onclick="goToStock(\'' + r.symbol + '\')">' + r.symbol + "</th>").join("") + "</tr>";
   const rows = [
     buildMetricRow("Fiyat", results, (r) => r.d.lastClose, (v) => fmtTL(v), true),
     buildMetricRow("Günlük %", results, (r) => r.d.changes.daily, (v) => fmtPct(v), true),
@@ -622,7 +629,7 @@ function renderTrendsTable(tableEl, list, showChange, showVolume) {
 
   const rows = list.map((p) => {
     const cells = [
-      `<td class="symbol-cell">${p.symbol}</td>`,
+      `<td class="symbol-cell clickable-symbol" onclick="goToStock('${p.symbol}')">${p.symbol}</td>`,
       `<td>${fmtTL(p.price)}</td>`,
     ];
     if (showChange) cells.push(`<td class="${changeClass(p.changePct)}">${fmtPct(p.changePct)}</td>`);
@@ -671,7 +678,7 @@ function renderHeatmap(points) {
       const color = p.changePct >= 0
         ? lerpColor("#1a2e28", "#17c987", intensity)
         : lerpColor("#2e1a1e", "#ff4757", intensity);
-      return `<div class="heatmap-cell" style="background:${color}" title="${p.symbol}: ${fmtPct(p.changePct)}">
+      return `<div class="heatmap-cell" style="background:${color}" title="${p.symbol}: ${fmtPct(p.changePct)}" onclick="goToStock('${p.symbol}')">
         <div class="hc-symbol">${p.symbol}</div>
         <div class="hc-change">${fmtPct(p.changePct, 1)}</div>
       </div>`;
