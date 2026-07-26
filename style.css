@@ -824,3 +824,50 @@ footer.data-source {
 }
 .primary-btn:hover { opacity: 0.88; }
 .primary-btn:disabled { opacity: 0.5; cursor: not-allowed; }
+
+/* ---------- Piyasa Nabzı ---------- */
+.pulse-row {
+  display: flex;
+  gap: 14px;
+  flex-wrap: wrap;
+}
+.pulse-stat {
+  flex: 1;
+  min-width: 120px;
+  background: var(--panel-2);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  padding: 14px 16px;
+  text-align: center;
+}
+.pulse-stat .pulse-num { font-family: var(--font-mono); font-size: 24px; font-weight: 700; }
+.pulse-stat .pulse-label { font-size: 11px; color: var(--text-faint); text-transform: uppercase; letter-spacing: 0.05em; margin-top: 4px; }
+.pulse-stat.up .pulse-num { color: var(--up); }
+.pulse-stat.down .pulse-num { color: var(--down); }
+.pulse-stat.flat .pulse-num { color: var(--text-dim); }
+.pulse-bar {
+  flex-basis: 100%;
+  height: 10px;
+  border-radius: 5px;
+  overflow: hidden;
+  display: flex;
+  margin-top: 4px;
+}
+.pulse-bar div { height: 100%; }
+
+/* ---------- Isı Haritası ---------- */
+.heatmap-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(78px, 1fr));
+  gap: 5px;
+}
+.heatmap-cell {
+  border-radius: 6px;
+  padding: 8px 4px;
+  text-align: center;
+  cursor: pointer;
+  transition: transform .1s;
+}
+.heatmap-cell:hover { transform: scale(1.06); z-index: 2; }
+.heatmap-cell .hc-symbol { font-family: var(--font-display); font-weight: 700; font-size: 11.5px; color: #0a0d12; }
+.heatmap-cell .hc-change { font-family: var(--font-mono); font-size: 10.5px; color: #0a0d12; opacity: 0.85; margin-top: 2px; }
