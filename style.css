@@ -906,3 +906,21 @@ footer.data-source {
 .gauge-dist .dist-bar-wrap { flex: 1; background: var(--panel-2); border-radius: 4px; height: 16px; overflow: hidden; }
 .gauge-dist .dist-bar { height: 100%; border-radius: 4px; }
 .gauge-dist .dist-count { width: 28px; text-align: right; font-family: var(--font-mono); color: var(--text-dim); }
+.gauge-dist .dist-row { cursor: pointer; }
+.gauge-dist .dist-row:hover .dist-label { color: var(--gold); }
+.gauge-dist .dist-symbols {
+  display: none;
+  flex-wrap: wrap;
+  gap: 6px;
+  padding: 8px 0 8px 100px;
+}
+.gauge-dist .dist-symbols.open { display: flex; }
+.gauge-dist .dist-symbol {
+  font-family: var(--font-mono);
+  font-size: 11px;
+  background: var(--panel-2);
+  border: 1px solid var(--border);
+  border-radius: 5px;
+  padding: 3px 8px;
+}
+.gauge-dist .dist-symbol:hover { border-color: var(--gold); color: var(--gold); }
