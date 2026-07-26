@@ -171,6 +171,37 @@ export default {
     }
 
     // =====================================================================
+    // REALİZE EDİLMİŞ K/Z GEÇMİŞİ (satış işlemleri, KV tabanlı)
+    // =====================================================================
+    if (url.pathname === "/api/realized") {
+      if (!env.PORTFOLIO_KV) {
+        return json({ error: "KV veritabanı Worker'a bağlanmamış." }, 500);
+      }
+
+      if (request.method === "GET") {
+        try {
+          const raw = await env.PORTFOLIO_KV.get("realized");
+          return json(raw ? JSON.parse(raw) : []);
+        } catch (e) {
+          return json({ error: "Realize geçmişi okunamadı.", detail: String(e) }, 500);
+        }
+      }
+
+      if (request.method === "POST") {
+        try {
+          const body = await request.json();
+          const items = body.items || [];
+          await env.PORTFOLIO_KV.put("realized", JSON.stringify(items));
+          return json({ ok: true });
+        } catch (e) {
+          return json({ error: "Realize geçmişi kaydedilemedi.", detail: String(e) }, 500);
+        }
+      }
+
+      return json({ error: "Desteklenmeyen metod." }, 405);
+    }
+
+    // =====================================================================
     // YAHOO FINANCE API'leri
     // =====================================================================
 
