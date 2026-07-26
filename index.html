@@ -205,10 +205,11 @@
 
       <div class="two-col-grid" style="grid-template-columns: 1.6fr 1fr;">
         <div class="panel-card">
-          <div class="card-title" style="margin-bottom:16px">Pozisyonlar</div>
+          <div class="card-title" style="margin-bottom:8px">Pozisyonlar</div>
+          <button id="detailToggleBtn" class="ghost-btn" style="margin-bottom:12px">+ Detaylı Görünüm (AL/SAT Skoru)</button>
           <div class="portfolio-table-wrap">
             <table class="portfolio-table" id="portfolioTable">
-              <thead>
+              <thead id="portfolioTableHead">
                 <tr>
                   <th>Hisse</th><th>Adet</th><th>Maliyet</th><th>Güncel</th>
                   <th>Değer</th><th>K/Z (TL)</th><th>K/Z (%)</th><th></th>
@@ -227,6 +228,20 @@
           </div>
           <div id="donutLegend" class="donut-legend"></div>
         </div>
+      </div>
+
+      <!-- Realize Edilmiş K/Z -->
+      <div class="panel-card" style="margin-top:20px">
+        <div class="card-title" style="margin-bottom:6px">Realize Edilmiş Kâr/Zarar</div>
+        <div class="sub-note" style="margin-bottom:14px">Sattığın pozisyonlardan gerçekleşen kâr/zarar geçmişi</div>
+        <div class="portfolio-summary" id="realizedSummary" style="margin-bottom:16px"></div>
+        <div class="portfolio-table-wrap">
+          <table class="portfolio-table" id="realizedTable">
+            <thead><tr><th>Hisse</th><th>Adet</th><th>Alış</th><th>Satış</th><th>Tarih</th><th>Gerç. K/Z (TL)</th><th>Gerç. K/Z (%)</th><th></th></tr></thead>
+            <tbody id="realizedTableBody"></tbody>
+          </table>
+        </div>
+        <div id="realizedEmpty" class="portfolio-empty">Henüz satış işlemi yok.</div>
       </div>
 
       <footer class="data-source">Portföy verileri bulutta saklanır — tüm cihazlarında erişebilirsin.</footer>
@@ -305,11 +320,60 @@
           </div>
         </div>
 
+        <!-- 52 Hafta Zirve/Dip Kıranlar -->
+        <div class="two-col-grid" style="grid-template-columns: 1fr 1fr; margin-bottom:20px;">
+          <div class="panel-card">
+            <div class="card-title" style="margin-bottom:16px">🚀 52 Hafta Zirvesine Yakın/Kıranlar</div>
+            <div class="portfolio-table-wrap">
+              <table class="portfolio-table" id="trends52HighTable"></table>
+            </div>
+            <div id="trends52HighEmpty" class="portfolio-empty">Şu an zirveye yakın hisse yok.</div>
+          </div>
+          <div class="panel-card">
+            <div class="card-title" style="margin-bottom:16px">📉 52 Hafta Dibine Yakın/Kıranlar</div>
+            <div class="portfolio-table-wrap">
+              <table class="portfolio-table" id="trends52LowTable"></table>
+            </div>
+            <div id="trends52LowEmpty" class="portfolio-empty">Şu an dibe yakın hisse yok.</div>
+          </div>
+        </div>
+
         <!-- Isı Haritası -->
-        <div class="panel-card">
+        <div class="panel-card" style="margin-bottom:20px">
           <div class="card-title" style="margin-bottom:4px">BIST 100 Isı Haritası</div>
           <div class="sub-note" style="margin-bottom:14px">Günlük değişime göre — her kutu bir hisse</div>
           <div class="heatmap-grid" id="heatmapGrid"></div>
+        </div>
+
+        <!-- Detaylı Tara (opsiyonel, daha ağır) -->
+        <div class="panel-card">
+          <div class="card-title" style="margin-bottom:6px">Detaylı Analiz (Opsiyonel)</div>
+          <div class="sub-note" style="margin-bottom:14px">
+            Piyasa değeri bazlı sıralama ve AL/SAT skor dağılımı için her hissenin tam verisini çeker —
+            bu yüzden normal taramadan daha uzun sürer (yaklaşık 30-60 saniye).
+          </div>
+          <button id="deepScanBtn" class="ghost-btn">Detaylı Tara</button>
+          <div class="search-error" id="deepScanError" style="margin-top:10px"></div>
+
+          <div class="loading-screen" id="deepScanLoading">
+            <div class="spinner"></div>
+            <span id="deepScanLoadingText">DETAYLI TARANIYOR...</span>
+          </div>
+
+          <div id="deepScanResults" style="display:none; margin-top:16px">
+            <div class="two-col-grid" style="grid-template-columns: 1.3fr 1fr;">
+              <div>
+                <div class="card-title" style="margin-bottom:16px">💰 Piyasa Değeri Bazlı En Çok Kazandıran 5</div>
+                <div class="portfolio-table-wrap">
+                  <table class="portfolio-table" id="deepScanMcapTable"></table>
+                </div>
+              </div>
+              <div>
+                <div class="card-title" style="margin-bottom:16px">AL/SAT Skor Dağılımı</div>
+                <div class="gauge-dist" id="gaugeDistRow"></div>
+              </div>
+            </div>
+          </div>
         </div>
       </div>
 
@@ -336,6 +400,8 @@
       </div>
 
       <div class="panel-card" id="cmpResultCard" style="display:none">
+        <div class="card-title" style="margin-bottom:16px">Normalize Edilmiş Performans (Son 1 Yıl)</div>
+        <div id="cmpChart" style="height:320px; margin-bottom:24px;"></div>
         <div class="portfolio-table-wrap">
           <table class="portfolio-table compare-table" id="compareTable"></table>
         </div>
