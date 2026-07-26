@@ -129,7 +129,7 @@ tryEnterApp();
 // 3) NAVİGASYON
 // ==========================================================================
 function setActiveNav(b) { [navSearchBtn, navPortfolioBtn, navWatchlistBtn, navTrendsBtn, navCompareBtn].forEach((x) => x.classList.remove("active")); b.classList.add("active"); }
-function hideAllScreens() { portfolioScreen.classList.remove("active"); watchlistScreen.classList.remove("active"); trendsScreen.classList.remove("active"); compareScreen.classList.remove("active"); resultScreen.classList.remove("active"); loadingScreen.classList.remove("active"); }
+function hideAllScreens() { window.scrollTo({ top: 0, behavior: "instant" }); portfolioScreen.classList.remove("active"); watchlistScreen.classList.remove("active"); trendsScreen.classList.remove("active"); compareScreen.classList.remove("active"); resultScreen.classList.remove("active"); loadingScreen.classList.remove("active"); }
 function showSearchNav() { setActiveNav(navSearchBtn); portfolioScreen.classList.remove("active"); watchlistScreen.classList.remove("active"); trendsScreen.classList.remove("active"); compareScreen.classList.remove("active"); searchScreen.classList.remove("hidden"); }
 function showPortfolioNav() { setActiveNav(navPortfolioBtn); searchScreen.classList.add("hidden"); hideAllScreens(); portfolioScreen.classList.add("active"); renderPortfolio(); }
 function showWatchlistNav() { setActiveNav(navWatchlistBtn); searchScreen.classList.add("hidden"); hideAllScreens(); watchlistScreen.classList.add("active"); renderWatchlist(); }
@@ -140,6 +140,7 @@ navSearchBtn.addEventListener("click", showSearchNav); navPortfolioBtn.addEventL
 // Portföy, Takip, Trendler ve Isı Haritası'ndaki hisse isimlerine tıklayınca
 // o hisseyi arayıp sonuç ekranına götürür — mevcut arama akışını aynen kullanır.
 function goToStock(symbol) {
+  window.scrollTo({ top: 0, behavior: "instant" });
   showSearchNav();
   runSearch(symbol);
 }
