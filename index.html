@@ -39,6 +39,7 @@
         <button class="nav-btn active" id="navSearchBtn">Ara</button>
         <button class="nav-btn" id="navPortfolioBtn">Portföy</button>
         <button class="nav-btn" id="navWatchlistBtn">Takip</button>
+        <button class="nav-btn" id="navTrendsBtn">Trendler</button>
         <button class="nav-btn" id="navCompareBtn">Karşılaştır</button>
         <button class="logout-btn" id="logoutBtn">Çıkış</button>
       </div>
@@ -259,6 +260,47 @@
       </div>
 
       <footer class="data-source">Takip listesi bulutta saklanır — tüm cihazlarında erişebilirsin.</footer>
+    </div>
+
+    <!-- ============ TRENDLER EKRANI ============ -->
+    <div class="trends-screen" id="trendsScreen">
+
+      <div class="panel-card" style="margin-bottom:20px">
+        <div class="card-title" style="margin-bottom:6px">BIST 100 Trendleri</div>
+        <div class="sub-note" style="margin-bottom:14px">Günlük değişim ve hacme göre öne çıkan hisseler</div>
+        <button id="trendsRefreshBtn" class="primary-btn">Tara / Yenile</button>
+        <div class="search-error" id="trendsError" style="margin-top:10px"></div>
+      </div>
+
+      <div class="loading-screen" id="trendsLoading">
+        <div class="spinner"></div>
+        <span id="trendsLoadingText">TARANIYOR...</span>
+      </div>
+
+      <div id="trendsResults" style="display:none">
+        <div class="two-col-grid" style="grid-template-columns: 1fr 1fr; margin-bottom:20px;">
+          <div class="panel-card">
+            <div class="card-title" style="margin-bottom:16px">🟢 En Çok Yükselen 5</div>
+            <div class="portfolio-table-wrap">
+              <table class="portfolio-table" id="trendsGainersTable"></table>
+            </div>
+          </div>
+          <div class="panel-card">
+            <div class="card-title" style="margin-bottom:16px">🔴 En Çok Düşen 5</div>
+            <div class="portfolio-table-wrap">
+              <table class="portfolio-table" id="trendsLosersTable"></table>
+            </div>
+          </div>
+        </div>
+        <div class="panel-card">
+          <div class="card-title" style="margin-bottom:16px">📊 En Yüksek Hacimli 5 (TL)</div>
+          <div class="portfolio-table-wrap">
+            <table class="portfolio-table" id="trendsVolumeTable"></table>
+          </div>
+        </div>
+      </div>
+
+      <footer class="data-source">BIST 100 listesi periyodik değişebilir · Veri kaynağı: Yahoo Finance</footer>
     </div>
 
     <!-- ============ KARŞILAŞTIRMA EKRANI ============ -->
