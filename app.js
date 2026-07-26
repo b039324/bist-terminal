@@ -25,6 +25,7 @@ const watchlistToggleBtn = document.getElementById("watchlistToggleBtn");
 const navSearchBtn = document.getElementById("navSearchBtn");
 const navPortfolioBtn = document.getElementById("navPortfolioBtn");
 const navWatchlistBtn = document.getElementById("navWatchlistBtn");
+const navTrendsBtn = document.getElementById("navTrendsBtn");
 const navCompareBtn = document.getElementById("navCompareBtn");
 const portfolioScreen = document.getElementById("portfolioScreen");
 const posSymbol = document.getElementById("posSymbol");
@@ -46,6 +47,15 @@ const watchlistTableBody = document.getElementById("watchlistTableBody");
 const watchlistEmpty = document.getElementById("watchlistEmpty");
 
 const compareScreen = document.getElementById("compareScreen");
+const trendsScreen = document.getElementById("trendsScreen");
+const trendsRefreshBtn = document.getElementById("trendsRefreshBtn");
+const trendsError = document.getElementById("trendsError");
+const trendsLoading = document.getElementById("trendsLoading");
+const trendsLoadingText = document.getElementById("trendsLoadingText");
+const trendsResults = document.getElementById("trendsResults");
+const trendsGainersTable = document.getElementById("trendsGainersTable");
+const trendsLosersTable = document.getElementById("trendsLosersTable");
+const trendsVolumeTable = document.getElementById("trendsVolumeTable");
 const cmpSymbol1 = document.getElementById("cmpSymbol1");
 const cmpSymbol2 = document.getElementById("cmpSymbol2");
 const cmpSymbol3 = document.getElementById("cmpSymbol3");
@@ -99,12 +109,14 @@ tryEnterApp();
 // ==========================================================================
 // 3) NAVİGASYON
 // ==========================================================================
-function setActiveNav(b) { [navSearchBtn, navPortfolioBtn, navWatchlistBtn, navCompareBtn].forEach((x) => x.classList.remove("active")); b.classList.add("active"); }
-function showSearchNav() { setActiveNav(navSearchBtn); portfolioScreen.classList.remove("active"); watchlistScreen.classList.remove("active"); compareScreen.classList.remove("active"); searchScreen.classList.remove("hidden"); }
-function showPortfolioNav() { setActiveNav(navPortfolioBtn); searchScreen.classList.add("hidden"); resultScreen.classList.remove("active"); loadingScreen.classList.remove("active"); watchlistScreen.classList.remove("active"); compareScreen.classList.remove("active"); portfolioScreen.classList.add("active"); renderPortfolio(); }
-function showWatchlistNav() { setActiveNav(navWatchlistBtn); searchScreen.classList.add("hidden"); resultScreen.classList.remove("active"); loadingScreen.classList.remove("active"); portfolioScreen.classList.remove("active"); compareScreen.classList.remove("active"); watchlistScreen.classList.add("active"); renderWatchlist(); }
-function showCompareNav() { setActiveNav(navCompareBtn); searchScreen.classList.add("hidden"); resultScreen.classList.remove("active"); loadingScreen.classList.remove("active"); portfolioScreen.classList.remove("active"); watchlistScreen.classList.remove("active"); compareScreen.classList.add("active"); }
-navSearchBtn.addEventListener("click", showSearchNav); navPortfolioBtn.addEventListener("click", showPortfolioNav); navWatchlistBtn.addEventListener("click", showWatchlistNav); navCompareBtn.addEventListener("click", showCompareNav);
+function setActiveNav(b) { [navSearchBtn, navPortfolioBtn, navWatchlistBtn, navTrendsBtn, navCompareBtn].forEach((x) => x.classList.remove("active")); b.classList.add("active"); }
+function hideAllScreens() { portfolioScreen.classList.remove("active"); watchlistScreen.classList.remove("active"); trendsScreen.classList.remove("active"); compareScreen.classList.remove("active"); resultScreen.classList.remove("active"); loadingScreen.classList.remove("active"); }
+function showSearchNav() { setActiveNav(navSearchBtn); portfolioScreen.classList.remove("active"); watchlistScreen.classList.remove("active"); trendsScreen.classList.remove("active"); compareScreen.classList.remove("active"); searchScreen.classList.remove("hidden"); }
+function showPortfolioNav() { setActiveNav(navPortfolioBtn); searchScreen.classList.add("hidden"); hideAllScreens(); portfolioScreen.classList.add("active"); renderPortfolio(); }
+function showWatchlistNav() { setActiveNav(navWatchlistBtn); searchScreen.classList.add("hidden"); hideAllScreens(); watchlistScreen.classList.add("active"); renderWatchlist(); }
+function showTrendsNav() { setActiveNav(navTrendsBtn); searchScreen.classList.add("hidden"); hideAllScreens(); trendsScreen.classList.add("active"); }
+function showCompareNav() { setActiveNav(navCompareBtn); searchScreen.classList.add("hidden"); hideAllScreens(); compareScreen.classList.add("active"); }
+navSearchBtn.addEventListener("click", showSearchNav); navPortfolioBtn.addEventListener("click", showPortfolioNav); navWatchlistBtn.addEventListener("click", showWatchlistNav); navTrendsBtn.addEventListener("click", showTrendsNav); navCompareBtn.addEventListener("click", showCompareNav);
 
 // ==========================================================================
 // 4) ARAMA
@@ -204,8 +216,28 @@ function drawGauge(score, svgId) {
 // ==========================================================================
 function computeRecommendation(d, f) {
   let s = 50; const fa = [];
-  if (d.rsi != null) { if (d.rsi < 30) { s += 20; fa.push(["RSI aşırı satım", "+20"]); } else if (d.rsi < 45) { s += 8; fa.push(["RSI zayıf", "+8"]); } else if (d.rsi <= 55) { fa.push(["RSI nötr", "0"]); } else if (d.rsi <= 70) { s -= 8; fa.push(["RSI güçlü", "-8"]); } else { s -= 20; fa.push(["RSI aşırı alım", "-20"]); } }
-  if (d.ma50 != null && d.ma200 != null) { if (d.lastClose > d.ma50 && d.ma50 > d.ma200) { s += 18; fa.push(["Trend yükseliş", "+18"]); } else if (d.lastClose < d.ma50 && d.ma50 < d.ma200) { s -= 18; fa.push(["Trend düşüş", "-18"]); } else { fa.push(["Trend karışık", "0"]); } }
+
+  // Trend yönünü önce belirliyoruz (RSI mantığını buna göre ayarlayacağız)
+  const trendUp = d.ma50 != null && d.ma200 != null && d.lastClose > d.ma50 && d.ma50 > d.ma200;
+  const trendDown = d.ma50 != null && d.ma200 != null && d.lastClose < d.ma50 && d.ma50 < d.ma200;
+
+  // RSI: ağırlık ±20'den ±10'a düşürüldü. Ayrıca trend-duyarlı hale getirildi:
+  // düşüş trendinde "aşırı satım" bonusu sınırlanır (düşen bıçağı tutma riski),
+  // yükseliş trendinde "aşırı alım" cezası sınırlanır (güçlü trend RSI'de uzun süre kalabilir).
+  if (d.rsi != null) {
+    if (d.rsi < 30) {
+      if (trendDown) { s += 3; fa.push(["RSI aşırı satım (düşüş trendinde, sınırlı)", "+3"]); }
+      else { s += 10; fa.push(["RSI aşırı satım", "+10"]); }
+    } else if (d.rsi < 45) { s += 4; fa.push(["RSI zayıf", "+4"]); }
+    else if (d.rsi <= 55) { fa.push(["RSI nötr", "0"]); }
+    else if (d.rsi <= 70) { s -= 4; fa.push(["RSI güçlü", "-4"]); }
+    else {
+      if (trendUp) { s -= 3; fa.push(["RSI aşırı alım (yükseliş trendinde, sınırlı)", "-3"]); }
+      else { s -= 10; fa.push(["RSI aşırı alım", "-10"]); }
+    }
+  }
+
+  if (d.ma50 != null && d.ma200 != null) { if (trendUp) { s += 18; fa.push(["Trend yükseliş", "+18"]); } else if (trendDown) { s -= 18; fa.push(["Trend düşüş", "-18"]); } else { fa.push(["Trend karışık", "0"]); } }
   if (d.macd != null && d.macdSignal != null) { if (d.macd > d.macdSignal) { s += 12; fa.push(["MACD pozitif", "+12"]); } else { s -= 12; fa.push(["MACD negatif", "-12"]); } }
   if (d.changes.yearly > 25) { s += 8; fa.push(["Yıllık momentum", "+8"]); } else if (d.changes.yearly < -25) { s -= 8; fa.push(["Yıllık momentum", "-8"]); }
   if (typeof f.recommendationMean === "number" && !isNaN(f.recommendationMean)) { const as = ((3 - f.recommendationMean) / 2) * 15; s += as; fa.push(["Analist ort.", (as >= 0 ? "+" : "") + fmtNum(as, 0)]); }
@@ -486,4 +518,113 @@ function renderCompareTable(results) {
   rows.push("<tr><td>AL/SAT</td>" + results.map((r) => '<td class="' + (r.rec.score === bestRec ? "best-value" : "") + '">' + fmtNum(r.rec.score, 0) + " (" + r.rec.label + ")</td>").join("") + "</tr>");
   rows.push("<tr><td>Değerleme</td>" + results.map((r) => '<td class="' + (r.val.score === bestVal ? "best-value" : "") + '">' + fmtNum(r.val.score, 0) + " (" + r.val.label + ")</td>").join("") + "</tr>");
   compareTable.innerHTML = "<thead>" + hdr + "</thead><tbody>" + rows.join("") + "</tbody>";
+}
+
+// ==========================================================================
+// 12) TRENDLER — BIST 100 içinde en çok yükselen / düşen / en yüksek hacimli 5 hisse
+// ==========================================================================
+// NOT: BIST 100 endeks içeriği 3 ayda bir (Ocak-Mart, Nisan-Haziran, Temmuz-Eylül,
+// Ekim-Aralık dönemleri başında) güncellenir. Bu listeyi arada bir kontrol edip
+// güncellemek gerekebilir (kaynak: Borsa İstanbul / KAP duyuruları).
+const BIST100_SYMBOLS = [
+  "AGHOL","AGROT","AHGAZ","AKBNK","AKSA","AKSEN","ALARK","ALFAS","ALTNY","ANSGR",
+  "AEFES","ANHYT","ARCLK","ARDYZ","ASELS","ASTOR","AVPGY","BTCIM","BSOKE","BERA",
+  "BIMAS","BRSAN","BRYAT","CCOLA","CWENE","CANTE","CLEBI","CIMSA","DOHOL","DOAS",
+  "EFORC","EGEEN","ECILC","EKGYO","ENJSA","ENERY","ENKAI","EREGL","EUPWR","FROTO",
+  "GSRAY","GESAN","GOLTS","GRTHO","GUBRF","SAHOL","HEKTS","IEYHO","ISMEN","KRDMD",
+  "KARSN","KTLEV","KCAER","KCHOL","KONTR","KONYA","KOZAL","KOZAA","LMKDC","MAGEN",
+  "MAVI","MIATK","MGROS","MPARK","OBAMS","ODAS","OTKAR","OYAKC","PASEU","PGSUS",
+  "PETKM","RALYH","REEDR","RYGYO","SASA","SELEC","SMRTG","SKBNK","SOKM","TABGD",
+  "TAVHL","TKFEN","TOASO","TCELL","TUPRS","THYAO","GARAN","HALKB","ISCTR","TSKB",
+  "TURSG","SISE","VAKBN","TTKOM","TTRAK","ULKER","VESTL","YKBNK","YEOTK","ZOREN",
+];
+const TRENDS_TOP_N = 5;
+
+trendsRefreshBtn.addEventListener("click", runTrendsScan);
+
+// Tek bir hisse için hafif veri: güncel fiyat, günlük değişim %, günlük hacim (TL)
+async function fetchTrendPoint(symbol) {
+  const pass = localStorage.getItem(LS_PASS_KEY) || "";
+  const res = await fetchJSON(`${WORKER_URL}/api/chart?symbol=${symbol}&pass=${encodeURIComponent(pass)}&range=5d&interval=1d`);
+  if (res.error) throw new Error(res.error);
+  const result = res.data?.chart?.result?.[0];
+  if (!result) throw new Error("veri yok");
+  const meta = result.meta || {};
+  const q = result.indicators.quote[0];
+  const closes = (q.close || []).filter((c) => c != null);
+  const volumes = q.volume || [];
+  const lastVolume = volumes[volumes.length - 1] || 0;
+  const price = meta.regularMarketPrice != null ? meta.regularMarketPrice : closes[closes.length - 1];
+  const prevClose = closes[closes.length - 2] ?? price;
+  const changePct = prevClose ? ((price - prevClose) / prevClose) * 100 : 0;
+  return { symbol, price, changePct, volumeTL: lastVolume * price };
+}
+
+// Çok sayıda isteği tek seferde Yahoo'ya patlatmamak için küçük gruplar halinde işliyoruz
+async function fetchInBatches(items, batchSize, fn, onProgress) {
+  const results = [];
+  for (let i = 0; i < items.length; i += batchSize) {
+    const batch = items.slice(i, i + batchSize);
+    const batchResults = await Promise.allSettled(batch.map(fn));
+    results.push(...batchResults);
+    if (onProgress) onProgress(Math.min(i + batchSize, items.length), items.length);
+  }
+  return results;
+}
+
+async function runTrendsScan() {
+  trendsError.textContent = "";
+  trendsResults.style.display = "none";
+  trendsRefreshBtn.disabled = true;
+  trendsLoading.classList.add("active");
+  trendsLoadingText.textContent = `TARANIYOR... (0 / ${BIST100_SYMBOLS.length})`;
+
+  try {
+    const settled = await fetchInBatches(BIST100_SYMBOLS, 8, fetchTrendPoint, (done, total) => {
+      trendsLoadingText.textContent = `TARANIYOR... (${done} / ${total})`;
+    });
+
+    const points = settled.filter((r) => r.status === "fulfilled").map((r) => r.value);
+    if (points.length === 0) throw new Error("Hiçbir hisse verisi alınamadı. Worker/Yahoo bağlantısını kontrol et.");
+
+    const gainers = [...points].sort((a, b) => b.changePct - a.changePct).slice(0, TRENDS_TOP_N);
+    const losers = [...points].sort((a, b) => a.changePct - b.changePct).slice(0, TRENDS_TOP_N);
+    const byVolume = [...points].sort((a, b) => b.volumeTL - a.volumeTL).slice(0, TRENDS_TOP_N);
+
+    renderTrendsTable(trendsGainersTable, gainers, true);
+    renderTrendsTable(trendsLosersTable, losers, true);
+    renderTrendsTable(trendsVolumeTable, byVolume, true, true);
+
+    trendsLoading.classList.remove("active");
+    trendsResults.style.display = "block";
+
+    const failedCount = settled.length - points.length;
+    if (failedCount > 0) {
+      trendsError.textContent = `${failedCount} hisse için veri alınamadı (atlandı), ${points.length} hisse başarıyla tarandı.`;
+    }
+  } catch (err) {
+    trendsLoading.classList.remove("active");
+    trendsError.textContent = err.message || "Tarama sırasında bir hata oluştu.";
+  } finally {
+    trendsRefreshBtn.disabled = false;
+  }
+}
+
+function renderTrendsTable(tableEl, list, showChange, showVolume) {
+  const headCells = ["Hisse", "Fiyat"];
+  if (showChange) headCells.push("Değişim");
+  if (showVolume) headCells.push("Hacim (TL)");
+  const head = `<thead><tr>${headCells.map((h) => `<th>${h}</th>`).join("")}</tr></thead>`;
+
+  const rows = list.map((p) => {
+    const cells = [
+      `<td class="symbol-cell">${p.symbol}</td>`,
+      `<td>${fmtTL(p.price)}</td>`,
+    ];
+    if (showChange) cells.push(`<td class="${changeClass(p.changePct)}">${fmtPct(p.changePct)}</td>`);
+    if (showVolume) cells.push(`<td>${fmtCompactTL(p.volumeTL)}</td>`);
+    return `<tr>${cells.join("")}</tr>`;
+  });
+
+  tableEl.innerHTML = head + `<tbody>${rows.join("")}</tbody>`;
 }
