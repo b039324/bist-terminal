@@ -712,6 +712,10 @@ footer.data-source {
 }
 .portfolio-table td.up { color: var(--up); }
 .portfolio-table td.down { color: var(--down); }
+
+.clickable-symbol { cursor: pointer; transition: color .15s; }
+.clickable-symbol:hover { color: var(--gold) !important; text-decoration: underline; }
+
 .portfolio-table .symbol-cell {
   font-family: var(--font-display);
   font-weight: 700;
