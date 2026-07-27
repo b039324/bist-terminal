@@ -734,7 +734,17 @@ async function fetchInBatches(items, batchSize, fn, onProgress) {
   const results = [];
   for (let i = 0; i < items.length; i += batchSize) {
     const batch = items.slice(i, i + batchSize);
-    const batchResults = await Promise.allSettled(batch.map(fn));
+    let batchResults = await Promise.allSettled(batch.map(fn));
+
+    // Bu grupta başarısız olanlar için kısa bir bekleme sonrası TEK SEFER yeniden dene
+    // (Yahoo/Worker tarafındaki geçici (502 vb.) hataların sonucu etkilemesini azaltır)
+    const failedIdx = batchResults.map((r, idx) => (r.status === "rejected" ? idx : -1)).filter((i2) => i2 !== -1);
+    if (failedIdx.length > 0) {
+      await new Promise((r) => setTimeout(r, 400));
+      const retryResults = await Promise.allSettled(failedIdx.map((idx) => fn(batch[idx])));
+      failedIdx.forEach((idx, k) => { batchResults[idx] = retryResults[k]; });
+    }
+
     results.push(...batchResults);
     if (onProgress) onProgress(Math.min(i + batchSize, items.length), items.length);
   }
