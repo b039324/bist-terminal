@@ -60,6 +60,7 @@ const trends52HighTable = document.getElementById("trends52HighTable");
 const trends52HighEmpty = document.getElementById("trends52HighEmpty");
 const trends52LowTable = document.getElementById("trends52LowTable");
 const trends52LowEmpty = document.getElementById("trends52LowEmpty");
+const bist30PeakTable = document.getElementById("bist30PeakTable");
 const deepScanBtn = document.getElementById("deepScanBtn");
 const deepScanError = document.getElementById("deepScanError");
 const deepScanLoading = document.getElementById("deepScanLoading");
@@ -688,13 +689,19 @@ const BIST100_SYMBOLS = [
   "AGHOL","AGROT","AHGAZ","AKBNK","AKSA","AKSEN","ALARK","ALFAS","ALTNY","ANSGR",
   "AEFES","ANHYT","ARCLK","ARDYZ","ASELS","ASTOR","AVPGY","BTCIM","BSOKE","BERA",
   "BIMAS","BRSAN","BRYAT","CCOLA","CWENE","CANTE","CLEBI","CIMSA","DOHOL","DOAS",
-  "EFORC","EGEEN","ECILC","EKGYO","ENJSA","ENERY","ENKAI","EREGL","EUPWR","FROTO",
+  "DSTKF","EFORC","EGEEN","ECILC","EKGYO","ENJSA","ENERY","ENKAI","EREGL","EUPWR","FROTO",
   "GSRAY","GESAN","GOLTS","GRTHO","GUBRF","SAHOL","HEKTS","IEYHO","ISMEN","KRDMD",
   "KARSN","KTLEV","KCAER","KCHOL","KONTR","KONYA","KOZAL","KOZAA","LMKDC","MAGEN",
   "MAVI","MIATK","MGROS","MPARK","OBAMS","ODAS","OTKAR","OYAKC","PASEU","PGSUS",
   "PETKM","RALYH","REEDR","RYGYO","SASA","SELEC","SMRTG","SKBNK","SOKM","TABGD",
   "TAVHL","TKFEN","TOASO","TCELL","TUPRS","THYAO","GARAN","HALKB","ISCTR","TSKB",
   "TURSG","SISE","VAKBN","TTKOM","TTRAK","ULKER","VESTL","YKBNK","YEOTK","ZOREN",
+];
+// BIST 30 — en büyük/likit 30 hisse (BIST 100'ün alt kümesi). 3 ayda bir güncellenebilir.
+const BIST30_SYMBOLS = [
+  "EREGL","KRDMD","AKBNK","GARAN","ISCTR","YKBNK","ASTOR","DSTKF","EKGYO","BIMAS",
+  "MGROS","ULKER","KCHOL","SAHOL","AEFES","TCELL","TTKOM","ENKAI","GUBRF","PETKM",
+  "SASA","SISE","TUPRS","KOZAL","FROTO","TOASO","ASELS","PGSUS","TAVHL","THYAO",
 ];
 const TRENDS_TOP_N = 5;
 
@@ -759,6 +766,7 @@ async function runTrendsScan() {
     renderMarketPulse(points);
     renderHeatmap(points);
     render52WeekBreakouts(points);
+    renderBist30PeakDistance(points);
 
     trendsLoading.classList.remove("active");
     trendsResults.style.display = "block";
@@ -874,6 +882,24 @@ function render52WeekBreakouts(points) {
       const diff = (p.ratio - 1) * 100;
       const tag = p.price <= p.week52Low ? ' <span class="status-tag sell">Yeni Dip!</span>' : "";
       return `<tr><td class="symbol-cell clickable-symbol" onclick="goToStock('${p.symbol}')">${p.symbol}${tag}</td><td>${fmtTL(p.price)}</td><td>${fmtTL(p.week52Low)}</td><td class="${changeClass(diff)}">${fmtPct(diff)}</td></tr>`;
+    }).join("") + "</tbody>";
+}
+
+// BIST 30 - Zirveden Uzaklık: aynı hafif taramanın (BIST 100) verisinden BIST 30 hisselerini
+// filtreler, ekstra istek atmaz. Formül: (52H Yüksek - Güncel) / Güncel × 100
+// (örn. 90₺ görmüş, şu an 60₺ ise: (90-60)/60*100 = %50 uzakta)
+function renderBist30PeakDistance(points) {
+  const bist30Points = points.filter((p) => BIST30_SYMBOLS.includes(p.symbol) && p.week52High && p.week52High > 0);
+  const ranked = bist30Points
+    .map((p) => ({ ...p, distPct: ((p.week52High - p.price) / p.price) * 100 }))
+    .sort((a, b) => b.distPct - a.distPct);
+
+  if (ranked.length === 0) { bist30PeakTable.innerHTML = ""; return; }
+
+  bist30PeakTable.innerHTML = "<thead><tr><th>Hisse</th><th>Güncel Fiyat</th><th>52H Zirve</th><th>Zirveden Uzaklık</th></tr></thead><tbody>" +
+    ranked.map((p) => {
+      const tag = p.distPct < 2 ? ' <span class="status-tag buy">Zirveye Yakın</span>' : "";
+      return `<tr><td class="symbol-cell clickable-symbol" onclick="goToStock('${p.symbol}')">${p.symbol}${tag}</td><td>${fmtTL(p.price)}</td><td>${fmtTL(p.week52High)}</td><td class="${changeClass(-p.distPct)}">${fmtNum(p.distPct)}%</td></tr>`;
     }).join("") + "</tbody>";
 }
 
