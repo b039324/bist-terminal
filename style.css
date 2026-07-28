@@ -924,3 +924,32 @@ footer.data-source {
   padding: 3px 8px;
 }
 .gauge-dist .dist-symbol:hover { border-color: var(--gold); color: var(--gold); }
+
+/* ---------- Grafik Hover Tooltip ---------- */
+.chart-tooltip {
+  display: none;
+  position: absolute;
+  z-index: 10;
+  pointer-events: none;
+  background: var(--panel-2);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  padding: 10px 14px;
+  font-family: var(--font-mono);
+  font-size: 12px;
+  white-space: nowrap;
+  box-shadow: 0 4px 14px rgba(0,0,0,0.4);
+}
+.chart-tooltip .ct-date {
+  font-family: var(--font-body);
+  font-size: 11px;
+  color: var(--text-faint);
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  margin-bottom: 6px;
+}
+.chart-tooltip .ct-row { display: flex; justify-content: space-between; gap: 16px; }
+.chart-tooltip .ct-label { color: var(--text-dim); }
+.chart-tooltip .ct-value { font-weight: 600; }
+.chart-tooltip .ct-value.up { color: var(--up); }
+.chart-tooltip .ct-value.down { color: var(--down); }
