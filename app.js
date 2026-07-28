@@ -310,10 +310,14 @@ function renderChart(candles, vtl) {
       tooltipEl.style.display = "none";
       return;
     }
-    const candle = candles.find((c) => c.time === param.time);
-    if (!candle) { tooltipEl.style.display = "none"; return; }
+    const idx = candles.findIndex((c) => c.time === param.time);
+    if (idx === -1) { tooltipEl.style.display = "none"; return; }
+    const candle = candles[idx];
     const volPoint = vtl.find((v) => v.time === param.time);
-    const changePct = candle.open ? ((candle.close - candle.open) / candle.open) * 100 : 0;
+    // Günlük değişim: o günün AÇILIŞINA göre değil, uygulamanın geri kalanıyla tutarlı olması için
+    // BİR ÖNCEKİ GÜNÜN KAPANIŞINA göre hesaplanıyor.
+    const prevClose = idx > 0 ? candles[idx - 1].close : candle.open;
+    const changePct = prevClose ? ((candle.close - prevClose) / prevClose) * 100 : 0;
     const cls = changeClass(changePct);
 
     tooltipEl.innerHTML =
