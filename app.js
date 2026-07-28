@@ -302,6 +302,36 @@ function renderChart(candles, vtl) {
   volumeSeries.setData(vtl.map((v, i) => ({ time: v.time, value: v.volumeTL, color: candles[i].close >= candles[i].open ? "rgba(23,201,135,0.6)" : "rgba(255,71,87,0.6)" })));
   priceChartApi.timeScale().fitContent(); volumeChartApi.timeScale().fitContent();
   priceChartApi.timeScale().subscribeVisibleLogicalRangeChange((r) => { volumeChartApi.timeScale().setVisibleLogicalRange(r); });
+
+  // Mum üzerine gelince: o günün açılış/yüksek/düşük/kapanış ve TL hacmini gösteren tooltip
+  const tooltipEl = document.getElementById("chartTooltip");
+  priceChartApi.subscribeCrosshairMove((param) => {
+    if (!param.time || !param.point || param.point.x < 0 || param.point.y < 0) {
+      tooltipEl.style.display = "none";
+      return;
+    }
+    const candle = candles.find((c) => c.time === param.time);
+    if (!candle) { tooltipEl.style.display = "none"; return; }
+    const volPoint = vtl.find((v) => v.time === param.time);
+    const changePct = candle.open ? ((candle.close - candle.open) / candle.open) * 100 : 0;
+    const cls = changeClass(changePct);
+
+    tooltipEl.innerHTML =
+      '<div class="ct-date">' + fmtDate(candle.time * 1000) + '</div>' +
+      '<div class="ct-row"><span class="ct-label">Açılış</span><span class="ct-value">' + fmtTL(candle.open) + '</span></div>' +
+      '<div class="ct-row"><span class="ct-label">En Yüksek</span><span class="ct-value">' + fmtTL(candle.high) + '</span></div>' +
+      '<div class="ct-row"><span class="ct-label">En Düşük</span><span class="ct-value">' + fmtTL(candle.low) + '</span></div>' +
+      '<div class="ct-row"><span class="ct-label">Kapanış</span><span class="ct-value ' + cls + '">' + fmtTL(candle.close) + ' (' + fmtPct(changePct) + ')</span></div>' +
+      '<div class="ct-row"><span class="ct-label">Hacim (TL)</span><span class="ct-value">' + (volPoint ? fmtCompactTL(volPoint.volumeTL) : "—") + '</span></div>';
+    tooltipEl.style.display = "block";
+
+    const bounds = pe.getBoundingClientRect();
+    let left = param.point.x + 16, top = param.point.y + 16;
+    if (left + 190 > bounds.width) left = param.point.x - 190;
+    if (top + 150 > bounds.height) top = param.point.y - 150;
+    tooltipEl.style.left = Math.max(0, left) + "px";
+    tooltipEl.style.top = Math.max(0, top) + "px";
+  });
 }
 document.getElementById("rangeTabs").addEventListener("click", (e) => {
   if (e.target.tagName !== "BUTTON") return;
@@ -906,10 +936,10 @@ function renderBist30PeakDistance(points) {
 
   if (ranked.length === 0) { bist30PeakTable.innerHTML = ""; return; }
 
-  bist30PeakTable.innerHTML = "<thead><tr><th>Hisse</th><th>Güncel Fiyat</th><th>52H Zirve</th><th>Zirveden Uzaklık</th></tr></thead><tbody>" +
+  bist30PeakTable.innerHTML = "<thead><tr><th>Hisse</th><th>Güncel Fiyat</th><th>Günlük Değişim</th><th>Hacim (TL)</th><th>52H Zirve</th><th>Zirveden Uzaklık</th></tr></thead><tbody>" +
     ranked.map((p) => {
       const tag = p.distPct < 2 ? ' <span class="status-tag buy">Zirveye Yakın</span>' : "";
-      return `<tr><td class="symbol-cell clickable-symbol" onclick="goToStock('${p.symbol}')">${p.symbol}${tag}</td><td>${fmtTL(p.price)}</td><td>${fmtTL(p.week52High)}</td><td class="${changeClass(-p.distPct)}">${fmtNum(p.distPct)}%</td></tr>`;
+      return `<tr><td class="symbol-cell clickable-symbol" onclick="goToStock('${p.symbol}')">${p.symbol}${tag}</td><td>${fmtTL(p.price)}</td><td class="${changeClass(p.changePct)}">${fmtPct(p.changePct)}</td><td>${fmtCompactTL(p.volumeTL)}</td><td>${fmtTL(p.week52High)}</td><td class="${changeClass(-p.distPct)}">${fmtNum(p.distPct)}%</td></tr>`;
     }).join("") + "</tbody>";
 }
 
