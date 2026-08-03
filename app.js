@@ -754,25 +754,25 @@ const TRENDS_TOP_N = 5;
 trendsRefreshBtn.addEventListener("click", runTrendsScan);
 
 // Tek bir hisse için hafif veri: güncel fiyat, günlük değişim %, günlük hacim (TL)
-async function fetchTrendPoint(symbol) {
+// Yahoo'nun v7/finance/quote (toplu) ucundan bir grup hissenin anlık verisini çeker.
+// Bu uç, Yahoo'nun KENDİ hesapladığı %değişimi (regularMarketChangePercent) doğrudan döner —
+// bizim grafik verisinden manuel hesaplamamıza göre daha güvenilirdir (bazen grafik verisinde
+// eksik/gecikmeli günler olabildiğini KCHOL/AKBNK örneklerinde görmüştük).
+async function fetchQuoteBatch(symbols) {
   const pass = localStorage.getItem(LS_PASS_KEY) || "";
-  const res = await fetchJSON(`${WORKER_URL}/api/chart?symbol=${symbol}&pass=${encodeURIComponent(pass)}&range=5d&interval=1d`);
+  const res = await fetchJSON(`${WORKER_URL}/api/quotebatch?symbols=${symbols.join(",")}&pass=${encodeURIComponent(pass)}`);
   if (res.error) throw new Error(res.error);
-  const result = res.data?.chart?.result?.[0];
-  if (!result) throw new Error("veri yok");
-  const meta = result.meta || {};
-  const q = result.indicators.quote[0];
-  const closes = (q.close || []).filter((c) => c != null);
-  const volumes = q.volume || [];
-  const lastVolume = volumes[volumes.length - 1] || 0;
-  const price = meta.regularMarketPrice != null ? meta.regularMarketPrice : closes[closes.length - 1];
-  const prevClose = closes[closes.length - 2] ?? price;
-  const changePct = prevClose ? ((price - prevClose) / prevClose) * 100 : 0;
-  return {
-    symbol, price, changePct, volumeTL: lastVolume * price,
-    week52High: meta.fiftyTwoWeekHigh ?? null,
-    week52Low: meta.fiftyTwoWeekLow ?? null,
-  };
+  const list = res.data?.quoteResponse?.result || [];
+  return list
+    .map((q) => ({
+      symbol: (q.symbol || "").replace(".IS", ""),
+      price: q.regularMarketPrice,
+      changePct: q.regularMarketChangePercent,
+      volumeTL: (q.regularMarketVolume || 0) * (q.regularMarketPrice || 0),
+      week52High: q.fiftyTwoWeekHigh ?? null,
+      week52Low: q.fiftyTwoWeekLow ?? null,
+    }))
+    .filter((p) => p.price != null);
 }
 
 // Çok sayıda isteği tek seferde Yahoo'ya patlatmamak için küçük gruplar halinde işliyoruz
@@ -805,11 +805,31 @@ async function runTrendsScan() {
   trendsLoadingText.textContent = `TARANIYOR... (0 / ${BIST100_SYMBOLS.length})`;
 
   try {
-    const settled = await fetchInBatches(BIST100_SYMBOLS, 8, fetchTrendPoint, (done, total) => {
-      trendsLoadingText.textContent = `TARANIYOR... (${done} / ${total})`;
-    });
+    // BIST 100'ü 25'erli gruplar halinde toplu sorguluyoruz (tek istekte hepsi de olurdu
+    // ama URL uzunluğu ve olası kısmi hatalara karşı gruplamak daha güvenli)
+    const chunkSize = 25;
+    const chunks = [];
+    for (let i = 0; i < BIST100_SYMBOLS.length; i += chunkSize) chunks.push(BIST100_SYMBOLS.slice(i, i + chunkSize));
 
-    const points = settled.filter((r) => r.status === "fulfilled").map((r) => r.value);
+    let points = [];
+    let failedCount = 0;
+    for (let i = 0; i < chunks.length; i++) {
+      trendsLoadingText.textContent = `TARANIYOR... (${i * chunkSize} / ${BIST100_SYMBOLS.length})`;
+      try {
+        const chunkPoints = await fetchQuoteBatch(chunks[i]);
+        points.push(...chunkPoints);
+      } catch (e) {
+        // Bu grup başarısız olursa bir kez daha dene, olmazsa o grubu atla
+        try {
+          await new Promise((r) => setTimeout(r, 500));
+          const retryPoints = await fetchQuoteBatch(chunks[i]);
+          points.push(...retryPoints);
+        } catch (e2) {
+          failedCount += chunks[i].length;
+        }
+      }
+    }
+
     if (points.length === 0) throw new Error("Hiçbir hisse verisi alınamadı. Worker/Yahoo bağlantısını kontrol et.");
 
     const gainers = [...points].sort((a, b) => b.changePct - a.changePct).slice(0, TRENDS_TOP_N);
@@ -827,7 +847,6 @@ async function runTrendsScan() {
     trendsLoading.classList.remove("active");
     trendsResults.style.display = "block";
 
-    const failedCount = settled.length - points.length;
     if (failedCount > 0) {
       trendsError.textContent = `${failedCount} hisse için veri alınamadı (atlandı), ${points.length} hisse başarıyla tarandı.`;
     }
