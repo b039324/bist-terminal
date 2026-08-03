@@ -169,6 +169,7 @@ async function runSearch(raw) {
     const chartR = cr.data?.chart?.result?.[0];
     if (!chartR || !chartR.timestamp) throw new Error('"' + symbol + '" bulunamadı.');
     const d = processChartData(chartR), f = processFundamentals(qr.data);
+    applyReliableDailyChange(d, f);
     showLoading(false); resultScreen.classList.add("active"); searchScreen.classList.add("hidden");
     renderAll(symbol, d, f); syncWatchlistState(); newSearchInput.value = "";
   } catch (err) { showLoading(false); searchScreen.classList.remove("hidden"); resultScreen.classList.remove("active"); searchError.textContent = err.message || "Hata."; }
@@ -177,6 +178,16 @@ async function runSearch(raw) {
 // ==========================================================================
 // 5) VERİ İŞLEME
 // ==========================================================================
+// Günlük değişim: grafik verisindeki (bazen Yahoo tarafında eksik/gecikmeli olabilen) diziye değil,
+// temel veri (quote) endpoint'indeki resmi "previousClose" alanına göre YENİDEN hesaplanır.
+// Bu, Yahoo'nun web sitesindeki değerle birebir eşleşmesini garantiler.
+function applyReliableDailyChange(d, f) {
+  if (f.previousClose != null && f.previousClose > 0) {
+    d.changes.daily = ((d.lastClose - f.previousClose) / f.previousClose) * 100;
+  }
+  return d;
+}
+
 function processChartData(r) {
   const ts = r.timestamp, q = r.indicators.quote[0], meta = r.meta || {};
   const candles = [], vtl = [];
@@ -201,7 +212,7 @@ function processFundamentals(raw) {
     if (typeof v === "object") return ("raw" in v && v.raw != null) ? v.raw : null; // boş obje {} -> null
     return v;
   };
-  return { companyName: price.longName || price.shortName || "—", marketCap: g(price, "marketCap"), trailingPE: g(sd, "trailingPE"), forwardPE: g(sd, "forwardPE"), priceToBook: g(dks, "priceToBook"), dividendYield: g(sd, "dividendYield"), beta: g(sd, "beta"), returnOnEquity: g(fd, "returnOnEquity"), profitMargins: g(dks, "profitMargins"), revenueGrowth: g(fd, "revenueGrowth"), recommendationMean: g(fd, "recommendationMean"), numberOfAnalysts: g(fd, "numberOfAnalystOpinions"), fiftyTwoWeekLow: g(sd, "fiftyTwoWeekLow"), fiftyTwoWeekHigh: g(sd, "fiftyTwoWeekHigh"), priceToSales: g(sd, "priceToSalesTrailing12Months"), targetMeanPrice: g(fd, "targetMeanPrice"), targetHighPrice: g(fd, "targetHighPrice"), targetLowPrice: g(fd, "targetLowPrice"), bookValue: g(dks, "bookValue") };
+  return { companyName: price.longName || price.shortName || "—", marketCap: g(price, "marketCap"), trailingPE: g(sd, "trailingPE"), forwardPE: g(sd, "forwardPE"), priceToBook: g(dks, "priceToBook"), dividendYield: g(sd, "dividendYield"), beta: g(sd, "beta"), returnOnEquity: g(fd, "returnOnEquity"), profitMargins: g(dks, "profitMargins"), revenueGrowth: g(fd, "revenueGrowth"), recommendationMean: g(fd, "recommendationMean"), numberOfAnalysts: g(fd, "numberOfAnalystOpinions"), fiftyTwoWeekLow: g(sd, "fiftyTwoWeekLow"), fiftyTwoWeekHigh: g(sd, "fiftyTwoWeekHigh"), priceToSales: g(sd, "priceToSalesTrailing12Months"), targetMeanPrice: g(fd, "targetMeanPrice"), targetHighPrice: g(fd, "targetHighPrice"), targetLowPrice: g(fd, "targetLowPrice"), bookValue: g(dks, "bookValue"), previousClose: g(sd, "previousClose") ?? g(price, "regularMarketPreviousClose") };
 }
 
 // ==========================================================================
@@ -646,6 +657,7 @@ async function fetchFullData(sym) {
   if (cr.error || qr.error) throw new Error(cr.error || qr.error);
   const chartR = cr.data?.chart?.result?.[0]; if (!chartR || !chartR.timestamp) throw new Error('"' + sym + '" bulunamadı.');
   const d = processChartData(chartR), f = processFundamentals(qr.data);
+  applyReliableDailyChange(d, f);
   return { symbol: sym, d, f, rec: computeRecommendation(d, f), val: computeValuationScore(f) };
 }
 async function runCompare() {
