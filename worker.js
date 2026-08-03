@@ -205,6 +205,37 @@ export default {
     // YAHOO FINANCE API'leri
     // =====================================================================
 
+    // --- Toplu (çoklu hisse) anlık veri: Trendler taramasında kullanılır.
+    // Yahoo'nun kendi resmi %değişimini (regularMarketChangePercent) doğrudan döner,
+    // bu yüzden grafik verisinden manuel hesaplamaya göre daha güvenilirdir ve
+    // 100 ayrı istek yerine tek/birkaç istekte tüm hisseleri döndürür.
+    if (url.pathname === "/api/quotebatch") {
+      const symbolsParam = (url.searchParams.get("symbols") || "").toUpperCase().trim();
+      const symbolsList = symbolsParam
+        .split(",")
+        .map((s) => s.trim().replace(/[^A-Z0-9]/g, ""))
+        .filter(Boolean);
+      if (symbolsList.length === 0) {
+        return json({ error: "Geçerli hisse kodları girin." }, 400);
+      }
+      const yahooSymbols = symbolsList.map((s) => `${s}.IS`).join(",");
+      try {
+        const res = await yahooFetch(
+          `https://query1.finance.yahoo.com/v7/finance/quote?symbols=${yahooSymbols}`
+        );
+        const text = await res.text();
+        if (!res.ok) {
+          return json(
+            { error: "Yahoo Finance'ten toplu veri alınamadı.", status: res.status, detail: text.slice(0, 300) },
+            502
+          );
+        }
+        return json(JSON.parse(text));
+      } catch (e) {
+        return json({ error: "Sunucu hatası.", detail: String(e && e.message ? e.message : e) }, 500);
+      }
+    }
+
     const rawSymbol = (url.searchParams.get("symbol") || "").toUpperCase().trim();
     const symbol = rawSymbol.replace(/[^A-Z0-9]/g, "");
     if (!symbol) {
