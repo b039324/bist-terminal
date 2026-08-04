@@ -40,6 +40,7 @@
         <button class="nav-btn" id="navPortfolioBtn">Portföy</button>
         <button class="nav-btn" id="navWatchlistBtn">Takip</button>
         <button class="nav-btn" id="navTrendsBtn">Trendler</button>
+        <button class="nav-btn" id="navMoneyBtn">Para Nerede</button>
         <button class="nav-btn" id="navCompareBtn">Karşılaştır</button>
         <button class="logout-btn" id="logoutBtn">Çıkış</button>
       </div>
@@ -387,6 +388,33 @@
             </div>
           </div>
         </div>
+      </div>
+
+      <footer class="data-source">BIST 100 listesi periyodik değişebilir · Veri kaynağı: Yahoo Finance</footer>
+    </div>
+
+    <!-- ============ PARA NEREDE EKRANI ============ -->
+    <div class="money-screen" id="moneyScreen">
+
+      <div class="panel-card" style="margin-bottom:20px">
+        <div class="card-title" style="margin-bottom:6px">Para Nerede</div>
+        <div class="sub-note" style="margin-bottom:14px">
+          Her sektörün bugünkü hacmini kendi normal (10 günlük ortalama) hacmiyle karşılaştırır.
+          Oran ne kadar yüksekse, o sektörde normalin dışında bir hareket var demektir — bir sektöre
+          tıklayınca, o sektördeki hisseler kendi hacim anormalliğine göre sıralı açılır.
+        </div>
+        <button id="moneyRefreshBtn" class="primary-btn">Tara / Yenile</button>
+        <div class="search-error" id="moneyError" style="margin-top:10px"></div>
+      </div>
+
+      <div class="loading-screen" id="moneyLoading">
+        <div class="spinner"></div>
+        <span id="moneyLoadingText">TARANIYOR...</span>
+      </div>
+
+      <div class="panel-card" id="moneyResults" style="display:none">
+        <div class="card-title" style="margin-bottom:16px">Sektörler — Hacim Anormalliğine Göre</div>
+        <div class="money-sector-list" id="moneySectorList"></div>
       </div>
 
       <footer class="data-source">BIST 100 listesi periyodik değişebilir · Veri kaynağı: Yahoo Finance</footer>
