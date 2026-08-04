@@ -953,3 +953,68 @@ footer.data-source {
 .chart-tooltip .ct-value { font-weight: 600; }
 .chart-tooltip .ct-value.up { color: var(--up); }
 .chart-tooltip .ct-value.down { color: var(--down); }
+
+/* ---------- Para Nerede ekranı ---------- */
+.money-screen {
+  display: none;
+  max-width: 1180px;
+  margin: 0 auto;
+  padding: 24px 24px 60px;
+}
+.money-screen.active { display: block; }
+
+.money-sector-list { display: flex; flex-direction: column; gap: 8px; }
+.money-sector-row {
+  background: var(--panel-2);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  padding: 14px 18px;
+  cursor: pointer;
+  transition: border-color .15s;
+}
+.money-sector-row:hover { border-color: var(--gold); }
+.money-sector-row .msr-top {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 14px;
+  flex-wrap: wrap;
+}
+.money-sector-row .msr-name { font-family: var(--font-display); font-weight: 700; font-size: 14px; }
+.money-sector-row .msr-count { color: var(--text-faint); font-size: 11px; margin-left: 6px; }
+.money-sector-row .msr-right { display: flex; align-items: center; gap: 14px; }
+.money-sector-row .msr-change { font-family: var(--font-mono); font-size: 13px; font-weight: 600; }
+.money-sector-row .msr-ratio {
+  font-family: var(--font-mono);
+  font-size: 15px;
+  font-weight: 700;
+  padding: 4px 12px;
+  border-radius: 20px;
+  min-width: 62px;
+  text-align: center;
+}
+.money-sector-row .msr-ratio.hot { background: var(--up-dim); color: var(--up); }
+.money-sector-row .msr-ratio.warm { background: rgba(212,175,55,0.15); color: var(--gold); }
+.money-sector-row .msr-ratio.normal { background: rgba(125,138,156,0.15); color: var(--text-dim); }
+.money-sector-row .msr-bar-wrap { background: var(--panel); border-radius: 4px; height: 6px; margin-top: 10px; overflow: hidden; }
+.money-sector-row .msr-bar { height: 100%; border-radius: 4px; }
+
+.money-stock-list {
+  display: none;
+  margin-top: 14px;
+  padding-top: 14px;
+  border-top: 1px solid var(--border);
+}
+.money-stock-list.open { display: block; }
+.money-stock-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 8px 4px;
+  font-size: 12.5px;
+  border-bottom: 1px solid var(--border);
+}
+.money-stock-row:last-child { border-bottom: none; }
+.money-stock-row .msl-left { display: flex; align-items: center; gap: 10px; }
+.money-stock-row .msl-price { font-family: var(--font-mono); color: var(--text-dim); }
+.money-stock-row .msl-right { display: flex; align-items: center; gap: 12px; font-family: var(--font-mono); }
