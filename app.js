@@ -26,6 +26,7 @@ const navSearchBtn = document.getElementById("navSearchBtn");
 const navPortfolioBtn = document.getElementById("navPortfolioBtn");
 const navWatchlistBtn = document.getElementById("navWatchlistBtn");
 const navTrendsBtn = document.getElementById("navTrendsBtn");
+const navMoneyBtn = document.getElementById("navMoneyBtn");
 const navCompareBtn = document.getElementById("navCompareBtn");
 const portfolioScreen = document.getElementById("portfolioScreen");
 const posSymbol = document.getElementById("posSymbol");
@@ -48,6 +49,13 @@ const watchlistEmpty = document.getElementById("watchlistEmpty");
 
 const compareScreen = document.getElementById("compareScreen");
 const trendsScreen = document.getElementById("trendsScreen");
+const moneyScreen = document.getElementById("moneyScreen");
+const moneyRefreshBtn = document.getElementById("moneyRefreshBtn");
+const moneyError = document.getElementById("moneyError");
+const moneyLoading = document.getElementById("moneyLoading");
+const moneyLoadingText = document.getElementById("moneyLoadingText");
+const moneyResults = document.getElementById("moneyResults");
+const moneySectorList = document.getElementById("moneySectorList");
 const trendsRefreshBtn = document.getElementById("trendsRefreshBtn");
 const trendsError = document.getElementById("trendsError");
 const trendsLoading = document.getElementById("trendsLoading");
@@ -129,14 +137,15 @@ tryEnterApp();
 // ==========================================================================
 // 3) NAVİGASYON
 // ==========================================================================
-function setActiveNav(b) { [navSearchBtn, navPortfolioBtn, navWatchlistBtn, navTrendsBtn, navCompareBtn].forEach((x) => x.classList.remove("active")); b.classList.add("active"); }
-function hideAllScreens() { window.scrollTo({ top: 0, behavior: "instant" }); portfolioScreen.classList.remove("active"); watchlistScreen.classList.remove("active"); trendsScreen.classList.remove("active"); compareScreen.classList.remove("active"); resultScreen.classList.remove("active"); loadingScreen.classList.remove("active"); }
+function setActiveNav(b) { [navSearchBtn, navPortfolioBtn, navWatchlistBtn, navTrendsBtn, navMoneyBtn, navCompareBtn].forEach((x) => x.classList.remove("active")); b.classList.add("active"); }
+function hideAllScreens() { window.scrollTo({ top: 0, behavior: "instant" }); portfolioScreen.classList.remove("active"); watchlistScreen.classList.remove("active"); trendsScreen.classList.remove("active"); moneyScreen.classList.remove("active"); compareScreen.classList.remove("active"); resultScreen.classList.remove("active"); loadingScreen.classList.remove("active"); }
 function showSearchNav() { setActiveNav(navSearchBtn); portfolioScreen.classList.remove("active"); watchlistScreen.classList.remove("active"); trendsScreen.classList.remove("active"); compareScreen.classList.remove("active"); searchScreen.classList.remove("hidden"); }
 function showPortfolioNav() { setActiveNav(navPortfolioBtn); searchScreen.classList.add("hidden"); hideAllScreens(); portfolioScreen.classList.add("active"); renderPortfolio(); }
 function showWatchlistNav() { setActiveNav(navWatchlistBtn); searchScreen.classList.add("hidden"); hideAllScreens(); watchlistScreen.classList.add("active"); renderWatchlist(); }
 function showTrendsNav() { setActiveNav(navTrendsBtn); searchScreen.classList.add("hidden"); hideAllScreens(); trendsScreen.classList.add("active"); }
+function showMoneyNav() { setActiveNav(navMoneyBtn); searchScreen.classList.add("hidden"); hideAllScreens(); moneyScreen.classList.add("active"); }
 function showCompareNav() { setActiveNav(navCompareBtn); searchScreen.classList.add("hidden"); hideAllScreens(); compareScreen.classList.add("active"); }
-navSearchBtn.addEventListener("click", showSearchNav); navPortfolioBtn.addEventListener("click", showPortfolioNav); navWatchlistBtn.addEventListener("click", showWatchlistNav); navTrendsBtn.addEventListener("click", showTrendsNav); navCompareBtn.addEventListener("click", showCompareNav);
+navSearchBtn.addEventListener("click", showSearchNav); navPortfolioBtn.addEventListener("click", showPortfolioNav); navWatchlistBtn.addEventListener("click", showWatchlistNav); navTrendsBtn.addEventListener("click", showTrendsNav); navMoneyBtn.addEventListener("click", showMoneyNav); navCompareBtn.addEventListener("click", showCompareNav);
 
 // Portföy, Takip, Trendler ve Isı Haritası'ndaki hisse isimlerine tıklayınca
 // o hisseyi arayıp sonuç ekranına götürür — mevcut arama akışını aynen kullanır.
@@ -771,6 +780,8 @@ async function fetchQuoteBatch(symbols) {
       volumeTL: (q.regularMarketVolume || 0) * (q.regularMarketPrice || 0),
       week52High: q.fiftyTwoWeekHigh ?? null,
       week52Low: q.fiftyTwoWeekLow ?? null,
+      avgVolume: q.averageDailyVolume10Day ?? q.averageDailyVolume3Month ?? null,
+      volume: q.regularMarketVolume ?? null,
     }))
     .filter((p) => p.price != null);
 }
@@ -1055,5 +1066,158 @@ function renderGaugeDistribution(results) {
       </div>
       <div class="dist-symbols">${symbolsHtml || '<span class="sub-note">Bu bantta hisse yok.</span>'}</div>
     </div>`;
+  }).join("");
+}
+
+// ==========================================================================
+// 15) PARA NEREDE — BIST 100'ü kaba sektörlere ayırıp hacim anormalliğini gösterir.
+// Trendler'in kullandığı AYNI toplu sorgu ucunu (quotebatch) kullanır, ekstra
+// bir Yahoo endpoint'i gerekmez. Formül: bugünkü hacim / normal (10 günlük ort.) hacim.
+// NOT: Sektör eşleştirmesi Yahoo'dan gelmiyor, elle hazırlanmış bir listedir —
+// BIST 100 bileşenleri değiştikçe bu haritanın da güncellenmesi gerekebilir.
+// ==========================================================================
+const SECTOR_MAP = {
+  AKBNK: "Bankacılık", GARAN: "Bankacılık", HALKB: "Bankacılık", ISCTR: "Bankacılık",
+  TSKB: "Bankacılık", VAKBN: "Bankacılık", YKBNK: "Bankacılık", SKBNK: "Bankacılık",
+
+  AGHOL: "Holding", ALARK: "Holding", DOHOL: "Holding", KCHOL: "Holding", SAHOL: "Holding",
+  TKFEN: "Holding", BRYAT: "Holding", GRTHO: "Holding", IEYHO: "Holding",
+
+  FROTO: "Otomotiv & Yan Sanayi", TOASO: "Otomotiv & Yan Sanayi", DOAS: "Otomotiv & Yan Sanayi",
+  OTKAR: "Otomotiv & Yan Sanayi", KARSN: "Otomotiv & Yan Sanayi", TTRAK: "Otomotiv & Yan Sanayi",
+  BERA: "Otomotiv & Yan Sanayi", EGEEN: "Otomotiv & Yan Sanayi",
+
+  EREGL: "Sanayi, Metal & Cam", KRDMD: "Sanayi, Metal & Cam", BRSAN: "Sanayi, Metal & Cam",
+  KOZAL: "Sanayi, Metal & Cam", KOZAA: "Sanayi, Metal & Cam", KCAER: "Sanayi, Metal & Cam",
+  SISE: "Sanayi, Metal & Cam", ALTNY: "Sanayi, Metal & Cam",
+
+  SASA: "Kimya, Petrokimya & Çimento", PETKM: "Kimya, Petrokimya & Çimento", GUBRF: "Kimya, Petrokimya & Çimento",
+  AKSA: "Kimya, Petrokimya & Çimento", HEKTS: "Kimya, Petrokimya & Çimento", CIMSA: "Kimya, Petrokimya & Çimento",
+  BTCIM: "Kimya, Petrokimya & Çimento", BSOKE: "Kimya, Petrokimya & Çimento", CANTE: "Kimya, Petrokimya & Çimento",
+  GOLTS: "Kimya, Petrokimya & Çimento", KONYA: "Kimya, Petrokimya & Çimento", OYAKC: "Kimya, Petrokimya & Çimento",
+  LMKDC: "Kimya, Petrokimya & Çimento",
+
+  AHGAZ: "Enerji", AKSEN: "Enerji", ALFAS: "Enerji", ASTOR: "Enerji", AVPGY: "Enerji",
+  CWENE: "Enerji", ENJSA: "Enerji", ENERY: "Enerji", EUPWR: "Enerji", GESAN: "Enerji",
+  KTLEV: "Enerji", MAGEN: "Enerji", ODAS: "Enerji", SELEC: "Enerji", SMRTG: "Enerji",
+  TUPRS: "Enerji", YEOTK: "Enerji", ZOREN: "Enerji",
+
+  THYAO: "Havacılık & Turizm", PGSUS: "Havacılık & Turizm", TAVHL: "Havacılık & Turizm", CLEBI: "Havacılık & Turizm",
+
+  BIMAS: "Perakende & Tüketim", MGROS: "Perakende & Tüketim", SOKM: "Perakende & Tüketim",
+  ULKER: "Perakende & Tüketim", CCOLA: "Perakende & Tüketim", AEFES: "Perakende & Tüketim",
+  ARCLK: "Perakende & Tüketim", VESTL: "Perakende & Tüketim", MAVI: "Perakende & Tüketim", TABGD: "Perakende & Tüketim",
+
+  ASELS: "Teknoloji, Savunma & İletişim", TCELL: "Teknoloji, Savunma & İletişim", TTKOM: "Teknoloji, Savunma & İletişim",
+  ARDYZ: "Teknoloji, Savunma & İletişim", KONTR: "Teknoloji, Savunma & İletişim", EFORC: "Teknoloji, Savunma & İletişim",
+  REEDR: "Teknoloji, Savunma & İletişim", OBAMS: "Teknoloji, Savunma & İletişim",
+
+  EKGYO: "GYO & İnşaat", RYGYO: "GYO & İnşaat", ENKAI: "GYO & İnşaat",
+
+  ANSGR: "Sigorta & Finans", ANHYT: "Sigorta & Finans", TURSG: "Sigorta & Finans",
+  ISMEN: "Sigorta & Finans", DSTKF: "Sigorta & Finans",
+};
+function getSector(symbol) { return SECTOR_MAP[symbol] || "Diğer"; }
+
+moneyRefreshBtn.addEventListener("click", runMoneyFlowScan);
+
+async function runMoneyFlowScan() {
+  moneyError.textContent = "";
+  moneyResults.style.display = "none";
+  moneyRefreshBtn.disabled = true;
+  moneyLoading.classList.add("active");
+  moneyLoadingText.textContent = `TARANIYOR... (0 / ${BIST100_SYMBOLS.length})`;
+
+  try {
+    const chunkSize = 25;
+    const chunks = [];
+    for (let i = 0; i < BIST100_SYMBOLS.length; i += chunkSize) chunks.push(BIST100_SYMBOLS.slice(i, i + chunkSize));
+
+    let points = [];
+    for (let i = 0; i < chunks.length; i++) {
+      moneyLoadingText.textContent = `TARANIYOR... (${i * chunkSize} / ${BIST100_SYMBOLS.length})`;
+      try {
+        points.push(...(await fetchQuoteBatch(chunks[i])));
+      } catch (e) {
+        try {
+          await new Promise((r) => setTimeout(r, 500));
+          points.push(...(await fetchQuoteBatch(chunks[i])));
+        } catch (e2) { /* bu grubu atla */ }
+      }
+    }
+
+    if (points.length === 0) throw new Error("Hiçbir hisse verisi alınamadı.");
+
+    renderMoneyFlow(points);
+    moneyLoading.classList.remove("active");
+    moneyResults.style.display = "block";
+  } catch (err) {
+    moneyLoading.classList.remove("active");
+    moneyError.textContent = err.message || "Tarama sırasında bir hata oluştu.";
+  } finally {
+    moneyRefreshBtn.disabled = false;
+  }
+}
+
+function renderMoneyFlow(points) {
+  // Her hisseye sektör ve hacim oranı (bugün / normal) atıyoruz
+  const withRatio = points.map((p) => ({
+    ...p,
+    sector: getSector(p.symbol),
+    volRatio: p.avgVolume && p.avgVolume > 0 ? p.volume / p.avgVolume : null,
+    avgVolumeTL: p.avgVolume ? p.avgVolume * p.price : null,
+  }));
+
+  // Sektör bazında topluyoruz
+  const sectorMap = {};
+  withRatio.forEach((p) => {
+    if (!sectorMap[p.sector]) sectorMap[p.sector] = { name: p.sector, stocks: [], todayVolumeTL: 0, avgVolumeTL: 0, changeSum: 0, changeCount: 0 };
+    const s = sectorMap[p.sector];
+    s.stocks.push(p);
+    s.todayVolumeTL += p.volumeTL || 0;
+    if (p.avgVolumeTL) s.avgVolumeTL += p.avgVolumeTL;
+    if (p.changePct != null) { s.changeSum += p.changePct; s.changeCount++; }
+  });
+
+  const sectors = Object.values(sectorMap).map((s) => ({
+    ...s,
+    ratio: s.avgVolumeTL > 0 ? s.todayVolumeTL / s.avgVolumeTL : null,
+    avgChange: s.changeCount ? s.changeSum / s.changeCount : 0,
+  }));
+
+  sectors.sort((a, b) => (b.ratio ?? 0) - (a.ratio ?? 0));
+  const maxRatio = Math.max(1, ...sectors.map((s) => s.ratio || 0));
+
+  moneySectorList.innerHTML = sectors.map((s, idx) => {
+    const ratioCls = s.ratio == null ? "normal" : s.ratio >= 1.5 ? "hot" : s.ratio >= 1.15 ? "warm" : "normal";
+    const ratioText = s.ratio != null ? fmtNum(s.ratio, 2) + "x" : "—";
+    const barColor = ratioCls === "hot" ? "#17c987" : ratioCls === "warm" ? "#d4af37" : "#4c5768";
+    const barWidth = s.ratio != null ? Math.min(100, (s.ratio / maxRatio) * 100) : 0;
+
+    const stocksSorted = [...s.stocks].sort((a, b) => (b.volRatio ?? 0) - (a.volRatio ?? 0));
+    const stocksHtml = stocksSorted.map((p) => `
+      <div class="money-stock-row">
+        <div class="msl-left">
+          <span class="symbol-cell clickable-symbol" onclick="event.stopPropagation(); goToStock('${p.symbol}')">${p.symbol}</span>
+          <span class="msl-price">${fmtTL(p.price)}</span>
+        </div>
+        <div class="msl-right">
+          <span class="${changeClass(p.changePct)}">${fmtPct(p.changePct)}</span>
+          <span style="color:var(--text-faint)">${p.volRatio != null ? fmtNum(p.volRatio, 2) + "x hacim" : "—"}</span>
+        </div>
+      </div>`).join("");
+
+    return `
+      <div class="money-sector-row" onclick="this.querySelector('.money-stock-list').classList.toggle('open')">
+        <div class="msr-top">
+          <div><span class="msr-name">${s.name}</span><span class="msr-count">${s.stocks.length} hisse</span></div>
+          <div class="msr-right">
+            <span class="msr-change ${changeClass(s.avgChange)}">${fmtPct(s.avgChange)}</span>
+            <span class="msr-ratio ${ratioCls}">${ratioText}</span>
+          </div>
+        </div>
+        <div class="msr-bar-wrap"><div class="msr-bar" style="width:${barWidth}%; background:${barColor}"></div></div>
+        <div class="money-stock-list">${stocksHtml}</div>
+      </div>`;
   }).join("");
 }
