@@ -15,6 +15,9 @@ const logoutBtn = document.getElementById("logoutBtn");
 const searchScreen = document.getElementById("searchScreen");
 const searchInput = document.getElementById("searchInput");
 const searchError = document.getElementById("searchError");
+const autocompleteBox = document.getElementById("autocompleteBox");
+const recentSearchesWrap = document.getElementById("recentSearchesWrap");
+const recentSearchesRow = document.getElementById("recentSearchesRow");
 const loadingScreen = document.getElementById("loadingScreen");
 const loadingText = document.getElementById("loadingText");
 const resultScreen = document.getElementById("resultScreen");
@@ -23,6 +26,15 @@ const newSearchBtn = document.getElementById("newSearchBtn");
 const watchlistToggleBtn = document.getElementById("watchlistToggleBtn");
 
 const navSearchBtn = document.getElementById("navSearchBtn");
+const navHomeBtn = document.getElementById("navHomeBtn");
+const homeScreen = document.getElementById("homeScreen");
+const homePortfolioSummary = document.getElementById("homePortfolioSummary");
+const homePortfolioEmpty = document.getElementById("homePortfolioEmpty");
+const homeWatchlistMovers = document.getElementById("homeWatchlistMovers");
+const homeWatchlistEmpty = document.getElementById("homeWatchlistEmpty");
+const homePulseRow = document.getElementById("homePulseRow");
+const homePulseEmpty = document.getElementById("homePulseEmpty");
+const homePulseNote = document.getElementById("homePulseNote");
 const navPortfolioBtn = document.getElementById("navPortfolioBtn");
 const navWatchlistBtn = document.getElementById("navWatchlistBtn");
 const navTrendsBtn = document.getElementById("navTrendsBtn");
@@ -37,6 +49,10 @@ const posError = document.getElementById("posError");
 const portfolioSummary = document.getElementById("portfolioSummary");
 const portfolioTableBody = document.getElementById("portfolioTableBody");
 const portfolioEmpty = document.getElementById("portfolioEmpty");
+const portfolioCsvBtn = document.getElementById("portfolioCsvBtn");
+const sectorBreakdownCard = document.getElementById("sectorBreakdownCard");
+const sectorBreakdownRow = document.getElementById("sectorBreakdownRow");
+const sectorConcentrationWarn = document.getElementById("sectorConcentrationWarn");
 const donutSvg = document.getElementById("donutSvg");
 const donutLegend = document.getElementById("donutLegend");
 
@@ -46,6 +62,18 @@ const wlAddBtn = document.getElementById("wlAddBtn");
 const wlError = document.getElementById("wlError");
 const watchlistTableBody = document.getElementById("watchlistTableBody");
 const watchlistEmpty = document.getElementById("watchlistEmpty");
+const watchlistCsvBtn = document.getElementById("watchlistCsvBtn");
+
+const earningsChartSvg = document.getElementById("earningsChartSvg");
+const earningsEmpty = document.getElementById("earningsEmpty");
+const recTrendChart = document.getElementById("recTrendChart");
+const recTrendEmpty = document.getElementById("recTrendEmpty");
+const profileCard = document.getElementById("profileCard");
+const profileMeta = document.getElementById("profileMeta");
+const profileSummary = document.getElementById("profileSummary");
+const stockNoteInput = document.getElementById("stockNoteInput");
+const saveNoteBtn = document.getElementById("saveNoteBtn");
+const noteSavedText = document.getElementById("noteSavedText");
 
 const compareScreen = document.getElementById("compareScreen");
 const trendsScreen = document.getElementById("trendsScreen");
@@ -94,6 +122,7 @@ const compareTable = document.getElementById("compareTable");
 
 let priceChartApi = null, volumeChartApi = null, candleSeries = null, volumeSeries = null;
 let fullChartData = null, currentSymbol = null;
+let lastTrendsPoints = null, lastTrendsScanTime = null;
 let cmpChartApi = null;
 
 // ==========================================================================
@@ -128,8 +157,8 @@ function calcStochRSI(cl, rp = 14, sp = 14) { const rsi = calcRSI(cl, rp); const
 // ==========================================================================
 // 2) ŞİFRE / GİRİŞ
 // ==========================================================================
-function tryEnterApp() { if (localStorage.getItem(LS_PASS_KEY)) { lockScreen.style.display = "none"; appEl.style.display = "block"; syncWatchlistState(); } }
-passSubmit.addEventListener("click", () => { const v = passInput.value.trim(); if (!v) { lockError.textContent = "Lütfen şifre gir."; return; } localStorage.setItem(LS_PASS_KEY, v); lockScreen.style.display = "none"; appEl.style.display = "block"; searchInput.focus(); });
+function tryEnterApp() { if (localStorage.getItem(LS_PASS_KEY)) { lockScreen.style.display = "none"; appEl.style.display = "block"; syncWatchlistState(); renderRecentSearches(); checkShareableLink(); } }
+passSubmit.addEventListener("click", () => { const v = passInput.value.trim(); if (!v) { lockError.textContent = "Lütfen şifre gir."; return; } localStorage.setItem(LS_PASS_KEY, v); lockScreen.style.display = "none"; appEl.style.display = "block"; searchInput.focus(); renderRecentSearches(); checkShareableLink(); });
 passInput.addEventListener("keydown", (e) => { if (e.key === "Enter") passSubmit.click(); });
 logoutBtn.addEventListener("click", () => { localStorage.removeItem(LS_PASS_KEY); location.reload(); });
 tryEnterApp();
@@ -137,15 +166,16 @@ tryEnterApp();
 // ==========================================================================
 // 3) NAVİGASYON
 // ==========================================================================
-function setActiveNav(b) { [navSearchBtn, navPortfolioBtn, navWatchlistBtn, navTrendsBtn, navMoneyBtn, navCompareBtn].forEach((x) => x.classList.remove("active")); b.classList.add("active"); }
-function hideAllScreens() { window.scrollTo({ top: 0, behavior: "instant" }); portfolioScreen.classList.remove("active"); watchlistScreen.classList.remove("active"); trendsScreen.classList.remove("active"); moneyScreen.classList.remove("active"); compareScreen.classList.remove("active"); resultScreen.classList.remove("active"); loadingScreen.classList.remove("active"); }
-function showSearchNav() { setActiveNav(navSearchBtn); portfolioScreen.classList.remove("active"); watchlistScreen.classList.remove("active"); trendsScreen.classList.remove("active"); compareScreen.classList.remove("active"); searchScreen.classList.remove("hidden"); }
+function setActiveNav(b) { [navSearchBtn, navHomeBtn, navPortfolioBtn, navWatchlistBtn, navTrendsBtn, navMoneyBtn, navCompareBtn].forEach((x) => x.classList.remove("active")); b.classList.add("active"); }
+function hideAllScreens() { window.scrollTo({ top: 0, behavior: "instant" }); homeScreen.classList.remove("active"); portfolioScreen.classList.remove("active"); watchlistScreen.classList.remove("active"); trendsScreen.classList.remove("active"); moneyScreen.classList.remove("active"); compareScreen.classList.remove("active"); resultScreen.classList.remove("active"); loadingScreen.classList.remove("active"); }
+function showSearchNav() { setActiveNav(navSearchBtn); homeScreen.classList.remove("active"); portfolioScreen.classList.remove("active"); watchlistScreen.classList.remove("active"); trendsScreen.classList.remove("active"); moneyScreen.classList.remove("active"); compareScreen.classList.remove("active"); searchScreen.classList.remove("hidden"); renderRecentSearches(); }
+function showHomeNav() { setActiveNav(navHomeBtn); searchScreen.classList.add("hidden"); hideAllScreens(); homeScreen.classList.add("active"); renderHomeScreen(); }
 function showPortfolioNav() { setActiveNav(navPortfolioBtn); searchScreen.classList.add("hidden"); hideAllScreens(); portfolioScreen.classList.add("active"); renderPortfolio(); }
 function showWatchlistNav() { setActiveNav(navWatchlistBtn); searchScreen.classList.add("hidden"); hideAllScreens(); watchlistScreen.classList.add("active"); renderWatchlist(); }
 function showTrendsNav() { setActiveNav(navTrendsBtn); searchScreen.classList.add("hidden"); hideAllScreens(); trendsScreen.classList.add("active"); }
 function showMoneyNav() { setActiveNav(navMoneyBtn); searchScreen.classList.add("hidden"); hideAllScreens(); moneyScreen.classList.add("active"); }
 function showCompareNav() { setActiveNav(navCompareBtn); searchScreen.classList.add("hidden"); hideAllScreens(); compareScreen.classList.add("active"); }
-navSearchBtn.addEventListener("click", showSearchNav); navPortfolioBtn.addEventListener("click", showPortfolioNav); navWatchlistBtn.addEventListener("click", showWatchlistNav); navTrendsBtn.addEventListener("click", showTrendsNav); navMoneyBtn.addEventListener("click", showMoneyNav); navCompareBtn.addEventListener("click", showCompareNav);
+navSearchBtn.addEventListener("click", showSearchNav); navHomeBtn.addEventListener("click", showHomeNav); navPortfolioBtn.addEventListener("click", showPortfolioNav); navWatchlistBtn.addEventListener("click", showWatchlistNav); navTrendsBtn.addEventListener("click", showTrendsNav); navMoneyBtn.addEventListener("click", showMoneyNav); navCompareBtn.addEventListener("click", showCompareNav);
 
 // Portföy, Takip, Trendler ve Isı Haritası'ndaki hisse isimlerine tıklayınca
 // o hisseyi arayıp sonuç ekranına götürür — mevcut arama akışını aynen kullanır.
@@ -181,6 +211,8 @@ async function runSearch(raw) {
     applyReliableDailyChange(d, f);
     showLoading(false); resultScreen.classList.add("active"); searchScreen.classList.add("hidden");
     renderAll(symbol, d, f); syncWatchlistState(); newSearchInput.value = "";
+    saveRecentSearch(symbol);
+    loadNoteForSymbol(symbol);
   } catch (err) { showLoading(false); searchScreen.classList.remove("hidden"); resultScreen.classList.remove("active"); searchError.textContent = err.message || "Hata."; }
 }
 
@@ -221,7 +253,21 @@ function processFundamentals(raw) {
     if (typeof v === "object") return ("raw" in v && v.raw != null) ? v.raw : null; // boş obje {} -> null
     return v;
   };
-  return { companyName: price.longName || price.shortName || "—", marketCap: g(price, "marketCap"), trailingPE: g(sd, "trailingPE"), forwardPE: g(sd, "forwardPE"), priceToBook: g(dks, "priceToBook"), dividendYield: g(sd, "dividendYield"), beta: g(sd, "beta"), returnOnEquity: g(fd, "returnOnEquity"), profitMargins: g(dks, "profitMargins"), revenueGrowth: g(fd, "revenueGrowth"), recommendationMean: g(fd, "recommendationMean"), numberOfAnalysts: g(fd, "numberOfAnalystOpinions"), fiftyTwoWeekLow: g(sd, "fiftyTwoWeekLow"), fiftyTwoWeekHigh: g(sd, "fiftyTwoWeekHigh"), priceToSales: g(sd, "priceToSalesTrailing12Months"), targetMeanPrice: g(fd, "targetMeanPrice"), targetHighPrice: g(fd, "targetHighPrice"), targetLowPrice: g(fd, "targetLowPrice"), bookValue: g(dks, "bookValue"), previousClose: g(sd, "previousClose") ?? g(price, "regularMarketPreviousClose") };
+
+  // Çeyreklik gelir/kâr (grafik için) — earnings.financialsChart.quarterly
+  const quarterly = (r.earnings?.financialsChart?.quarterly || []).map((q) => ({
+    label: q.date, revenue: g(q, "revenue"), earnings: g(q, "earnings"),
+  }));
+
+  // Analist tavsiye trendi (son aylar) — recommendationTrend.trend
+  const recTrend = (r.recommendationTrend?.trend || []).map((t) => ({
+    period: t.period, strongBuy: t.strongBuy || 0, buy: t.buy || 0, hold: t.hold || 0, sell: t.sell || 0, strongSell: t.strongSell || 0,
+  }));
+
+  // Şirket profili (varsa)
+  const profile = r.assetProfile || {};
+
+  return { companyName: price.longName || price.shortName || "—", marketCap: g(price, "marketCap"), trailingPE: g(sd, "trailingPE"), forwardPE: g(sd, "forwardPE"), priceToBook: g(dks, "priceToBook"), dividendYield: g(sd, "dividendYield"), beta: g(sd, "beta"), returnOnEquity: g(fd, "returnOnEquity"), profitMargins: g(dks, "profitMargins"), revenueGrowth: g(fd, "revenueGrowth"), recommendationMean: g(fd, "recommendationMean"), numberOfAnalysts: g(fd, "numberOfAnalystOpinions"), fiftyTwoWeekLow: g(sd, "fiftyTwoWeekLow"), fiftyTwoWeekHigh: g(sd, "fiftyTwoWeekHigh"), priceToSales: g(sd, "priceToSalesTrailing12Months"), targetMeanPrice: g(fd, "targetMeanPrice"), targetHighPrice: g(fd, "targetHighPrice"), targetLowPrice: g(fd, "targetLowPrice"), bookValue: g(dks, "bookValue"), previousClose: g(sd, "previousClose") ?? g(price, "regularMarketPreviousClose"), quarterly, recTrend, businessSummary: profile.longBusinessSummary || null, sector: profile.sector || null, industry: profile.industry || null, employees: g(profile, "fullTimeEmployees"), website: profile.website || null };
 }
 
 // ==========================================================================
@@ -444,6 +490,106 @@ function renderAll(sym, d, f) {
   const vgl = document.getElementById("valueGaugeLabel"); vgl.textContent = val.label; vgl.className = "gauge-label-big " + val.cls;
   document.getElementById("valueGaugeScoreText").textContent = "SKOR: " + fmtNum(val.score, 0) + " / 100";
   document.getElementById("valueGaugeFactors").innerHTML = val.factors.map(([l, v]) => '<div class="factor">' + l + ": <b>" + v + "</b></div>").join("");
+
+  renderEarningsChart(f.quarterly);
+  renderRecTrend(f.recTrend);
+  renderCompanyProfile(f);
+}
+
+// ---------- Çeyreklik Gelir/Kâr grafiği ----------
+function renderEarningsChart(quarterly) {
+  earningsChartSvg.innerHTML = "";
+  if (!quarterly || quarterly.length === 0) { earningsEmpty.classList.add("visible"); earningsChartSvg.style.display = "none"; return; }
+  earningsEmpty.classList.remove("visible"); earningsChartSvg.style.display = "block";
+
+  const last4 = quarterly.slice(-4);
+  const allVals = last4.flatMap((q) => [q.revenue || 0, q.earnings || 0]);
+  const maxAbs = Math.max(1, ...allVals.map(Math.abs));
+  const w = 400, h = 180, padBottom = 24, padTop = 10, zeroY = h - padBottom - (h - padBottom - padTop) / 2;
+  const groupW = w / last4.length;
+
+  last4.forEach((q, i) => {
+    const cx = i * groupW + groupW / 2;
+    const barW = groupW * 0.28;
+    const scaleH = (h - padBottom - padTop) / 2;
+
+    const revH = (Math.abs(q.revenue || 0) / maxAbs) * scaleH;
+    const revY = q.revenue >= 0 ? zeroY - revH : zeroY;
+    const revRect = document.createElementNS("http://www.w3.org/2000/svg", "rect");
+    revRect.setAttribute("x", cx - barW - 3); revRect.setAttribute("y", revY);
+    revRect.setAttribute("width", barW); revRect.setAttribute("height", Math.max(1, revH));
+    revRect.setAttribute("fill", "#4098d7"); revRect.setAttribute("rx", "2");
+    earningsChartSvg.appendChild(revRect);
+
+    const earnH = (Math.abs(q.earnings || 0) / maxAbs) * scaleH;
+    const earnY = q.earnings >= 0 ? zeroY - earnH : zeroY;
+    const earnRect = document.createElementNS("http://www.w3.org/2000/svg", "rect");
+    earnRect.setAttribute("x", cx + 3); earnRect.setAttribute("y", earnY);
+    earnRect.setAttribute("width", barW); earnRect.setAttribute("height", Math.max(1, earnH));
+    earnRect.setAttribute("fill", q.earnings >= 0 ? "#17c987" : "#ff4757"); earnRect.setAttribute("rx", "2");
+    earningsChartSvg.appendChild(earnRect);
+
+    const label = document.createElementNS("http://www.w3.org/2000/svg", "text");
+    label.setAttribute("x", cx); label.setAttribute("y", h - 6);
+    label.setAttribute("text-anchor", "middle"); label.setAttribute("font-size", "10.5");
+    label.setAttribute("fill", "#7d8a9c"); label.setAttribute("font-family", "JetBrains Mono, monospace");
+    label.textContent = q.label || "";
+    earningsChartSvg.appendChild(label);
+  });
+
+  // Sıfır çizgisi
+  const zeroLine = document.createElementNS("http://www.w3.org/2000/svg", "line");
+  zeroLine.setAttribute("x1", "0"); zeroLine.setAttribute("x2", String(w));
+  zeroLine.setAttribute("y1", String(zeroY)); zeroLine.setAttribute("y2", String(zeroY));
+  zeroLine.setAttribute("stroke", "#232a36"); zeroLine.setAttribute("stroke-width", "1");
+  earningsChartSvg.insertBefore(zeroLine, earningsChartSvg.firstChild);
+
+  // Basit gösterge notu
+  const legend = document.createElementNS("http://www.w3.org/2000/svg", "text");
+  legend.setAttribute("x", "6"); legend.setAttribute("y", "12");
+  legend.setAttribute("font-size", "9.5"); legend.setAttribute("fill", "#4098d7");
+  legend.setAttribute("font-family", "JetBrains Mono, monospace");
+  legend.textContent = "■ Gelir   ";
+  earningsChartSvg.appendChild(legend);
+}
+
+// ---------- Analist Tavsiye Trendi (son 4 ay) ----------
+function renderRecTrend(recTrend) {
+  recTrendChart.innerHTML = "";
+  if (!recTrend || recTrend.length === 0) { recTrendEmpty.classList.add("visible"); recTrendChart.style.display = "none"; return; }
+  recTrendEmpty.classList.remove("visible"); recTrendChart.style.display = "block";
+
+  const periodLabel = (p) => (p === "0m" ? "Bugün" : p === "-1m" ? "1 Ay Önce" : p === "-2m" ? "2 Ay Önce" : p === "-3m" ? "3 Ay Önce" : p);
+  const rows = recTrend.map((t) => {
+    const total = t.strongBuy + t.buy + t.hold + t.sell + t.strongSell;
+    if (total === 0) return "";
+    const seg = (val, color) => (val > 0 ? `<div style="width:${(val / total) * 100}%; background:${color}"></div>` : "");
+    return `
+      <div class="rec-trend-month">
+        <div class="rec-trend-label">${periodLabel(t.period)}</div>
+        <div class="rec-trend-bar">
+          ${seg(t.strongBuy, "#17c987")}${seg(t.buy, "#5fd9a8")}${seg(t.hold, "#7d8a9c")}${seg(t.sell, "#ff8a94")}${seg(t.strongSell, "#ff4757")}
+        </div>
+        <div style="font-family:var(--font-mono); color:var(--text-faint); width:26px; text-align:right">${total}</div>
+      </div>`;
+  }).filter(Boolean);
+
+  recTrendChart.innerHTML = `<div class="rec-trend-row">${rows.join("")}</div>
+    <div style="display:flex; gap:12px; margin-top:12px; flex-wrap:wrap; font-size:10.5px; color:var(--text-faint)">
+      <span>🟢 Güçlü Al</span><span style="color:#5fd9a8">🟢 Al</span><span>⚪ Nötr</span><span style="color:#ff8a94">🔴 Sat</span><span style="color:#ff4757">🔴 Güçlü Sat</span>
+    </div>`;
+}
+
+// ---------- Şirket Profili ----------
+function renderCompanyProfile(f) {
+  if (!f.businessSummary) { profileCard.style.display = "none"; return; }
+  profileCard.style.display = "block";
+  const metaParts = [];
+  if (f.sector) metaParts.push(f.sector);
+  if (f.industry) metaParts.push(f.industry);
+  if (f.employees) metaParts.push(fmtNum(f.employees, 0) + " çalışan");
+  profileMeta.textContent = metaParts.join(" · ");
+  profileSummary.textContent = f.businessSummary;
 }
 
 // ==========================================================================
@@ -555,6 +701,9 @@ detailToggleBtn.addEventListener("click", () => {
   renderPortfolio();
 });
 
+let portfolioRowsData = [];
+let portfolioSortState = { key: null, dir: 1 };
+
 async function renderPortfolio() {
   const pos = await loadPortfolio();
   portfolioEmpty.classList.toggle("visible", pos.length === 0);
@@ -562,17 +711,19 @@ async function renderPortfolio() {
 
   const headEl = document.getElementById("portfolioTableHead");
   headEl.innerHTML = portfolioDetailMode
-    ? "<tr><th>Hisse</th><th>Adet</th><th>Maliyet</th><th>Güncel</th><th>Değer</th><th>K/Z (TL)</th><th>K/Z (%)</th><th>AL/SAT</th><th></th></tr>"
-    : "<tr><th>Hisse</th><th>Adet</th><th>Maliyet</th><th>Güncel</th><th>Değer</th><th>K/Z (TL)</th><th>K/Z (%)</th><th></th></tr>";
+    ? '<tr><th class="sortable-th" data-key="symbol">Hisse</th><th class="sortable-th" data-key="qty">Adet</th><th class="sortable-th" data-key="cost">Maliyet</th><th class="sortable-th" data-key="price">Güncel</th><th class="sortable-th" data-key="value">Değer</th><th class="sortable-th" data-key="gain">K/Z (TL)</th><th class="sortable-th" data-key="gainPct">K/Z (%)</th><th>AL/SAT</th><th></th></tr>'
+    : '<tr><th class="sortable-th" data-key="symbol">Hisse</th><th class="sortable-th" data-key="qty">Adet</th><th class="sortable-th" data-key="cost">Maliyet</th><th class="sortable-th" data-key="price">Güncel</th><th class="sortable-th" data-key="value">Değer</th><th class="sortable-th" data-key="gain">K/Z (TL)</th><th class="sortable-th" data-key="gainPct">K/Z (%)</th><th></th></tr>';
+  bindSortableHeaders(headEl, portfolioSortState, () => renderPortfolioTableBody());
 
   renderRealized();
-  if (pos.length === 0) return;
+  if (pos.length === 0) { sectorBreakdownCard.style.display = "none"; portfolioRowsData = []; return; }
 
   const colspanEmpty = portfolioDetailMode ? 7 : 6;
   portfolioTableBody.innerHTML = pos.map((p) => '<tr><td class="symbol-cell clickable-symbol" onclick="goToStock(\'' + p.symbol + '\')">' + p.symbol + '</td><td colspan="' + colspanEmpty + '" style="color:var(--text-faint)">Yükleniyor...</td></tr>').join("");
 
   const results = await Promise.allSettled(pos.map((p) => (portfolioDetailMode ? fetchFullData(p.symbol) : fetchQuickPrice(p.symbol))));
-  let tc = 0, tv = 0, tdc = 0; const rows = [], alloc = [];
+  let tc = 0, tv = 0, tdc = 0; const alloc = [];
+  portfolioRowsData = [];
 
   pos.forEach((p, i) => {
     const cv = p.qty * p.cost; tc += cv; const r = results[i];
@@ -581,29 +732,106 @@ async function renderPortfolio() {
       const dailyChangePct = portfolioDetailMode ? r.value.d.changes.daily : r.value.dailyChangePct;
       const val = p.qty * price, gain = val - cv, gp = cv ? (gain / cv) * 100 : 0;
       tv += val; tdc += val - val / (1 + dailyChangePct / 100); alloc.push({ symbol: p.symbol, value: val });
-
-      let detailCell = "";
-      if (portfolioDetailMode) {
-        const rec = r.value.rec;
-        detailCell = '<td class="' + rec.cls + '" style="font-weight:700">' + rec.label + '</td>';
-      }
-
-      rows.push('<tr><td class="symbol-cell clickable-symbol" onclick="goToStock(\'' + p.symbol + '\')">' + p.symbol + "</td><td>" + fmtNum(p.qty, 0) + "</td><td>" + fmtTL(p.cost) + "</td><td>" + fmtTL(price) + "</td><td>" + fmtTL(val) + '</td><td class="' + changeClass(gain) + '">' + (gain >= 0 ? "+" : "") + fmtTL(gain) + '</td><td class="' + changeClass(gp) + '">' + fmtPct(gp) + "</td>" + detailCell + '<td><button class="sell-btn" data-symbol="' + p.symbol + '" data-price="' + price + '">Sat</button><button class="remove-btn" data-symbol="' + p.symbol + '">Sil</button></td></tr>');
+      portfolioRowsData.push({ symbol: p.symbol, qty: p.qty, cost: p.cost, price, value: val, gain, gainPct: gp, recLabel: portfolioDetailMode ? r.value.rec.label : null, recCls: portfolioDetailMode ? r.value.rec.cls : null, error: false });
     } else {
       tv += cv;
-      const errColspan = portfolioDetailMode ? 5 : 4;
-      rows.push('<tr><td class="symbol-cell clickable-symbol" onclick="goToStock(\'' + p.symbol + '\')">' + p.symbol + "</td><td>" + fmtNum(p.qty, 0) + "</td><td>" + fmtTL(p.cost) + '</td><td colspan="' + errColspan + '" style="color:var(--down)">Veri alınamadı</td><td><button class="remove-btn" data-symbol="' + p.symbol + '">Sil</button></td></tr>');
+      portfolioRowsData.push({ symbol: p.symbol, qty: p.qty, cost: p.cost, price: null, value: null, gain: null, gainPct: null, error: true });
     }
   });
 
-  portfolioTableBody.innerHTML = rows.join("");
-  portfolioTableBody.querySelectorAll(".remove-btn").forEach((b) => b.addEventListener("click", () => removePosition(b.dataset.symbol)));
-  portfolioTableBody.querySelectorAll(".sell-btn").forEach((b) => b.addEventListener("click", () => sellPosition(b.dataset.symbol, parseFloat(b.dataset.price))));
+  renderPortfolioTableBody();
 
   const tg = tv - tc, tgp = tc ? (tg / tc) * 100 : 0;
   portfolioSummary.innerHTML = '<div class="summary-card"><div class="summary-label">Toplam Değer</div><div class="summary-value">' + fmtTL(tv) + '</div></div><div class="summary-card"><div class="summary-label">Toplam Maliyet</div><div class="summary-value">' + fmtTL(tc) + '</div></div><div class="summary-card"><div class="summary-label">Kâr/Zarar</div><div class="summary-value ' + changeClass(tg) + '">' + (tg >= 0 ? "+" : "") + fmtTL(tg) + " (" + fmtPct(tgp) + ')</div></div><div class="summary-card"><div class="summary-label">Bugünkü Değişim</div><div class="summary-value ' + changeClass(tdc) + '">' + (tdc >= 0 ? "+" : "") + fmtTL(tdc) + " (" + fmtPct(tv ? (tdc / (tv - tdc)) * 100 : 0) + ")</div></div>";
-  drawDonut(alloc, tv);
+  drawDonut([...alloc], tv);
+  renderSectorBreakdown(alloc, tv);
 }
+
+function renderPortfolioTableBody() {
+  const colspanEmpty = portfolioDetailMode ? 5 : 4;
+  let rows = [...portfolioRowsData];
+  if (portfolioSortState.key) {
+    rows.sort((a, b) => {
+      let av = a[portfolioSortState.key], bv = b[portfolioSortState.key];
+      if (typeof av === "string") { av = av || ""; bv = bv || ""; return av.localeCompare(bv) * portfolioSortState.dir; }
+      av = av == null ? -Infinity : av; bv = bv == null ? -Infinity : bv;
+      return (av - bv) * portfolioSortState.dir;
+    });
+  }
+  portfolioTableBody.innerHTML = rows.map((p) => {
+    if (p.error) {
+      return '<tr><td class="symbol-cell clickable-symbol" onclick="goToStock(\'' + p.symbol + '\')">' + p.symbol + "</td><td>" + fmtNum(p.qty, 0) + "</td><td>" + fmtTL(p.cost) + '</td><td colspan="' + colspanEmpty + '" style="color:var(--down)">Veri alınamadı</td><td><button class="remove-btn" data-symbol="' + p.symbol + '">Sil</button></td></tr>';
+    }
+    let detailCell = portfolioDetailMode ? '<td class="' + p.recCls + '" style="font-weight:700">' + p.recLabel + '</td>' : "";
+    return '<tr><td class="symbol-cell clickable-symbol" onclick="goToStock(\'' + p.symbol + '\')">' + p.symbol + "</td><td>" + fmtNum(p.qty, 0) + "</td><td>" + fmtTL(p.cost) + "</td><td>" + fmtTL(p.price) + "</td><td>" + fmtTL(p.value) + '</td><td class="' + changeClass(p.gain) + '">' + (p.gain >= 0 ? "+" : "") + fmtTL(p.gain) + '</td><td class="' + changeClass(p.gainPct) + '">' + fmtPct(p.gainPct) + "</td>" + detailCell + '<td><button class="sell-btn" data-symbol="' + p.symbol + '" data-price="' + p.price + '">Sat</button><button class="remove-btn" data-symbol="' + p.symbol + '">Sil</button></td></tr>';
+  }).join("");
+  portfolioTableBody.querySelectorAll(".remove-btn").forEach((b) => b.addEventListener("click", () => removePosition(b.dataset.symbol)));
+  portfolioTableBody.querySelectorAll(".sell-btn").forEach((b) => b.addEventListener("click", () => sellPosition(b.dataset.symbol, parseFloat(b.dataset.price))));
+}
+
+// Genel amaçlı: sıralanabilir tablo başlıklarına tıklama olayı bağlar
+function bindSortableHeaders(headEl, sortState, onSort) {
+  headEl.querySelectorAll(".sortable-th").forEach((th) => {
+    // Orijinal etiketi bir kere data-label'a kaydediyoruz — her çağrıda textContent'ten
+    // okumak, önceki ok işaretini de metne dahil edip üst üste eklenmesine (birikmesine) yol açardı.
+    if (!th.dataset.label) th.dataset.label = th.textContent.trim();
+    th.innerHTML = th.dataset.label + (sortState.key === th.dataset.key ? (sortState.dir === 1 ? ' <span class="sort-arrow">▲</span>' : ' <span class="sort-arrow">▼</span>') : "");
+    th.onclick = () => {
+      if (sortState.key === th.dataset.key) sortState.dir *= -1;
+      else { sortState.key = th.dataset.key; sortState.dir = 1; }
+      bindSortableHeaders(headEl, sortState, onSort);
+      onSort();
+    };
+  });
+}
+
+// Portföyün sektörlere göre yoğunlaşmasını gösterir — aynı SECTOR_MAP'i kullanır, ek istek atmaz
+function renderSectorBreakdown(alloc, total) {
+  if (!total || alloc.length === 0) { sectorBreakdownCard.style.display = "none"; return; }
+  sectorBreakdownCard.style.display = "block";
+
+  const bySector = {};
+  alloc.forEach((a) => {
+    const sec = getSector(a.symbol);
+    bySector[sec] = (bySector[sec] || 0) + a.value;
+  });
+  const sectorList = Object.entries(bySector).map(([name, value]) => ({ name, value, pct: (value / total) * 100 })).sort((a, b) => b.value - a.value);
+
+  sectorBreakdownRow.innerHTML = sectorList.map((s) => `
+    <div class="money-sector-row" style="cursor:default">
+      <div class="msr-top">
+        <div><span class="msr-name">${s.name}</span></div>
+        <div class="msr-right"><span class="msr-change" style="color:var(--text-dim)">${fmtTL(s.value)}</span><span class="msr-ratio normal">${fmtNum(s.pct, 0)}%</span></div>
+      </div>
+      <div class="msr-bar-wrap"><div class="msr-bar" style="width:${s.pct}%; background:var(--gold)"></div></div>
+    </div>`).join("");
+
+  const maxSector = sectorList[0];
+  if (maxSector && maxSector.pct >= 40) {
+    sectorConcentrationWarn.textContent = `⚠️ Portföyünün %${fmtNum(maxSector.pct, 0)}'i tek bir sektörde (${maxSector.name}) yoğunlaşmış — çeşitlendirmeyi düşünebilirsin.`;
+  } else {
+    sectorConcentrationWarn.textContent = "";
+  }
+}
+
+// CSV dışa aktarma — tamamen tarayıcıda üretilir, ek istek yok
+function downloadCsv(filename, headers, rows) {
+  const escapeCsv = (v) => { const s = String(v ?? ""); return /[",;\n]/.test(s) ? '"' + s.replace(/"/g, '""') + '"' : s; };
+  const csv = [headers.map(escapeCsv).join(";"), ...rows.map((r) => r.map(escapeCsv).join(";"))].join("\n");
+  const blob = new Blob(["\uFEFF" + csv], { type: "text/csv;charset=utf-8;" });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement("a");
+  a.href = url; a.download = filename;
+  document.body.appendChild(a); a.click(); document.body.removeChild(a);
+  URL.revokeObjectURL(url);
+}
+
+portfolioCsvBtn.addEventListener("click", () => {
+  if (portfolioRowsData.length === 0) { alert("Dışa aktarılacak pozisyon yok."); return; }
+  const rows = portfolioRowsData.map((p) => [p.symbol, p.qty, p.cost, p.price ?? "", p.value ?? "", p.gain ?? "", p.gainPct != null ? fmtNum(p.gainPct, 2) : ""]);
+  downloadCsv("portfoy_" + new Date().toISOString().slice(0, 10) + ".csv", ["Hisse", "Adet", "Maliyet", "Güncel Fiyat", "Değer", "K/Z (TL)", "K/Z (%)"], rows);
+});
+
 function drawDonut(alloc, total) {
   donutSvg.innerHTML = donutLegend.innerHTML = "";
   if (!total || alloc.length === 0) return;
@@ -643,17 +871,49 @@ async function syncWatchlistState() {
   if (!currentSymbol) { watchlistToggleBtn.textContent = "★ Takip Ekle"; watchlistToggleBtn.classList.remove("following"); return; }
   try { const items = await loadWatchlist(); if (items.find((i) => i.symbol === currentSymbol)) { watchlistToggleBtn.textContent = "★ Takip Ediliyor"; watchlistToggleBtn.classList.add("following"); } else { watchlistToggleBtn.textContent = "★ Takip Ekle"; watchlistToggleBtn.classList.remove("following"); } } catch (e) {}
 }
+let watchlistRowsData = [];
+let watchlistSortState = { key: null, dir: 1 };
+
 async function renderWatchlist() {
   const items = await loadWatchlist(); watchlistEmpty.classList.toggle("visible", items.length === 0); watchlistTableBody.innerHTML = "";
-  if (items.length === 0) return;
+  const headEl = document.getElementById("watchlistTable").querySelector("thead");
+  bindSortableHeaders(headEl, watchlistSortState, () => renderWatchlistTableBody());
+  if (items.length === 0) { watchlistRowsData = []; return; }
   const results = await Promise.allSettled(items.map((i) => fetchQuickPrice(i.symbol)));
-  watchlistTableBody.innerHTML = items.map((item, idx) => {
+  watchlistRowsData = items.map((item, idx) => {
     const r = results[idx];
-    if (r.status === "fulfilled") { const { price, dailyChangePct } = r.value; const ap = item.addedPrice ? ((price - item.addedPrice) / item.addedPrice) * 100 : null; return '<tr><td class="symbol-cell clickable-symbol" onclick="goToStock(\'' + item.symbol + '\')">' + item.symbol + "</td><td>" + fmtTL(price) + '</td><td class="' + changeClass(dailyChangePct) + '">' + fmtPct(dailyChangePct) + "</td><td>" + fmtDate(item.addedAt) + "</td><td>" + fmtTL(item.addedPrice) + '</td><td class="' + changeClass(ap) + '">' + (ap != null ? fmtPct(ap) : "—") + '</td><td><button class="remove-btn" data-symbol="' + item.symbol + '">Çıkar</button></td></tr>'; }
-    return '<tr><td class="symbol-cell clickable-symbol" onclick="goToStock(\'' + item.symbol + '\')">' + item.symbol + '</td><td colspan="5" style="color:var(--down)">Veri alınamadı</td><td><button class="remove-btn" data-symbol="' + item.symbol + '">Çıkar</button></td></tr>';
+    if (r.status === "fulfilled") {
+      const { price, dailyChangePct } = r.value;
+      const sinceAdded = item.addedPrice ? ((price - item.addedPrice) / item.addedPrice) * 100 : null;
+      return { symbol: item.symbol, price, changePct: dailyChangePct, addedDate: item.addedAt, addedPrice: item.addedPrice, sinceAdded, error: false };
+    }
+    return { symbol: item.symbol, price: null, changePct: null, addedDate: item.addedAt, addedPrice: item.addedPrice, sinceAdded: null, error: true };
+  });
+  renderWatchlistTableBody();
+}
+
+function renderWatchlistTableBody() {
+  let rows = [...watchlistRowsData];
+  if (watchlistSortState.key) {
+    rows.sort((a, b) => {
+      let av = a[watchlistSortState.key], bv = b[watchlistSortState.key];
+      if (typeof av === "string") { av = av || ""; bv = bv || ""; return av.localeCompare(bv) * watchlistSortState.dir; }
+      av = av == null ? -Infinity : av; bv = bv == null ? -Infinity : bv;
+      return (av - bv) * watchlistSortState.dir;
+    });
+  }
+  watchlistTableBody.innerHTML = rows.map((item) => {
+    if (item.error) return '<tr><td class="symbol-cell clickable-symbol" onclick="goToStock(\'' + item.symbol + '\')">' + item.symbol + '</td><td colspan="5" style="color:var(--down)">Veri alınamadı</td><td><button class="remove-btn" data-symbol="' + item.symbol + '">Çıkar</button></td></tr>';
+    return '<tr><td class="symbol-cell clickable-symbol" onclick="goToStock(\'' + item.symbol + '\')">' + item.symbol + "</td><td>" + fmtTL(item.price) + '</td><td class="' + changeClass(item.changePct) + '">' + fmtPct(item.changePct) + "</td><td>" + fmtDate(item.addedDate) + "</td><td>" + fmtTL(item.addedPrice) + '</td><td class="' + changeClass(item.sinceAdded) + '">' + (item.sinceAdded != null ? fmtPct(item.sinceAdded) : "—") + '</td><td><button class="remove-btn" data-symbol="' + item.symbol + '">Çıkar</button></td></tr>';
   }).join("");
   watchlistTableBody.querySelectorAll(".remove-btn").forEach((b) => b.addEventListener("click", () => removeWatchlistItem(b.dataset.symbol)));
 }
+
+watchlistCsvBtn.addEventListener("click", () => {
+  if (watchlistRowsData.length === 0) { alert("Dışa aktarılacak hisse yok."); return; }
+  const rows = watchlistRowsData.map((i) => [i.symbol, i.price ?? "", i.changePct != null ? fmtNum(i.changePct, 2) : "", fmtDate(i.addedDate), i.addedPrice ?? "", i.sinceAdded != null ? fmtNum(i.sinceAdded, 2) : ""]);
+  downloadCsv("takip_listesi_" + new Date().toISOString().slice(0, 10) + ".csv", ["Hisse", "Güncel Fiyat", "Günlük Değişim (%)", "Eklenme Tarihi", "Eklenme Fiyatı", "Eklenmeden Beri (%)"], rows);
+});
 
 // ==========================================================================
 // 13) KARŞILAŞTIRMA
@@ -843,8 +1103,15 @@ async function runTrendsScan() {
 
     if (points.length === 0) throw new Error("Hiçbir hisse verisi alınamadı. Worker/Yahoo bağlantısını kontrol et.");
 
-    const gainers = [...points].sort((a, b) => b.changePct - a.changePct).slice(0, TRENDS_TOP_N);
-    const losers = [...points].sort((a, b) => a.changePct - b.changePct).slice(0, TRENDS_TOP_N);
+    // BIST'te bir günde %30'u aşan bir hareket pratikte olağan değil (uzun süreli işlem
+    // durdurma sonrası ilk seans gibi istisnalar hariç) — bu yüzden Yükselen/Düşen/Piyasa
+    // Nabzı gibi "en iyi/en kötü" listelerinde bu tür şüpheli veriler dışarıda tutulur.
+    // Yine de Isı Haritası'nda (uyarı işaretiyle) tüm hisseler gösterilmeye devam eder.
+    const SANITY_LIMIT = 30;
+    const reliablePoints = points.filter((p) => Math.abs(p.changePct) <= SANITY_LIMIT);
+
+    const gainers = [...reliablePoints].sort((a, b) => b.changePct - a.changePct).slice(0, TRENDS_TOP_N);
+    const losers = [...reliablePoints].sort((a, b) => a.changePct - b.changePct).slice(0, TRENDS_TOP_N);
     const byVolume = [...points].sort((a, b) => b.volumeTL - a.volumeTL).slice(0, TRENDS_TOP_N);
 
     renderTrendsTable(trendsGainersTable, gainers, true);
@@ -854,6 +1121,10 @@ async function runTrendsScan() {
     renderHeatmap(points);
     render52WeekBreakouts(points);
     renderBist30PeakDistance(points);
+
+    // Özet ekranının "Piyasa Nabzı" mini widget'ı bu son taramayı yeniden kullanır — ek istek atmaz.
+    lastTrendsPoints = points;
+    lastTrendsScanTime = Date.now();
 
     trendsLoading.classList.remove("active");
     trendsResults.style.display = "block";
@@ -896,7 +1167,10 @@ function renderMarketPulse(points) {
   const up = points.filter((p) => p.changePct > 0.05).length;
   const down = points.filter((p) => p.changePct < -0.05).length;
   const flat = points.length - up - down;
-  const avgChange = points.reduce((s, p) => s + p.changePct, 0) / points.length;
+  // Ortalama değişim, imkansız derecede büyük (%30+) tekil değerlerin ortalamayı
+  // bozmaması için "güvenilir" (şüpheli olmayan) hisselerden hesaplanıyor.
+  const reliable = points.filter((p) => Math.abs(p.changePct) <= 30);
+  const avgChange = reliable.length ? reliable.reduce((s, p) => s + p.changePct, 0) / reliable.length : 0;
 
   const upPct = (up / points.length) * 100;
   const downPct = (down / points.length) * 100;
@@ -918,16 +1192,31 @@ function renderMarketPulse(points) {
 function renderHeatmap(points) {
   // Değişime göre büyükten küçüğe sıralayıp ısı haritasını daha okunaklı hale getiriyoruz
   const sorted = [...points].sort((a, b) => b.changePct - a.changePct);
-  const maxAbs = Math.max(1, ...sorted.map((p) => Math.abs(p.changePct)));
+
+  // ÖNEMLİ: Renk yoğunluğunu veri setindeki gerçek maksimuma göre değil, SABİT bir tavana
+  // (%15) göre normalize ediyoruz. Aksi halde tek bir anormal/hatalı değer (örn. Yahoo'nun
+  // kendi verisinde nadiren görülen bir hata sonucu -%73 gibi imkansız bir sayı), tüm diğer
+  // hisselerin rengini "soluklaştırıp" ısı haritasını yanıltıcı hale getirebiliyordu.
+  const COLOR_CEILING = 15;
+  // BIST'te tek günde bu sınırı aşan bir hareket pratikte imkansıza yakındır (uzun süreli
+  // işlem durdurmadan sonra ilk seans hariç) — bu yüzden bu sınırın üzerini "şüpheli veri"
+  // olarak ayrıca işaretliyoruz, gizlemiyoruz ama uyarıyoruz.
+  const SANITY_LIMIT = 30;
 
   heatmapGrid.innerHTML = sorted
     .map((p) => {
-      const intensity = Math.min(1, Math.abs(p.changePct) / maxAbs);
+      const isSuspect = Math.abs(p.changePct) > SANITY_LIMIT;
+      const intensity = Math.min(1, Math.abs(p.changePct) / COLOR_CEILING);
       const color = p.changePct >= 0
         ? lerpColor("#1a2e28", "#17c987", intensity)
         : lerpColor("#2e1a1e", "#ff4757", intensity);
-      return `<div class="heatmap-cell" style="background:${color}" title="${p.symbol}: ${fmtPct(p.changePct)}" onclick="goToStock('${p.symbol}')">
-        <div class="hc-symbol">${p.symbol}</div>
+      const border = isSuspect ? "border:2px dashed #d4af37;" : "";
+      const warn = isSuspect ? ' <span title="Bu değer olağan dışı — Yahoo verisinde bir hata olabilir, teyit et.">⚠️</span>' : "";
+      const titleText = isSuspect
+        ? `${p.symbol}: ${fmtPct(p.changePct)} (ŞÜPHELİ VERİ — bu kadar büyük bir günlük hareket BIST'te olağan değil, teyit etmeden güvenme)`
+        : `${p.symbol}: ${fmtPct(p.changePct)}`;
+      return `<div class="heatmap-cell" style="background:${color};${border}" title="${titleText}" onclick="goToStock('${p.symbol}')">
+        <div class="hc-symbol">${p.symbol}${warn}</div>
         <div class="hc-change">${fmtPct(p.changePct, 1)}</div>
       </div>`;
     })
@@ -1176,7 +1465,7 @@ function renderMoneyFlow(points) {
     s.stocks.push(p);
     s.todayVolumeTL += p.volumeTL || 0;
     if (p.avgVolumeTL) s.avgVolumeTL += p.avgVolumeTL;
-    if (p.changePct != null) { s.changeSum += p.changePct; s.changeCount++; }
+    if (p.changePct != null && Math.abs(p.changePct) <= 30) { s.changeSum += p.changePct; s.changeCount++; }
   });
 
   const sectors = Object.values(sectorMap).map((s) => ({
@@ -1195,17 +1484,21 @@ function renderMoneyFlow(points) {
     const barWidth = s.ratio != null ? Math.min(100, (s.ratio / maxRatio) * 100) : 0;
 
     const stocksSorted = [...s.stocks].sort((a, b) => (b.volRatio ?? 0) - (a.volRatio ?? 0));
-    const stocksHtml = stocksSorted.map((p) => `
+    const stocksHtml = stocksSorted.map((p) => {
+      const isSuspect = p.changePct != null && Math.abs(p.changePct) > 30;
+      const warn = isSuspect ? ' <span title="Bu değer olağan dışı, teyit et">⚠️</span>' : "";
+      return `
       <div class="money-stock-row">
         <div class="msl-left">
-          <span class="symbol-cell clickable-symbol" onclick="event.stopPropagation(); goToStock('${p.symbol}')">${p.symbol}</span>
+          <span class="symbol-cell clickable-symbol" onclick="event.stopPropagation(); goToStock('${p.symbol}')">${p.symbol}${warn}</span>
           <span class="msl-price">${fmtTL(p.price)}</span>
         </div>
         <div class="msl-right">
           <span class="${changeClass(p.changePct)}">${fmtPct(p.changePct)}</span>
           <span style="color:var(--text-faint)">${p.volRatio != null ? fmtNum(p.volRatio, 2) + "x hacim" : "—"}</span>
         </div>
-      </div>`).join("");
+      </div>`;
+    }).join("");
 
     return `
       <div class="money-sector-row" onclick="this.querySelector('.money-stock-list').classList.toggle('open')">
@@ -1220,4 +1513,185 @@ function renderMoneyFlow(points) {
         <div class="money-stock-list">${stocksHtml}</div>
       </div>`;
   }).join("");
+}
+
+// ==========================================================================
+// 16) NOTLAR (hisse başına, buluta kaydedilir)
+// ==========================================================================
+async function loadAllNotes() { try { return await kvGet("notes"); } catch (e) { return {}; } }
+async function saveAllNotes(notes) { await kvPost("notes", { notes }); }
+
+async function loadNoteForSymbol(symbol) {
+  stockNoteInput.value = "Yükleniyor...";
+  try {
+    const notes = await loadAllNotes();
+    stockNoteInput.value = notes[symbol] || "";
+  } catch (e) { stockNoteInput.value = ""; }
+  noteSavedText.style.display = "none";
+}
+
+saveNoteBtn.addEventListener("click", async () => {
+  if (!currentSymbol) return;
+  saveNoteBtn.disabled = true;
+  try {
+    const notes = await loadAllNotes();
+    notes[currentSymbol] = stockNoteInput.value.trim();
+    await saveAllNotes(notes);
+    noteSavedText.style.display = "inline";
+    setTimeout(() => { noteSavedText.style.display = "none"; }, 2500);
+  } catch (e) {
+    alert("Not kaydedilemedi: " + e.message);
+  } finally {
+    saveNoteBtn.disabled = false;
+  }
+});
+
+// ==========================================================================
+// 17) SON ARAMALAR (localStorage, cihaza özel — hızlı erişim için)
+// ==========================================================================
+const LS_RECENT_KEY = "bist_terminal_recent";
+function saveRecentSearch(symbol) {
+  let recent = [];
+  try { recent = JSON.parse(localStorage.getItem(LS_RECENT_KEY) || "[]"); } catch (e) { recent = []; }
+  recent = recent.filter((s) => s !== symbol);
+  recent.unshift(symbol);
+  recent = recent.slice(0, 6);
+  localStorage.setItem(LS_RECENT_KEY, JSON.stringify(recent));
+}
+function renderRecentSearches() {
+  let recent = [];
+  try { recent = JSON.parse(localStorage.getItem(LS_RECENT_KEY) || "[]"); } catch (e) { recent = []; }
+  if (recent.length === 0) { recentSearchesWrap.style.display = "none"; return; }
+  recentSearchesWrap.style.display = "block";
+  recentSearchesRow.innerHTML = recent.map((s) => `<span class="recent-chip" onclick="goToStock('${s}')">${s}</span>`).join("");
+}
+
+// ==========================================================================
+// 18) OTOMATİK TAMAMLAMA (BIST 100 listesinden, ek istek yok)
+// ==========================================================================
+let acActiveIndex = -1;
+searchInput.addEventListener("input", () => {
+  const val = searchInput.value.toUpperCase().trim();
+  acActiveIndex = -1;
+  if (!val) { autocompleteBox.classList.remove("open"); autocompleteBox.innerHTML = ""; return; }
+  const matches = BIST100_SYMBOLS.filter((s) => s.startsWith(val)).slice(0, 8);
+  if (matches.length === 0) { autocompleteBox.classList.remove("open"); autocompleteBox.innerHTML = ""; return; }
+  autocompleteBox.innerHTML = matches.map((s, i) => `<div class="autocomplete-item" data-idx="${i}">${s}</div>`).join("");
+  autocompleteBox.classList.add("open");
+  autocompleteBox.querySelectorAll(".autocomplete-item").forEach((el) => {
+    el.addEventListener("click", () => { searchInput.value = el.textContent; autocompleteBox.classList.remove("open"); runSearch(el.textContent); });
+  });
+});
+searchInput.addEventListener("keydown", (e) => {
+  const items = autocompleteBox.querySelectorAll(".autocomplete-item");
+  if (autocompleteBox.classList.contains("open") && items.length > 0) {
+    if (e.key === "ArrowDown") { e.preventDefault(); acActiveIndex = Math.min(acActiveIndex + 1, items.length - 1); items.forEach((it, i) => it.classList.toggle("active", i === acActiveIndex)); return; }
+    if (e.key === "ArrowUp") { e.preventDefault(); acActiveIndex = Math.max(acActiveIndex - 1, 0); items.forEach((it, i) => it.classList.toggle("active", i === acActiveIndex)); return; }
+    if (e.key === "Enter" && acActiveIndex >= 0) { e.preventDefault(); const chosen = items[acActiveIndex].textContent; searchInput.value = chosen; autocompleteBox.classList.remove("open"); runSearch(chosen); return; }
+  }
+  if (e.key === "Enter") { autocompleteBox.classList.remove("open"); runSearch(searchInput.value); }
+  if (e.key === "Escape") { autocompleteBox.classList.remove("open"); }
+});
+document.addEventListener("click", (e) => {
+  if (!autocompleteBox.contains(e.target) && e.target !== searchInput) autocompleteBox.classList.remove("open");
+});
+
+// ==========================================================================
+// 19) PAYLAŞILABİLİR LİNK — ?symbol=ALARK ile açılınca otomatik arama yapar
+// ==========================================================================
+function checkShareableLink() {
+  const params = new URLSearchParams(window.location.search);
+  const sym = params.get("symbol");
+  if (sym) {
+    showSearchNav();
+    runSearch(sym);
+  }
+}
+
+// ==========================================================================
+// 20) ÖZET (ANA SAYFA) EKRANI — Portföy/Takip/Trendler verilerini bir araya
+// getirir, kendi başına YENİ bir Yahoo isteği atmaz.
+// ==========================================================================
+async function renderHomeScreen() {
+  await renderHomePortfolio();
+  await renderHomeWatchlist();
+  renderHomePulse();
+}
+
+async function renderHomePortfolio() {
+  const pos = await loadPortfolio();
+  if (pos.length === 0) {
+    homePortfolioEmpty.classList.add("visible");
+    homePortfolioSummary.innerHTML = "";
+    return;
+  }
+  homePortfolioEmpty.classList.remove("visible");
+  homePortfolioSummary.innerHTML = '<div class="summary-card"><div class="summary-label">Yükleniyor</div><div class="summary-value">—</div></div>';
+
+  const results = await Promise.allSettled(pos.map((p) => fetchQuickPrice(p.symbol)));
+  let tc = 0, tv = 0, tdc = 0;
+  pos.forEach((p, i) => {
+    const cv = p.qty * p.cost; tc += cv;
+    const r = results[i];
+    if (r.status === "fulfilled") {
+      const val = p.qty * r.value.price;
+      tv += val;
+      tdc += val - val / (1 + r.value.dailyChangePct / 100);
+    } else { tv += cv; }
+  });
+  const tg = tv - tc, tgp = tc ? (tg / tc) * 100 : 0;
+  homePortfolioSummary.innerHTML =
+    '<div class="summary-card"><div class="summary-label">Toplam Değer</div><div class="summary-value">' + fmtTL(tv) + '</div></div>' +
+    '<div class="summary-card"><div class="summary-label">Kâr/Zarar</div><div class="summary-value ' + changeClass(tg) + '">' + (tg >= 0 ? "+" : "") + fmtTL(tg) + " (" + fmtPct(tgp) + ')</div></div>' +
+    '<div class="summary-card"><div class="summary-label">Bugünkü Değişim</div><div class="summary-value ' + changeClass(tdc) + '">' + (tdc >= 0 ? "+" : "") + fmtTL(tdc) + " (" + fmtPct(tv ? (tdc / (tv - tdc)) * 100 : 0) + ')</div></div>' +
+    '<div class="summary-card"><div class="summary-label">Pozisyon Sayısı</div><div class="summary-value">' + pos.length + "</div></div>";
+}
+
+async function renderHomeWatchlist() {
+  const items = await loadWatchlist();
+  if (items.length === 0) {
+    homeWatchlistEmpty.classList.add("visible");
+    homeWatchlistMovers.innerHTML = "";
+    return;
+  }
+  homeWatchlistEmpty.classList.remove("visible");
+  homeWatchlistMovers.innerHTML = '<div class="sub-note">Yükleniyor...</div>';
+
+  const results = await Promise.allSettled(items.map((i) => fetchQuickPrice(i.symbol)));
+  const withData = items
+    .map((item, i) => (results[i].status === "fulfilled" ? { symbol: item.symbol, price: results[i].value.price, changePct: results[i].value.dailyChangePct } : null))
+    .filter(Boolean)
+    .sort((a, b) => Math.abs(b.changePct) - Math.abs(a.changePct))
+    .slice(0, 5);
+
+  if (withData.length === 0) { homeWatchlistMovers.innerHTML = '<div class="sub-note">Veri alınamadı.</div>'; return; }
+
+  homeWatchlistMovers.innerHTML = withData.map((p) => `
+    <div class="home-mover-row">
+      <span class="symbol-cell clickable-symbol" onclick="goToStock('${p.symbol}')">${p.symbol}</span>
+      <span>${fmtTL(p.price)}</span>
+      <span class="${changeClass(p.changePct)}">${fmtPct(p.changePct)}</span>
+    </div>`).join("");
+}
+
+function renderHomePulse() {
+  if (!lastTrendsPoints) {
+    homePulseEmpty.classList.add("visible");
+    homePulseRow.innerHTML = "";
+    homePulseNote.textContent = "Trendler'den son tarama sonucu";
+    return;
+  }
+  homePulseEmpty.classList.remove("visible");
+  const points = lastTrendsPoints;
+  const up = points.filter((p) => p.changePct > 0.05).length;
+  const down = points.filter((p) => p.changePct < -0.05).length;
+  const flat = points.length - up - down;
+  const minsAgo = Math.round((Date.now() - lastTrendsScanTime) / 60000);
+  homePulseNote.textContent = minsAgo < 1 ? "Az önce tarandı" : minsAgo + " dakika önce tarandı";
+  homePulseRow.innerHTML =
+    '<div class="pulse-row">' +
+    '<div class="pulse-stat up"><div class="pulse-num">' + up + '</div><div class="pulse-label">Yükselen</div></div>' +
+    '<div class="pulse-stat down"><div class="pulse-num">' + down + '</div><div class="pulse-label">Düşen</div></div>' +
+    '<div class="pulse-stat flat"><div class="pulse-num">' + flat + '</div><div class="pulse-label">Sabit</div></div>' +
+    '</div>';
 }
