@@ -202,6 +202,37 @@ export default {
     }
 
     // =====================================================================
+    // KİŞİSEL NOTLAR (hisse başına, KV tabanlı, cihazlar arası senkron)
+    // =====================================================================
+    if (url.pathname === "/api/notes") {
+      if (!env.PORTFOLIO_KV) {
+        return json({ error: "KV veritabanı Worker'a bağlanmamış." }, 500);
+      }
+
+      if (request.method === "GET") {
+        try {
+          const raw = await env.PORTFOLIO_KV.get("notes");
+          return json(raw ? JSON.parse(raw) : {});
+        } catch (e) {
+          return json({ error: "Notlar okunamadı.", detail: String(e) }, 500);
+        }
+      }
+
+      if (request.method === "POST") {
+        try {
+          const body = await request.json();
+          const notes = body.notes || {};
+          await env.PORTFOLIO_KV.put("notes", JSON.stringify(notes));
+          return json({ ok: true });
+        } catch (e) {
+          return json({ error: "Notlar kaydedilemedi.", detail: String(e) }, 500);
+        }
+      }
+
+      return json({ error: "Desteklenmeyen metod." }, 405);
+    }
+
+    // =====================================================================
     // YAHOO FINANCE API'leri
     // =====================================================================
 
@@ -270,6 +301,7 @@ export default {
           "recommendationTrend",
           "price",
           "earnings",
+          "assetProfile",
         ].join(",");
         const res = await yahooFetch(
           `https://query2.finance.yahoo.com/v10/finance/quoteSummary/${yahooSymbol}?modules=${modules}&formatted=false&corsDomain=finance.yahoo.com`
