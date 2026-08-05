@@ -37,6 +37,7 @@
       <div class="brand">BIST<span class="dot">•</span>TERMINAL <small>YAHOO FINANCE VERİSİ</small></div>
       <div class="nav-buttons">
         <button class="nav-btn active" id="navSearchBtn">Ara</button>
+        <button class="nav-btn" id="navHomeBtn">Özet</button>
         <button class="nav-btn" id="navPortfolioBtn">Portföy</button>
         <button class="nav-btn" id="navWatchlistBtn">Takip</button>
         <button class="nav-btn" id="navTrendsBtn">Trendler</button>
@@ -51,9 +52,41 @@
       <div class="headline">Hisse kodunu yaz</div>
       <div class="search-box">
         <input type="text" id="searchInput" placeholder="örn. ALARK, THYAO, ASELS" autocomplete="off" />
+        <div id="autocompleteBox" class="autocomplete-box"></div>
       </div>
       <div class="search-hint">Enter'a bas — veri sadece arama yaptığında çekilir</div>
       <div class="search-error" id="searchError"></div>
+      <div id="recentSearchesWrap" class="recent-searches-wrap" style="display:none">
+        <div class="recent-searches-label">Son Aramalar</div>
+        <div id="recentSearchesRow" class="recent-searches-row"></div>
+      </div>
+    </div>
+
+    <!-- ============ ÖZET (ANA SAYFA) EKRANI ============ -->
+    <div class="home-screen" id="homeScreen">
+
+      <div class="panel-card" style="margin-bottom:20px">
+        <div class="card-title" style="margin-bottom:4px">Portföy Özeti</div>
+        <div id="homePortfolioSummary" class="portfolio-summary"></div>
+        <div id="homePortfolioEmpty" class="portfolio-empty">Henüz portföyünde pozisyon yok. <span class="clickable-symbol" onclick="showPortfolioNav()">Portföy ekranına git →</span></div>
+      </div>
+
+      <div class="two-col-grid" style="margin-bottom:20px">
+        <div class="panel-card">
+          <div class="card-title" style="margin-bottom:6px">Takip Listesi — Öne Çıkanlar</div>
+          <div class="sub-note" style="margin-bottom:12px">Takip listendeki en çok hareket eden hisseler</div>
+          <div id="homeWatchlistMovers"></div>
+          <div id="homeWatchlistEmpty" class="portfolio-empty">Henüz takip listeni oluşturmadın. <span class="clickable-symbol" onclick="showWatchlistNav()">Takip ekranına git →</span></div>
+        </div>
+        <div class="panel-card">
+          <div class="card-title" style="margin-bottom:6px">Piyasa Nabzı</div>
+          <div class="sub-note" style="margin-bottom:12px" id="homePulseNote">Trendler'den son tarama sonucu</div>
+          <div id="homePulseRow"></div>
+          <div id="homePulseEmpty" class="portfolio-empty">Henüz bir tarama yapılmadı. <span class="clickable-symbol" onclick="showTrendsNav()">Trendler'den tara →</span></div>
+        </div>
+      </div>
+
+      <footer class="data-source">Bu ekran, Portföy/Takip/Trendler verilerini bir araya getirir — ayrı bir veri çekmez.</footer>
     </div>
 
     <!-- Yükleniyor -->
@@ -171,6 +204,39 @@
         </div>
       </div>
 
+      <!-- Çeyreklik Kâr/Gelir + Analist Trendi -->
+      <div class="two-col-grid">
+        <div class="panel-card">
+          <div class="card-title" style="margin-bottom:4px">Çeyreklik Gelir & Kâr</div>
+          <div class="sub-note" style="margin-bottom:14px">Son 4 çeyrek (TL)</div>
+          <div id="earningsChartWrap"><svg id="earningsChartSvg" viewBox="0 0 400 180" width="100%" height="180"></svg></div>
+          <div id="earningsEmpty" class="portfolio-empty">Bu hisse için çeyreklik veri yok.</div>
+        </div>
+        <div class="panel-card">
+          <div class="card-title" style="margin-bottom:4px">Analist Tavsiye Trendi</div>
+          <div class="sub-note" style="margin-bottom:14px">Son 4 ay — Güçlü Al'dan Güçlü Sat'a dağılım</div>
+          <div id="recTrendChart"></div>
+          <div id="recTrendEmpty" class="portfolio-empty">Bu hisse için analist verisi yok.</div>
+        </div>
+      </div>
+
+      <!-- Şirket Profili -->
+      <div class="panel-card" id="profileCard" style="display:none">
+        <div class="card-title" style="margin-bottom:6px">Şirket Profili</div>
+        <div class="sub-note" id="profileMeta" style="margin-bottom:12px"></div>
+        <div id="profileSummary" class="profile-summary"></div>
+      </div>
+
+      <!-- Not -->
+      <div class="panel-card">
+        <div class="card-title" style="margin-bottom:12px">Kendi Notun</div>
+        <textarea id="stockNoteInput" class="note-textarea" placeholder="Bu hisseyle ilgili kendine not bırak (örn. bilanço tarihi, takip ettiğin seviye)..."></textarea>
+        <div style="display:flex; align-items:center; gap:10px; margin-top:10px">
+          <button id="saveNoteBtn" class="ghost-btn">Notu Kaydet</button>
+          <span id="noteSavedText" class="sub-note" style="display:none">Kaydedildi ✓</span>
+        </div>
+      </div>
+
       <!-- Hacim -->
       <div class="volume-card">
         <div class="volume-main">
@@ -210,13 +276,16 @@
       <div class="two-col-grid" style="grid-template-columns: 1.6fr 1fr;">
         <div class="panel-card">
           <div class="card-title" style="margin-bottom:8px">Pozisyonlar</div>
-          <button id="detailToggleBtn" class="ghost-btn" style="margin-bottom:12px">+ Detaylı Görünüm (AL/SAT Skoru)</button>
+          <div style="display:flex; gap:8px; margin-bottom:12px; flex-wrap:wrap">
+            <button id="detailToggleBtn" class="ghost-btn">+ Detaylı Görünüm (AL/SAT Skoru)</button>
+            <button id="portfolioCsvBtn" class="ghost-btn">CSV İndir</button>
+          </div>
           <div class="portfolio-table-wrap">
             <table class="portfolio-table" id="portfolioTable">
               <thead id="portfolioTableHead">
                 <tr>
-                  <th>Hisse</th><th>Adet</th><th>Maliyet</th><th>Güncel</th>
-                  <th>Değer</th><th>K/Z (TL)</th><th>K/Z (%)</th><th></th>
+                  <th class="sortable-th" data-key="symbol">Hisse</th><th class="sortable-th" data-key="qty">Adet</th><th class="sortable-th" data-key="cost">Maliyet</th><th class="sortable-th" data-key="price">Güncel</th>
+                  <th class="sortable-th" data-key="value">Değer</th><th class="sortable-th" data-key="gain">K/Z (TL)</th><th class="sortable-th" data-key="gainPct">K/Z (%)</th><th></th>
                 </tr>
               </thead>
               <tbody id="portfolioTableBody"></tbody>
@@ -226,12 +295,20 @@
         </div>
 
         <div class="panel-card">
-          <div class="card-title" style="margin-bottom:16px">Dağılım</div>
+          <div class="card-title" style="margin-bottom:16px">Dağılım (Hisse)</div>
           <div style="text-align:center">
             <svg id="donutSvg" viewBox="0 0 200 200" width="200" height="200"></svg>
           </div>
           <div id="donutLegend" class="donut-legend"></div>
         </div>
+      </div>
+
+      <!-- Sektör Dağılımı -->
+      <div class="panel-card" id="sectorBreakdownCard" style="margin-top:20px; display:none">
+        <div class="card-title" style="margin-bottom:4px">Sektör Dağılımı</div>
+        <div class="sub-note" style="margin-bottom:14px">Portföyünün sektörlere göre yoğunlaşması</div>
+        <div id="sectorBreakdownRow" class="money-sector-list"></div>
+        <div id="sectorConcentrationWarn" class="search-error" style="text-align:left;margin-top:10px"></div>
       </div>
 
       <!-- Realize Edilmiş K/Z -->
@@ -264,12 +341,13 @@
       </div>
 
       <div class="panel-card">
-        <div class="card-title" style="margin-bottom:16px">Takip Listesi</div>
+        <div class="card-title" style="margin-bottom:8px">Takip Listesi</div>
+        <button id="watchlistCsvBtn" class="ghost-btn" style="margin-bottom:12px">CSV İndir</button>
         <div class="portfolio-table-wrap">
           <table class="portfolio-table" id="watchlistTable">
             <thead>
               <tr>
-                <th>Hisse</th><th>Güncel Fiyat</th><th>Günlük Değişim</th><th>Eklenme Tarihi</th><th>Eklenme Fiyatı</th><th>Eklenmeden Beri</th><th></th>
+                <th class="sortable-th" data-key="symbol">Hisse</th><th class="sortable-th" data-key="price">Güncel Fiyat</th><th class="sortable-th" data-key="changePct">Günlük Değişim</th><th class="sortable-th" data-key="addedDate">Eklenme Tarihi</th><th class="sortable-th" data-key="addedPrice">Eklenme Fiyatı</th><th class="sortable-th" data-key="sinceAdded">Eklenmeden Beri</th><th></th>
               </tr>
             </thead>
             <tbody id="watchlistTableBody"></tbody>
