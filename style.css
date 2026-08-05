@@ -1018,3 +1018,94 @@ footer.data-source {
 .money-stock-row .msl-left { display: flex; align-items: center; gap: 10px; }
 .money-stock-row .msl-price { font-family: var(--font-mono); color: var(--text-dim); }
 .money-stock-row .msl-right { display: flex; align-items: center; gap: 12px; font-family: var(--font-mono); }
+
+/* ---------- Otomatik Tamamlama ---------- */
+.search-box { position: relative; }
+.autocomplete-box {
+  display: none;
+  position: absolute;
+  top: calc(100% + 6px);
+  left: 0; right: 0;
+  background: var(--panel);
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  overflow: hidden;
+  z-index: 20;
+  box-shadow: 0 8px 24px rgba(0,0,0,0.4);
+}
+.autocomplete-box.open { display: block; }
+.autocomplete-item {
+  padding: 10px 18px;
+  cursor: pointer;
+  font-family: var(--font-mono);
+  font-size: 14px;
+  border-bottom: 1px solid var(--border);
+}
+.autocomplete-item:last-child { border-bottom: none; }
+.autocomplete-item:hover, .autocomplete-item.active { background: var(--panel-2); color: var(--gold); }
+
+/* ---------- Son Aramalar ---------- */
+.recent-searches-wrap { margin-top: 22px; text-align: center; }
+.recent-searches-label { font-size: 11px; color: var(--text-faint); text-transform: uppercase; letter-spacing: 0.05em; margin-bottom: 10px; }
+.recent-searches-row { display: flex; gap: 8px; justify-content: center; flex-wrap: wrap; }
+.recent-chip {
+  background: var(--panel-2);
+  border: 1px solid var(--border);
+  border-radius: 20px;
+  padding: 6px 16px;
+  font-family: var(--font-mono);
+  font-size: 12.5px;
+  cursor: pointer;
+  transition: border-color .15s, color .15s;
+}
+.recent-chip:hover { border-color: var(--gold); color: var(--gold); }
+
+/* ---------- Özet (Ana Sayfa) ekranı ---------- */
+.home-screen {
+  display: none;
+  max-width: 1180px;
+  margin: 0 auto;
+  padding: 24px 24px 60px;
+}
+.home-screen.active { display: block; }
+.home-mover-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 9px 4px;
+  border-bottom: 1px solid var(--border);
+  font-size: 13px;
+}
+.home-mover-row:last-child { border-bottom: none; }
+
+/* ---------- Not (textarea) ---------- */
+.note-textarea {
+  width: 100%;
+  min-height: 90px;
+  background: var(--panel-2);
+  border: 1px solid var(--border);
+  color: var(--text);
+  border-radius: 8px;
+  padding: 12px 14px;
+  font-family: var(--font-body);
+  font-size: 13.5px;
+  resize: vertical;
+  outline: none;
+}
+.note-textarea:focus { border-color: var(--gold); }
+
+/* ---------- Şirket Profili ---------- */
+.profile-summary { font-size: 13.5px; line-height: 1.7; color: var(--text-dim); }
+
+/* ---------- Çeyreklik Kâr / Analist Trendi ---------- */
+#earningsChartWrap { width: 100%; }
+.rec-trend-row { display: flex; flex-direction: column; gap: 10px; }
+.rec-trend-month { display: flex; align-items: center; gap: 10px; font-size: 11.5px; }
+.rec-trend-label { width: 46px; flex-shrink: 0; color: var(--text-faint); font-family: var(--font-mono); }
+.rec-trend-bar { flex: 1; display: flex; height: 16px; border-radius: 4px; overflow: hidden; background: var(--panel-2); }
+.rec-trend-bar div { height: 100%; }
+
+/* ---------- Sıralanabilir tablo başlıkları ---------- */
+.sortable-th { cursor: pointer; user-select: none; }
+.sortable-th:hover { color: var(--gold); }
+.sortable-th .sort-arrow { font-size: 9px; margin-left: 3px; opacity: 0.6; }
