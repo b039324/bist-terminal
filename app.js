@@ -234,22 +234,21 @@ function processChartData(r) {
   const candles = [], vtl = [];
   for (let i = 0; i < ts.length; i++) { if (q.close[i] == null) continue; const t = ts[i], c = q.close[i]; candles.push({ time: t, open: q.open[i] ?? c, high: q.high[i] ?? c, low: q.low[i] ?? c, close: c, volume: q.volume[i] ?? 0 }); vtl.push({ time: t, volumeTL: (q.volume[i] ?? 0) * c }); }
 
-  // ÖNEMLİ: Yahoo'nun grafik (chart) verisinde bazen EN SON gün eksik (null) geliyor —
-  // bu durumda grafik ve günlük hacim yanlışlıkla "2 gün önceki" işlem gününde takılı kalıyordu
-  // (AKBNK'ta yaşadığımız sorunun bir başka görünümü). Eğer serideki son zaman damgasının
-  // kapanışı eksikse ama Yahoo'nun "meta" alanında güncel/bugünkü fiyat verisi varsa,
-  // bu son günü meta'dan SENTEZLEYİP diziye ekliyoruz — böylece grafik de, hacim de gerçekten
+  // ÖNEMLİ: Yahoo'nun grafik (chart) verisi bazen bugüne hiç ulaşmıyor — ya son satır
+  // "boş" (null) geliyor, ya da dizi resmen dünle bitip bugüne ait bir satır bile
+  // eklenmemiş oluyor. İkisini de yakalamak için, dizideki SON mumun tarihini,
+  // Yahoo'nun "meta" alanındaki (güncel fiyatın ait olduğu) GERÇEK tarihle -TAKVİM GÜNÜ
+  // bazında- karşılaştırıyoruz. Meta daha yeni bir günü gösteriyorsa, o günü meta
+  // verisinden SENTEZLEYİP diziye ekliyoruz — böylece grafik de, hacim de gerçekten
   // güncel günü gösterir.
-  const lastRawIdx = ts.length - 1;
-  if (
-    q.close[lastRawIdx] == null &&
-    meta.regularMarketPrice != null &&
-    candles.length > 0 &&
-    candles[candles.length - 1].time !== ts[lastRawIdx]
-  ) {
-    const prevC = candles[candles.length - 1].close;
+  const toTRDateStr = (unixSec) => new Date((unixSec + 3 * 3600) * 1000).toISOString().slice(0, 10);
+  const lastCandleDate = candles.length > 0 ? toTRDateStr(candles[candles.length - 1].time) : null;
+  const metaDate = meta.regularMarketTime != null ? toTRDateStr(meta.regularMarketTime) : null;
+
+  if (metaDate != null && metaDate !== lastCandleDate && meta.regularMarketPrice != null) {
+    const prevC = candles.length > 0 ? candles[candles.length - 1].close : meta.regularMarketPrice;
     const synth = {
-      time: ts[lastRawIdx],
+      time: meta.regularMarketTime,
       open: prevC,
       high: meta.regularMarketDayHigh ?? Math.max(prevC, meta.regularMarketPrice),
       low: meta.regularMarketDayLow ?? Math.min(prevC, meta.regularMarketPrice),
