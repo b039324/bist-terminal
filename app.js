@@ -233,6 +233,33 @@ function processChartData(r) {
   const ts = r.timestamp, q = r.indicators.quote[0], meta = r.meta || {};
   const candles = [], vtl = [];
   for (let i = 0; i < ts.length; i++) { if (q.close[i] == null) continue; const t = ts[i], c = q.close[i]; candles.push({ time: t, open: q.open[i] ?? c, high: q.high[i] ?? c, low: q.low[i] ?? c, close: c, volume: q.volume[i] ?? 0 }); vtl.push({ time: t, volumeTL: (q.volume[i] ?? 0) * c }); }
+
+  // ÖNEMLİ: Yahoo'nun grafik (chart) verisinde bazen EN SON gün eksik (null) geliyor —
+  // bu durumda grafik ve günlük hacim yanlışlıkla "2 gün önceki" işlem gününde takılı kalıyordu
+  // (AKBNK'ta yaşadığımız sorunun bir başka görünümü). Eğer serideki son zaman damgasının
+  // kapanışı eksikse ama Yahoo'nun "meta" alanında güncel/bugünkü fiyat verisi varsa,
+  // bu son günü meta'dan SENTEZLEYİP diziye ekliyoruz — böylece grafik de, hacim de gerçekten
+  // güncel günü gösterir.
+  const lastRawIdx = ts.length - 1;
+  if (
+    q.close[lastRawIdx] == null &&
+    meta.regularMarketPrice != null &&
+    candles.length > 0 &&
+    candles[candles.length - 1].time !== ts[lastRawIdx]
+  ) {
+    const prevC = candles[candles.length - 1].close;
+    const synth = {
+      time: ts[lastRawIdx],
+      open: prevC,
+      high: meta.regularMarketDayHigh ?? Math.max(prevC, meta.regularMarketPrice),
+      low: meta.regularMarketDayLow ?? Math.min(prevC, meta.regularMarketPrice),
+      close: meta.regularMarketPrice,
+      volume: meta.regularMarketVolume ?? 0,
+    };
+    candles.push(synth);
+    vtl.push({ time: synth.time, volumeTL: synth.volume * synth.close });
+  }
+
   const closes = candles.map((c) => c.close);
   const lc = meta.regularMarketPrice != null ? meta.regularMarketPrice : closes[closes.length - 1];
   const pc = closes[closes.length - 2] ?? lc;
