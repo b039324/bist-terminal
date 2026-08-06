@@ -11,6 +11,8 @@ const passSubmit = document.getElementById("passSubmit");
 const lockError = document.getElementById("lockError");
 const appEl = document.getElementById("app");
 const logoutBtn = document.getElementById("logoutBtn");
+const themeToggleBtn = document.getElementById("themeToggleBtn");
+const printPdfBtn = document.getElementById("printPdfBtn");
 
 const searchScreen = document.getElementById("searchScreen");
 const searchInput = document.getElementById("searchInput");
@@ -382,10 +384,13 @@ function computeValuationScore(f) {
 // 8) MİNİ HACİM + LIGHTWEIGHT CHARTS
 // ==========================================================================
 function drawMiniVolume(vtl) { const svg = document.getElementById("miniVolumeSvg"); svg.innerHTML = ""; const data = vtl.slice(-30); const max = Math.max(...data.map((d) => d.volumeTL)); const w = 300 / data.length; data.forEach((d, i) => { const h = max ? (d.volumeTL / max) * 55 : 0; const r = document.createElementNS("http://www.w3.org/2000/svg", "rect"); r.setAttribute("x", i * w + 1); r.setAttribute("y", 58 - h); r.setAttribute("width", Math.max(w - 2, 1)); r.setAttribute("height", h); r.setAttribute("fill", "#d4af37"); r.setAttribute("opacity", "0.75"); svg.appendChild(r); }); }
+function isLightTheme() { return document.documentElement.getAttribute("data-theme") === "light"; }
+
 function renderChart(candles, vtl) {
   const pe = document.getElementById("priceChart"), ve = document.getElementById("volumeChart");
   pe.innerHTML = ""; ve.innerHTML = "";
-  const opt = { layout: { background: { color: "transparent" }, textColor: "#7d8a9c", fontFamily: "JetBrains Mono, monospace" }, grid: { vertLines: { color: "#1a1f29" }, horzLines: { color: "#1a1f29" } }, timeScale: { borderColor: "#232a36" }, rightPriceScale: { borderColor: "#232a36" }, crosshair: { mode: 0 } };
+  const light = isLightTheme();
+  const opt = { layout: { background: { color: "transparent" }, textColor: light ? "#566072" : "#7d8a9c", fontFamily: "JetBrains Mono, monospace" }, grid: { vertLines: { color: light ? "#e4e7ec" : "#1a1f29" }, horzLines: { color: light ? "#e4e7ec" : "#1a1f29" } }, timeScale: { borderColor: light ? "#dde1e7" : "#232a36" }, rightPriceScale: { borderColor: light ? "#dde1e7" : "#232a36" }, crosshair: { mode: 0 } };
   priceChartApi = LightweightCharts.createChart(pe, { ...opt, height: 340 });
   candleSeries = priceChartApi.addCandlestickSeries({ upColor: "#17c987", downColor: "#ff4757", borderUpColor: "#17c987", borderDownColor: "#ff4757", wickUpColor: "#17c987", wickDownColor: "#ff4757" });
   candleSeries.setData(candles.map((c) => ({ time: c.time, open: c.open, high: c.high, low: c.low, close: c.close })));
@@ -999,13 +1004,14 @@ function renderCompareTable(results) {
 function renderCompareChart(results) {
   cmpChartEl.innerHTML = "";
   if (cmpChartApi) { cmpChartApi.remove(); cmpChartApi = null; }
+  const light = isLightTheme();
 
   cmpChartApi = LightweightCharts.createChart(cmpChartEl, {
     height: 320,
-    layout: { background: { color: "transparent" }, textColor: "#7d8a9c", fontFamily: "JetBrains Mono, monospace" },
-    grid: { vertLines: { color: "#1a1f29" }, horzLines: { color: "#1a1f29" } },
-    timeScale: { borderColor: "#232a36" },
-    rightPriceScale: { borderColor: "#232a36" },
+    layout: { background: { color: "transparent" }, textColor: light ? "#566072" : "#7d8a9c", fontFamily: "JetBrains Mono, monospace" },
+    grid: { vertLines: { color: light ? "#e4e7ec" : "#1a1f29" }, horzLines: { color: light ? "#e4e7ec" : "#1a1f29" } },
+    timeScale: { borderColor: light ? "#dde1e7" : "#232a36" },
+    rightPriceScale: { borderColor: light ? "#dde1e7" : "#232a36" },
   });
 
   const colors = ["#d4af37", "#4098d7", "#17c987", "#ff4757"];
@@ -1721,3 +1727,29 @@ function renderHomePulse() {
     '<div class="pulse-stat flat"><div class="pulse-num">' + flat + '</div><div class="pulse-label">Sabit</div></div>' +
     '</div>';
 }
+
+// ==========================================================================
+// 21) AÇIK/KOYU TEMA — tercih localStorage'da saklanır, tamamen tarayıcıda çalışır
+// ==========================================================================
+const LS_THEME_KEY = "bist_terminal_theme";
+function applyTheme(theme) {
+  if (theme === "light") { document.documentElement.setAttribute("data-theme", "light"); themeToggleBtn.textContent = "☀️"; }
+  else { document.documentElement.removeAttribute("data-theme"); themeToggleBtn.textContent = "🌙"; }
+}
+function initTheme() {
+  const saved = localStorage.getItem(LS_THEME_KEY) || "dark";
+  applyTheme(saved);
+}
+themeToggleBtn.addEventListener("click", () => {
+  const current = localStorage.getItem(LS_THEME_KEY) || "dark";
+  const next = current === "dark" ? "light" : "dark";
+  localStorage.setItem(LS_THEME_KEY, next);
+  applyTheme(next);
+});
+initTheme();
+
+// ==========================================================================
+// 22) PDF AL / YAZDIR — tarayıcının kendi "Yazdır" özelliğini kullanır (ek maliyet yok).
+// @media print CSS kuralları sadece hisse sonuç ekranını yazdırılabilir bırakır.
+// ==========================================================================
+printPdfBtn.addEventListener("click", () => { window.print(); });
