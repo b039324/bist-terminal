@@ -29,6 +29,31 @@
   --font-mono: 'JetBrains Mono', monospace;
 }
 
+/* ---------- Açık Tema ---------- */
+[data-theme="light"] {
+  --bg: #f4f5f7;
+  --panel: #ffffff;
+  --panel-2: #eef0f3;
+  --border: #dde1e7;
+  --text: #12151c;
+  --text-dim: #566072;
+  --text-faint: #8b93a3;
+  --up: #0e9e68;
+  --up-dim: rgba(14, 158, 104, 0.1);
+  --down: #d6293e;
+  --down-dim: rgba(214, 41, 62, 0.1);
+  --gold: #a9791f;
+  --blue: #2f6fa8;
+}
+[data-theme="light"] body {
+  background-image:
+    radial-gradient(circle at 20% 0%, rgba(47, 111, 168, 0.05), transparent 45%),
+    radial-gradient(circle at 85% 15%, rgba(169, 121, 31, 0.05), transparent 40%);
+}
+[data-theme="light"] .lock-card .lock-icon,
+[data-theme="light"] .gauge-label-big.strong-buy,
+[data-theme="light"] .gauge-label-big.strong-sell { filter: none; }
+
 * { box-sizing: border-box; margin: 0; padding: 0; }
 
 html, body {
@@ -1109,3 +1134,33 @@ footer.data-source {
 .sortable-th { cursor: pointer; user-select: none; }
 .sortable-th:hover { color: var(--gold); }
 .sortable-th .sort-arrow { font-size: 9px; margin-left: 3px; opacity: 0.6; }
+
+/* ---------- Tema Geçiş Butonu ---------- */
+.theme-toggle-btn {
+  font-size: 15px;
+  padding: 7px 12px;
+  line-height: 1;
+}
+
+/* ---------- Yazdırma / PDF Görünümü ----------
+   window.print() tetiklendiğinde sadece hisse sonuç ekranı görünür kalır,
+   menü/butonlar/diğer ekranlar gizlenir; renkler yazdırmaya uygun sadeleştirilir. */
+@media print {
+  body { background: #fff !important; }
+  .topbar, .search-screen, .home-screen, .portfolio-screen, .watchlist-screen,
+  .trends-screen, .money-screen, .compare-screen, .loading-screen,
+  .new-search-bar, .range-tabs, footer.data-source, .lock-screen,
+  #chartTooltip, .note-textarea, #saveNoteBtn, #noteSavedText {
+    display: none !important;
+  }
+  .result-screen { display: block !important; max-width: 100% !important; padding: 0 !important; }
+  .panel-card, .gauge-card, .stock-header, .range-card, .chart-card, .volume-card {
+    background: #fff !important;
+    border: 1px solid #ccc !important;
+    color: #000 !important;
+    break-inside: avoid;
+  }
+  * { color: #000 !important; }
+  .up, .day-change.up, .row-value.up { color: #0a7a3f !important; }
+  .down, .day-change.down, .row-value.down { color: #b3182b !important; }
+}
