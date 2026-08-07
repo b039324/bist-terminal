@@ -54,6 +54,10 @@ const portfolioEmpty = document.getElementById("portfolioEmpty");
 const portfolioCsvBtn = document.getElementById("portfolioCsvBtn");
 const sectorBreakdownCard = document.getElementById("sectorBreakdownCard");
 const sectorBreakdownRow = document.getElementById("sectorBreakdownRow");
+const portfolioHistoryCard = document.getElementById("portfolioHistoryCard");
+const portfolioHistoryChartEl = document.getElementById("portfolioHistoryChart");
+const portfolioHistoryEmpty = document.getElementById("portfolioHistoryEmpty");
+const historyRangeTabs = document.getElementById("historyRangeTabs");
 const sectorConcentrationWarn = document.getElementById("sectorConcentrationWarn");
 const donutSvg = document.getElementById("donutSvg");
 const donutLegend = document.getElementById("donutLegend");
@@ -776,6 +780,7 @@ async function renderPortfolio() {
   portfolioSummary.innerHTML = '<div class="summary-card"><div class="summary-label">Toplam Değer</div><div class="summary-value">' + fmtTL(tv) + '</div></div><div class="summary-card"><div class="summary-label">Toplam Maliyet</div><div class="summary-value">' + fmtTL(tc) + '</div></div><div class="summary-card"><div class="summary-label">Kâr/Zarar</div><div class="summary-value ' + changeClass(tg) + '">' + (tg >= 0 ? "+" : "") + fmtTL(tg) + " (" + fmtPct(tgp) + ')</div></div><div class="summary-card"><div class="summary-label">Bugünkü Değişim</div><div class="summary-value ' + changeClass(tdc) + '">' + (tdc >= 0 ? "+" : "") + fmtTL(tdc) + " (" + fmtPct(tv ? (tdc / (tv - tdc)) * 100 : 0) + ")</div></div>";
   drawDonut([...alloc], tv);
   renderSectorBreakdown(alloc, tv);
+  recordAndRenderPortfolioHistory(tv, tc);
 }
 
 function renderPortfolioTableBody() {
@@ -1753,3 +1758,88 @@ initTheme();
 // @media print CSS kuralları sadece hisse sonuç ekranını yazdırılabilir bırakır.
 // ==========================================================================
 printPdfBtn.addEventListener("click", () => { window.print(); });
+
+// ==========================================================================
+// 23) PORTFÖY GETİRİ GRAFİĞİ (ZAMAN İÇİNDE) — Her Portföy ekranı ziyaretinde,
+// o gün için henüz kayıt yoksa otomatik bir "anlık görüntü" (snapshot) kaydedilir.
+// Ayrı bir zamanlanmış görev (cron) YOK — tamamen doğal kullanımla birikir.
+// ==========================================================================
+async function loadPortfolioHistory() { try { return await kvGet("portfolio_history"); } catch (e) { return []; } }
+async function savePortfolioHistory(snapshots) { await kvPost("portfolio_history", { snapshots }); }
+
+function todayTRDateStr() {
+  return new Date(Date.now() + 3 * 3600 * 1000).toISOString().slice(0, 10);
+}
+
+let lastPortfolioHistory = [];
+let historyRangeState = "all";
+let portfolioHistoryChartApi = null;
+
+async function recordAndRenderPortfolioHistory(tv, tc) {
+  if (!tv && !tc) { portfolioHistoryCard.style.display = "none"; return; }
+  try {
+    const history = await loadPortfolioHistory();
+    const today = todayTRDateStr();
+    const last = history[history.length - 1];
+    if (!last || last.date !== today) {
+      history.push({ date: today, value: tv, cost: tc });
+      await savePortfolioHistory(history);
+    } else {
+      // Bugün için zaten kayıt var — en güncel değerle güncelle (gün içinde birden fazla ziyaret edilirse)
+      last.value = tv; last.cost = tc;
+      await savePortfolioHistory(history);
+    }
+    lastPortfolioHistory = history;
+    renderPortfolioHistoryChart();
+  } catch (e) {
+    portfolioHistoryCard.style.display = "none";
+  }
+}
+
+historyRangeTabs.addEventListener("click", (e) => {
+  if (e.target.tagName !== "BUTTON") return;
+  historyRangeTabs.querySelectorAll("button").forEach((b) => b.classList.remove("active"));
+  e.target.classList.add("active");
+  historyRangeState = e.target.dataset.range;
+  renderPortfolioHistoryChart();
+});
+
+function renderPortfolioHistoryChart() {
+  const history = lastPortfolioHistory;
+  if (!history || history.length < 2) {
+    portfolioHistoryCard.style.display = history && history.length === 1 ? "block" : "none";
+    if (history && history.length === 1) { portfolioHistoryEmpty.classList.add("visible"); portfolioHistoryChartEl.innerHTML = ""; }
+    return;
+  }
+  portfolioHistoryCard.style.display = "block";
+  portfolioHistoryEmpty.classList.remove("visible");
+
+  let filtered = [...history];
+  if (historyRangeState !== "all") {
+    const days = historyRangeState === "1m" ? 30 : 90;
+    const cutoff = todayTRDateStr();
+    const cutoffTs = new Date(cutoff).getTime() - days * 86400000;
+    filtered = filtered.filter((h) => new Date(h.date).getTime() >= cutoffTs);
+    if (filtered.length < 2) filtered = history.slice(-2);
+  }
+
+  portfolioHistoryChartEl.innerHTML = "";
+  if (portfolioHistoryChartApi) { portfolioHistoryChartApi.remove(); portfolioHistoryChartApi = null; }
+  const light = isLightTheme();
+
+  portfolioHistoryChartApi = LightweightCharts.createChart(portfolioHistoryChartEl, {
+    height: 260,
+    layout: { background: { color: "transparent" }, textColor: light ? "#566072" : "#7d8a9c", fontFamily: "JetBrains Mono, monospace" },
+    grid: { vertLines: { color: light ? "#e4e7ec" : "#1a1f29" }, horzLines: { color: light ? "#e4e7ec" : "#1a1f29" } },
+    timeScale: { borderColor: light ? "#dde1e7" : "#232a36" },
+    rightPriceScale: { borderColor: light ? "#dde1e7" : "#232a36" },
+  });
+
+  const valueSeries = portfolioHistoryChartApi.addLineSeries({ color: "#d4af37", lineWidth: 2, title: "Değer" });
+  valueSeries.setData(filtered.map((h) => ({ time: Math.floor(new Date(h.date).getTime() / 1000), value: h.value })));
+
+  const costSeries = portfolioHistoryChartApi.addLineSeries({ color: "#4c5768", lineWidth: 1, lineStyle: 2, title: "Maliyet" });
+  costSeries.setData(filtered.map((h) => ({ time: Math.floor(new Date(h.date).getTime() / 1000), value: h.cost })));
+
+  portfolioHistoryChartApi.timeScale().fitContent();
+}
