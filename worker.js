@@ -233,6 +233,37 @@ export default {
     }
 
     // =====================================================================
+    // PORTFÖY GEÇMİŞİ (günlük anlık görüntüler — zaman içinde getiri grafiği için)
+    // =====================================================================
+    if (url.pathname === "/api/portfolio_history") {
+      if (!env.PORTFOLIO_KV) {
+        return json({ error: "KV veritabanı Worker'a bağlanmamış." }, 500);
+      }
+
+      if (request.method === "GET") {
+        try {
+          const raw = await env.PORTFOLIO_KV.get("portfolio_history");
+          return json(raw ? JSON.parse(raw) : []);
+        } catch (e) {
+          return json({ error: "Portföy geçmişi okunamadı.", detail: String(e) }, 500);
+        }
+      }
+
+      if (request.method === "POST") {
+        try {
+          const body = await request.json();
+          const snapshots = body.snapshots || [];
+          await env.PORTFOLIO_KV.put("portfolio_history", JSON.stringify(snapshots));
+          return json({ ok: true });
+        } catch (e) {
+          return json({ error: "Portföy geçmişi kaydedilemedi.", detail: String(e) }, 500);
+        }
+      }
+
+      return json({ error: "Desteklenmeyen metod." }, 405);
+    }
+
+    // =====================================================================
     // YAHOO FINANCE API'leri
     // =====================================================================
 
