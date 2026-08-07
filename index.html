@@ -313,6 +313,21 @@
         <div id="sectorConcentrationWarn" class="search-error" style="text-align:left;margin-top:10px"></div>
       </div>
 
+      <!-- Portföy Getiri Grafiği (Zaman İçinde) -->
+      <div class="panel-card" id="portfolioHistoryCard" style="margin-top:20px; display:none">
+        <div class="card-head" style="margin-bottom:4px">
+          <div class="card-title" style="margin-bottom:0">Portföy Getirisi (Zaman İçinde)</div>
+          <div class="range-tabs" id="historyRangeTabs">
+            <button data-range="1m">1A</button>
+            <button data-range="3m">3A</button>
+            <button data-range="all" class="active">Tümü</button>
+          </div>
+        </div>
+        <div class="sub-note" style="margin-bottom:14px">Portföy ekranını her ziyaretinde günlük bir anlık görüntü otomatik kaydedilir</div>
+        <div id="portfolioHistoryChart" style="height:260px"></div>
+        <div id="portfolioHistoryEmpty" class="portfolio-empty">Henüz yeterli geçmiş yok — birkaç gün boyunca portföy ekranını ziyaret ettikçe grafik oluşmaya başlayacak.</div>
+      </div>
+
       <!-- Realize Edilmiş K/Z -->
       <div class="panel-card" style="margin-top:20px">
         <div class="card-title" style="margin-bottom:6px">Realize Edilmiş Kâr/Zarar</div>
