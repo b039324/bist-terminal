@@ -69,6 +69,7 @@
       <div class="panel-card" style="margin-bottom:20px">
         <div class="card-title" style="margin-bottom:4px">Portföy Özeti</div>
         <div id="homePortfolioSummary" class="portfolio-summary"></div>
+        <div id="homeSectorNote" class="sub-note" style="margin-top:10px"></div>
         <div id="homePortfolioEmpty" class="portfolio-empty">Henüz portföyünde pozisyon yok. <span class="clickable-symbol" onclick="showPortfolioNav()">Portföy ekranına git →</span></div>
       </div>
 
@@ -84,6 +85,27 @@
           <div class="sub-note" style="margin-bottom:12px" id="homePulseNote">Trendler'den son tarama sonucu</div>
           <div id="homePulseRow"></div>
           <div id="homePulseEmpty" class="portfolio-empty">Henüz bir tarama yapılmadı. <span class="clickable-symbol" onclick="showTrendsNav()">Trendler'den tara →</span></div>
+        </div>
+      </div>
+
+      <div class="panel-card" style="margin-bottom:20px" id="homePortfolioChartCard">
+        <div class="card-title" style="margin-bottom:4px">Portföy Getirisi (Mini)</div>
+        <div id="homePortfolioChart" style="height:140px"></div>
+        <div id="homePortfolioChartEmpty" class="portfolio-empty">Henüz yeterli geçmiş yok.</div>
+      </div>
+
+      <div class="two-col-grid" style="margin-bottom:20px">
+        <div class="panel-card">
+          <div class="card-title" style="margin-bottom:6px">BIST 30 — Zirveden En Uzak 3</div>
+          <div class="sub-note" style="margin-bottom:12px">Son Trendler taramasından</div>
+          <div id="homeBist30Mini"></div>
+          <div id="homeBist30MiniEmpty" class="portfolio-empty">Henüz bir tarama yapılmadı. <span class="clickable-symbol" onclick="showTrendsNav()">Trendler'den tara →</span></div>
+        </div>
+        <div class="panel-card">
+          <div class="card-title" style="margin-bottom:6px">Isı Haritası (Mini)</div>
+          <div class="sub-note" style="margin-bottom:12px">Son taramadan en çok hareket eden 20 hisse</div>
+          <div id="homeHeatmapMini" class="heatmap-grid"></div>
+          <div id="homeHeatmapMiniEmpty" class="portfolio-empty">Henüz bir tarama yapılmadı. <span class="clickable-symbol" onclick="showTrendsNav()">Trendler'den tara →</span></div>
         </div>
       </div>
 
