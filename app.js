@@ -37,6 +37,14 @@ const homeWatchlistEmpty = document.getElementById("homeWatchlistEmpty");
 const homePulseRow = document.getElementById("homePulseRow");
 const homePulseEmpty = document.getElementById("homePulseEmpty");
 const homePulseNote = document.getElementById("homePulseNote");
+const homeSectorNote = document.getElementById("homeSectorNote");
+const homePortfolioChartCard = document.getElementById("homePortfolioChartCard");
+const homePortfolioChartEl = document.getElementById("homePortfolioChart");
+const homePortfolioChartEmpty = document.getElementById("homePortfolioChartEmpty");
+const homeBist30Mini = document.getElementById("homeBist30Mini");
+const homeBist30MiniEmpty = document.getElementById("homeBist30MiniEmpty");
+const homeHeatmapMini = document.getElementById("homeHeatmapMini");
+const homeHeatmapMiniEmpty = document.getElementById("homeHeatmapMiniEmpty");
 const navPortfolioBtn = document.getElementById("navPortfolioBtn");
 const navWatchlistBtn = document.getElementById("navWatchlistBtn");
 const navTrendsBtn = document.getElementById("navTrendsBtn");
@@ -1653,20 +1661,23 @@ async function renderHomeScreen() {
   await renderHomePortfolio();
   await renderHomeWatchlist();
   renderHomePulse();
+  await renderHomePortfolioChart();
+  renderHomeBist30Mini();
+  renderHomeHeatmapMini();
 }
 
 async function renderHomePortfolio() {
   const pos = await loadPortfolio();
   if (pos.length === 0) {
     homePortfolioEmpty.classList.add("visible");
-    homePortfolioSummary.innerHTML = "";
+    homePortfolioSummary.innerHTML = ""; homeSectorNote.textContent = "";
     return;
   }
   homePortfolioEmpty.classList.remove("visible");
   homePortfolioSummary.innerHTML = '<div class="summary-card"><div class="summary-label">Yükleniyor</div><div class="summary-value">—</div></div>';
 
   const results = await Promise.allSettled(pos.map((p) => fetchQuickPrice(p.symbol)));
-  let tc = 0, tv = 0, tdc = 0;
+  let tc = 0, tv = 0, tdc = 0; const alloc = [];
   pos.forEach((p, i) => {
     const cv = p.qty * p.cost; tc += cv;
     const r = results[i];
@@ -1674,6 +1685,7 @@ async function renderHomePortfolio() {
       const val = p.qty * r.value.price;
       tv += val;
       tdc += val - val / (1 + r.value.dailyChangePct / 100);
+      alloc.push({ symbol: p.symbol, value: val });
     } else { tv += cv; }
   });
   const tg = tv - tc, tgp = tc ? (tg / tc) * 100 : 0;
@@ -1682,6 +1694,76 @@ async function renderHomePortfolio() {
     '<div class="summary-card"><div class="summary-label">Kâr/Zarar</div><div class="summary-value ' + changeClass(tg) + '">' + (tg >= 0 ? "+" : "") + fmtTL(tg) + " (" + fmtPct(tgp) + ')</div></div>' +
     '<div class="summary-card"><div class="summary-label">Bugünkü Değişim</div><div class="summary-value ' + changeClass(tdc) + '">' + (tdc >= 0 ? "+" : "") + fmtTL(tdc) + " (" + fmtPct(tv ? (tdc / (tv - tdc)) * 100 : 0) + ')</div></div>' +
     '<div class="summary-card"><div class="summary-label">Pozisyon Sayısı</div><div class="summary-value">' + pos.length + "</div></div>";
+
+  // Sektör yoğunlaşma notu (Para Nerede'nin sektör haritasını yeniden kullanır, ek istek yok)
+  if (tv > 0 && alloc.length > 0) {
+    const bySector = {};
+    alloc.forEach((a) => { const sec = getSector(a.symbol); bySector[sec] = (bySector[sec] || 0) + a.value; });
+    const top = Object.entries(bySector).map(([name, value]) => ({ name, pct: (value / tv) * 100 })).sort((a, b) => b.pct - a.pct)[0];
+    if (top) {
+      homeSectorNote.textContent = top.pct >= 40
+        ? `⚠️ Portföyünün %${fmtNum(top.pct, 0)}'i ${top.name} sektöründe yoğunlaşmış.`
+        : `En büyük sektör ağırlığın: ${top.name} (%${fmtNum(top.pct, 0)})`;
+    }
+  } else { homeSectorNote.textContent = ""; }
+}
+
+// Portföy Getirisi mini grafiği — Portföy geçmişini (ayrı bir Yahoo isteği atmadan, sadece KV'den) okur
+async function renderHomePortfolioChart() {
+  let history = [];
+  try { history = await loadPortfolioHistory(); } catch (e) { history = []; }
+  if (!history || history.length < 2) {
+    homePortfolioChartCard.style.display = history && history.length > 0 ? "block" : "none";
+    homePortfolioChartEmpty.classList.add("visible");
+    homePortfolioChartEl.innerHTML = "";
+    return;
+  }
+  homePortfolioChartCard.style.display = "block";
+  homePortfolioChartEmpty.classList.remove("visible");
+  homePortfolioChartEl.innerHTML = "";
+
+  const light = isLightTheme();
+  const chart = LightweightCharts.createChart(homePortfolioChartEl, {
+    height: 140,
+    layout: { background: { color: "transparent" }, textColor: light ? "#566072" : "#7d8a9c", fontFamily: "JetBrains Mono, monospace" },
+    grid: { vertLines: { visible: false }, horzLines: { color: light ? "#e4e7ec" : "#1a1f29" } },
+    timeScale: { borderColor: light ? "#dde1e7" : "#232a36" },
+    rightPriceScale: { borderColor: light ? "#dde1e7" : "#232a36" },
+  });
+  const series = chart.addLineSeries({ color: "#d4af37", lineWidth: 2 });
+  series.setData(history.map((h) => ({ time: Math.floor(new Date(h.date).getTime() / 1000), value: h.value })));
+  chart.timeScale().fitContent();
+}
+
+// BIST 30 Zirveden Uzaklık — son Trendler taramasının (hafızadaki) verisinden, ek istek yok
+function renderHomeBist30Mini() {
+  if (!lastTrendsPoints) { homeBist30MiniEmpty.classList.add("visible"); homeBist30Mini.innerHTML = ""; return; }
+  const bist30 = lastTrendsPoints.filter((p) => BIST30_SYMBOLS.includes(p.symbol) && p.week52High && p.week52High > 0);
+  if (bist30.length === 0) { homeBist30MiniEmpty.classList.add("visible"); homeBist30Mini.innerHTML = ""; return; }
+  homeBist30MiniEmpty.classList.remove("visible");
+  const ranked = bist30.map((p) => ({ ...p, distPct: ((p.week52High - p.price) / p.price) * 100 })).sort((a, b) => b.distPct - a.distPct).slice(0, 3);
+  homeBist30Mini.innerHTML = ranked.map((p) => `
+    <div class="home-mover-row">
+      <span class="symbol-cell clickable-symbol" onclick="goToStock('${p.symbol}')">${p.symbol}</span>
+      <span>${fmtTL(p.price)}</span>
+      <span class="${changeClass(-p.distPct)}">${fmtNum(p.distPct)}% uzak</span>
+    </div>`).join("");
+}
+
+// Isı Haritası mini — son taramadan en çok hareket eden 20 hisse, ek istek yok
+function renderHomeHeatmapMini() {
+  if (!lastTrendsPoints) { homeHeatmapMiniEmpty.classList.add("visible"); homeHeatmapMini.innerHTML = ""; return; }
+  homeHeatmapMiniEmpty.classList.remove("visible");
+  const top20 = [...lastTrendsPoints].sort((a, b) => Math.abs(b.changePct) - Math.abs(a.changePct)).slice(0, 20).sort((a, b) => b.changePct - a.changePct);
+  const COLOR_CEILING = 15;
+  homeHeatmapMini.innerHTML = top20.map((p) => {
+    const intensity = Math.min(1, Math.abs(p.changePct) / COLOR_CEILING);
+    const color = p.changePct >= 0 ? lerpColor("#1a2e28", "#17c987", intensity) : lerpColor("#2e1a1e", "#ff4757", intensity);
+    return `<div class="heatmap-cell" style="background:${color}" title="${p.symbol}: ${fmtPct(p.changePct)}" onclick="goToStock('${p.symbol}')">
+      <div class="hc-symbol">${p.symbol}</div>
+      <div class="hc-change">${fmtPct(p.changePct, 1)}</div>
+    </div>`;
+  }).join("");
 }
 
 async function renderHomeWatchlist() {
