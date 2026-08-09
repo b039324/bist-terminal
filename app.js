@@ -124,6 +124,7 @@ const realizedTableBody = document.getElementById("realizedTableBody");
 const realizedEmpty = document.getElementById("realizedEmpty");
 const pulseRow = document.getElementById("pulseRow");
 const heatmapGrid = document.getElementById("heatmapGrid");
+const volumeHeatmapGrid = document.getElementById("volumeHeatmapGrid");
 const cmpSymbol1 = document.getElementById("cmpSymbol1");
 const cmpSymbol2 = document.getElementById("cmpSymbol2");
 const cmpSymbol3 = document.getElementById("cmpSymbol3");
@@ -1164,6 +1165,7 @@ async function runTrendsScan() {
     renderTrendsTable(trendsVolumeTable, byVolume, true, true);
     renderMarketPulse(points);
     renderHeatmap(points);
+    renderVolumeHeatmap(points);
     render52WeekBreakouts(points);
     renderBist30PeakDistance(points);
 
@@ -1263,6 +1265,37 @@ function renderHeatmap(points) {
       return `<div class="heatmap-cell" style="background:${color};${border}" title="${titleText}" onclick="goToStock('${p.symbol}')">
         <div class="hc-symbol">${p.symbol}${warn}</div>
         <div class="hc-change">${fmtPct(p.changePct, 1)}</div>
+      </div>`;
+    })
+    .join("");
+}
+
+// Hacim Isı Haritası (TL) — kutu BOYUTU hacme (TL), kutu RENGİ günlük değişim yönüne göre.
+// En yüksek hacimden en düşüğe sıralanır; kutu alanı hacimle orantılıdır (kenar uzunluğu
+// değil alan orantılı olsun diye karekök ölçekleme kullanılır — bu, büyüklüğü göze doğru yansıtır).
+function renderVolumeHeatmap(points) {
+  const withVolume = points.filter((p) => p.volumeTL != null && p.volumeTL > 0);
+  const sorted = [...withVolume].sort((a, b) => b.volumeTL - a.volumeTL);
+  if (sorted.length === 0) { volumeHeatmapGrid.innerHTML = ""; return; }
+
+  const maxVol = sorted[0].volumeTL;
+  const MIN_PX = 56, MAX_PX = 168;
+  const COLOR_CEILING = 15;
+
+  volumeHeatmapGrid.innerHTML = sorted
+    .map((p) => {
+      const ratio = Math.sqrt(p.volumeTL / maxVol); // alan orantılı olsun diye karekök
+      const size = Math.round(MIN_PX + ratio * (MAX_PX - MIN_PX));
+      const intensity = Math.min(1, Math.abs(p.changePct) / COLOR_CEILING);
+      const color = p.changePct >= 0
+        ? lerpColor("#1a2e28", "#17c987", intensity)
+        : lerpColor("#2e1a1e", "#ff4757", intensity);
+      const fontScale = Math.max(10, Math.min(15, size / 10));
+      return `<div class="volume-heatmap-cell" style="width:${size}px; height:${size}px; background:${color}"
+        title="${p.symbol}: ${fmtCompactTL(p.volumeTL)} hacim, ${fmtPct(p.changePct)}"
+        onclick="goToStock('${p.symbol}')">
+        <div class="vhc-symbol" style="font-size:${fontScale}px">${p.symbol}</div>
+        <div class="vhc-volume" style="font-size:${Math.max(8.5, fontScale - 3)}px">${fmtCompactTL(p.volumeTL)}</div>
       </div>`;
     })
     .join("");
