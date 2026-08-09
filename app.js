@@ -1741,7 +1741,7 @@ function renderHomeBist30Mini() {
   const bist30 = lastTrendsPoints.filter((p) => BIST30_SYMBOLS.includes(p.symbol) && p.week52High && p.week52High > 0);
   if (bist30.length === 0) { homeBist30MiniEmpty.classList.add("visible"); homeBist30Mini.innerHTML = ""; return; }
   homeBist30MiniEmpty.classList.remove("visible");
-  const ranked = bist30.map((p) => ({ ...p, distPct: ((p.week52High - p.price) / p.price) * 100 })).sort((a, b) => b.distPct - a.distPct).slice(0, 3);
+  const ranked = bist30.map((p) => ({ ...p, distPct: ((p.week52High - p.price) / p.price) * 100 })).sort((a, b) => b.distPct - a.distPct).slice(0, 5);
   homeBist30Mini.innerHTML = ranked.map((p) => `
     <div class="home-mover-row">
       <span class="symbol-cell clickable-symbol" onclick="goToStock('${p.symbol}')">${p.symbol}</span>
@@ -1754,7 +1754,9 @@ function renderHomeBist30Mini() {
 function renderHomeHeatmapMini() {
   if (!lastTrendsPoints) { homeHeatmapMiniEmpty.classList.add("visible"); homeHeatmapMini.innerHTML = ""; return; }
   homeHeatmapMiniEmpty.classList.remove("visible");
-  const top20 = [...lastTrendsPoints].sort((a, b) => Math.abs(b.changePct) - Math.abs(a.changePct)).slice(0, 20).sort((a, b) => b.changePct - a.changePct);
+  const top10Green = [...lastTrendsPoints].filter((p) => p.changePct > 0).sort((a, b) => b.changePct - a.changePct).slice(0, 10);
+  const top10Red = [...lastTrendsPoints].filter((p) => p.changePct < 0).sort((a, b) => a.changePct - b.changePct).slice(0, 10);
+  const top20 = [...top10Green, ...top10Red.reverse()];
   const COLOR_CEILING = 15;
   homeHeatmapMini.innerHTML = top20.map((p) => {
     const intensity = Math.min(1, Math.abs(p.changePct) / COLOR_CEILING);
