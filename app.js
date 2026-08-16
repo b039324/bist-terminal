@@ -283,8 +283,8 @@ function processChartData(r) {
   const wl = Math.min(...candles.map((c) => c.low)), wh = Math.max(...candles.map((c) => c.high));
   const l30 = vtl.slice(-30), avgV = l30.reduce((s, v) => s + v.volumeTL, 0) / l30.length, avgVS = candles.slice(-30).reduce((s, c) => s + c.volume, 0) / l30.length;
   const lastC = candles[candles.length - 1];
-  const rsi = calcRSI(closes, 14), ma50 = sma(closes, 50), ma200 = sma(closes, 200), macd = calcMACD(closes), boll = calcBollinger(closes, 20, 2), stoch = calcStochRSI(closes, 14, 14);
-  return { candles, volumesTL: vtl, lastClose: lc, changes, week52Low: wl, week52High: wh, avgVolumeTL: avgV, avgVolumeShares: avgVS, dailyVolumeTL: lastC.volume * lc, dailyVolumeShares: lastC.volume, rsi: rsi[rsi.length - 1], ma50: ma50[ma50.length - 1], ma200: ma200[ma200.length - 1], macd: macd.macdLine[macd.macdLine.length - 1], macdSignal: macd.signalLine[macd.signalLine.length - 1], bollingerUpper: boll.upper[boll.upper.length - 1], bollingerMid: boll.mid[boll.mid.length - 1], bollingerLower: boll.lower[boll.lower.length - 1], stochRsi: stoch[stoch.length - 1] };
+  const rsi = calcRSI(closes, 14), ma50 = sma(closes, 50), ma200 = sma(closes, 200), macd = calcMACD(closes), boll = calcBollinger(closes, 20, 2), stoch = calcStochRSI(closes, 14, 14), ema21arr = ema(closes, 21);
+  return { candles, volumesTL: vtl, lastClose: lc, changes, week52Low: wl, week52High: wh, avgVolumeTL: avgV, avgVolumeShares: avgVS, dailyVolumeTL: lastC.volume * lc, dailyVolumeShares: lastC.volume, rsi: rsi[rsi.length - 1], ma50: ma50[ma50.length - 1], ma200: ma200[ma200.length - 1], ema21: ema21arr[ema21arr.length - 1], macd: macd.macdLine[macd.macdLine.length - 1], macdSignal: macd.signalLine[macd.signalLine.length - 1], bollingerUpper: boll.upper[boll.upper.length - 1], bollingerMid: boll.mid[boll.mid.length - 1], bollingerLower: boll.lower[boll.lower.length - 1], stochRsi: stoch[stoch.length - 1] };
 }
 function processFundamentals(raw) {
   const r = raw?.quoteSummary?.result?.[0] || {}, sd = r.summaryDetail || {}, dks = r.defaultKeyStatistics || {}, fd = r.financialData || {}, price = r.price || {};
@@ -540,6 +540,7 @@ function renderAll(sym, d, f) {
   drawMiniVolume(d.volumesTL);
 
   const rsiT = d.rsi < 30 ? ["Aşırı Satım", "buy"] : d.rsi > 70 ? ["Aşırı Alım", "sell"] : ["Nötr", "neutral"];
+  const ema21T = d.lastClose > d.ema21 ? ["Fiyat > EMA21", "buy"] : ["Fiyat < EMA21", "sell"];
   const maT = d.lastClose > d.ma50 ? ["Fiyat > MA50", "buy"] : ["Fiyat < MA50", "sell"];
   const macdT = d.macd > d.macdSignal ? ["Pozitif", "buy"] : ["Negatif", "sell"];
   const bollT = d.lastClose > d.bollingerUpper ? ["Üst Bandın Üstü", "sell"] : d.lastClose < d.bollingerLower ? ["Alt Bandın Altı", "buy"] : ["Bant İçi", "neutral"];
@@ -547,6 +548,7 @@ function renderAll(sym, d, f) {
 
   document.getElementById("technicalRows").innerHTML = [
     rowHTML("RSI (14)", fmtNum(d.rsi), rsiT), rowHTML("Stochastic RSI", fmtNum(d.stochRsi), stochT),
+    rowHTML("EMA 21", fmtTL(d.ema21), ema21T),
     rowHTML("MA 50", fmtTL(d.ma50)), rowHTML("MA 200", fmtTL(d.ma200), maT),
     rowHTML("MACD", fmtNum(d.macd, 3), macdT), rowHTML("MACD Sinyal", fmtNum(d.macdSignal, 3)),
     rowHTML("Bollinger Üst", fmtTL(d.bollingerUpper), bollT), rowHTML("Bollinger Orta", fmtTL(d.bollingerMid)), rowHTML("Bollinger Alt", fmtTL(d.bollingerLower)),
