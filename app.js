@@ -447,15 +447,61 @@ function renderChart(candles, vtl) {
     tooltipEl.style.top = Math.max(0, top) + "px";
   });
 }
-document.getElementById("rangeTabs").addEventListener("click", (e) => {
+document.getElementById("rangeTabs").addEventListener("click", async (e) => {
   if (e.target.tagName !== "BUTTON") return;
   document.querySelectorAll("#rangeTabs button").forEach((b) => b.classList.remove("active"));
   e.target.classList.add("active");
+  const range = e.target.dataset.range;
+
+  if (range === "intraday") {
+    await loadIntradayChart();
+    return;
+  }
+
+  // Günlük görünüme dönülüyorsa ve daha önce gün içi veriye geçilmişse, önce günlük veriyi geri yükle
+  if (isIntradayView) { renderChart(fullChartData.candles, fullChartData.volumesTL); isIntradayView = false; }
   if (!priceChartApi || !fullChartData) return;
-  const days = { "1m": 21, "3m": 63, "6m": 126, "1y": 300 }[e.target.dataset.range];
+  const days = { "1m": 21, "3m": 63, "6m": 126, "1y": 300 }[range];
   const c = fullChartData.candles, from = c[Math.max(0, c.length - days)].time, to = c[c.length - 1].time;
   priceChartApi.timeScale().setVisibleRange({ from, to }); volumeChartApi.timeScale().setVisibleRange({ from, to });
 });
+
+let isIntradayView = false;
+
+// Gün içi (15 dakikalık) grafik — ayrı bir istekle çekilir, sadece kullanıcı istediğinde.
+async function loadIntradayChart() {
+  if (!currentSymbol) return;
+  const titleEl = document.getElementById("chartCardTitle");
+  const prevTitle = titleEl.textContent;
+  titleEl.textContent = "Yükleniyor...";
+  try {
+    const pass = getPass();
+    const res = await fetchJSON(WORKER_URL + "/api/chart?symbol=" + currentSymbol + "&pass=" + encodeURIComponent(pass) + "&range=1d&interval=15m");
+    if (res.error) throw new Error(res.error);
+    const chartR = res.data?.chart?.result?.[0];
+    if (!chartR || !chartR.timestamp) throw new Error("Gün içi veri bulunamadı (piyasa henüz açılmamış olabilir).");
+
+    const ts = chartR.timestamp, q = chartR.indicators.quote[0];
+    const candles = [], vtl = [];
+    for (let i = 0; i < ts.length; i++) {
+      if (q.close[i] == null) continue;
+      const t = ts[i], c = q.close[i];
+      candles.push({ time: t, open: q.open[i] ?? c, high: q.high[i] ?? c, low: q.low[i] ?? c, close: c, volume: q.volume[i] ?? 0 });
+      vtl.push({ time: t, volumeTL: (q.volume[i] ?? 0) * c });
+    }
+    if (candles.length === 0) throw new Error("Gün içi veri bulunamadı (piyasa henüz açılmamış olabilir).");
+
+    renderChart(candles, vtl);
+    isIntradayView = true;
+    titleEl.textContent = "Fiyat Grafiği (Gün İçi, 15dk)";
+  } catch (err) {
+    titleEl.textContent = prevTitle;
+    alert(err.message || "Gün içi veri çekilemedi.");
+    // Hata olursa günlük görünüme geri dön
+    document.querySelectorAll("#rangeTabs button").forEach((b) => b.classList.remove("active"));
+    document.querySelector('#rangeTabs button[data-range="1y"]').classList.add("active");
+  }
+}
 
 // ==========================================================================
 // 9) SONUÇ EKRANI
