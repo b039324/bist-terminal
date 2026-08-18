@@ -128,6 +128,9 @@ const volumeHeatmapGrid = document.getElementById("volumeHeatmapGrid");
 const cmpSymbol1 = document.getElementById("cmpSymbol1");
 const cmpSymbol2 = document.getElementById("cmpSymbol2");
 const cmpSymbol3 = document.getElementById("cmpSymbol3");
+const cmpSymbol4 = document.getElementById("cmpSymbol4");
+const cmpIndividualCard = document.getElementById("cmpIndividualCard");
+const cmpIndividualGrid = document.getElementById("cmpIndividualGrid");
 const cmpBtn = document.getElementById("cmpBtn");
 const cmpError = document.getElementById("cmpError");
 const cmpLoading = document.getElementById("cmpLoading");
@@ -1012,7 +1015,7 @@ watchlistCsvBtn.addEventListener("click", () => {
 // 13) KARŞILAŞTIRMA
 // ==========================================================================
 cmpBtn.addEventListener("click", runCompare);
-[cmpSymbol1, cmpSymbol2, cmpSymbol3].forEach((el) => el.addEventListener("keydown", (e) => { if (e.key === "Enter") runCompare(); }));
+[cmpSymbol1, cmpSymbol2, cmpSymbol3, cmpSymbol4].forEach((el) => el.addEventListener("keydown", (e) => { if (e.key === "Enter") runCompare(); }));
 async function fetchFullData(sym) {
   const pass = getPass();
   const [cr, qr] = await Promise.all([fetchJSON(WORKER_URL + "/api/chart?symbol=" + sym + "&pass=" + encodeURIComponent(pass)), fetchJSON(WORKER_URL + "/api/quote?symbol=" + sym + "&pass=" + encodeURIComponent(pass))]);
@@ -1024,15 +1027,18 @@ async function fetchFullData(sym) {
 }
 async function runCompare() {
   cmpError.textContent = "";
-  const syms = [cmpSymbol1.value, cmpSymbol2.value, cmpSymbol3.value].map((v) => v.toUpperCase().trim().replace(/[^A-Z0-9]/g, "")).filter(Boolean);
+  const syms = [cmpSymbol1.value, cmpSymbol2.value, cmpSymbol3.value, cmpSymbol4.value].map((v) => v.toUpperCase().trim().replace(/[^A-Z0-9]/g, "")).filter(Boolean);
   if (syms.length < 2) { cmpError.textContent = "En az 2 hisse gir."; return; }
-  cmpResultCard.style.display = "none"; cmpLoading.classList.add("active");
+  if (syms.length > 4) { cmpError.textContent = "En fazla 4 hisse karşılaştırabilirsin."; return; }
+  cmpResultCard.style.display = "none"; cmpIndividualCard.style.display = "none"; cmpLoading.classList.add("active");
   try {
     const results = await Promise.all(syms.map((s) => fetchFullData(s)));
     renderCompareTable(results);
     cmpLoading.classList.remove("active");
     cmpResultCard.style.display = "block"; // ÖNCE görünür yap...
     renderCompareChart(results); // ...SONRA grafiği çiz (aksi halde container 0 genişlik ölçer)
+    cmpIndividualCard.style.display = "block";
+    renderIndividualCharts(results);
   } catch (err) { cmpLoading.classList.remove("active"); cmpError.textContent = err.message; }
 }
 function buildMetricRow(label, results, getValue, formatter, higherIsBetter) {
@@ -1086,6 +1092,51 @@ function renderCompareChart(results) {
   });
 
   cmpChartApi.timeScale().fitContent();
+}
+
+let cmpIndividualChartApis = [];
+
+// Her hisse için ayrı bir fiyat grafiği + EMA21 çizgisi + güncel fiyat gösterimi
+function renderIndividualCharts(results) {
+  cmpIndividualChartApis.forEach((api) => { try { api.remove(); } catch (e) {} });
+  cmpIndividualChartApis = [];
+  cmpIndividualGrid.innerHTML = "";
+  const light = isLightTheme();
+
+  results.forEach((r) => {
+    const candles = r.d.candles;
+    if (!candles || candles.length === 0) return;
+
+    const card = document.createElement("div");
+    card.className = "cmp-individual-card";
+    const changeCls = changeClass(r.d.changes.daily);
+    card.innerHTML =
+      '<div class="cmp-individual-head">' +
+      '<span class="cih-symbol clickable-symbol" onclick="goToStock(\'' + r.symbol + '\')">' + r.symbol + '</span>' +
+      '<span><span class="cih-price">' + fmtTL(r.d.lastClose) + '</span><span class="cih-change ' + changeCls + '">' + fmtPct(r.d.changes.daily) + '</span></span>' +
+      '</div><div class="cmp-individual-chart-el" style="height:200px"></div>';
+    cmpIndividualGrid.appendChild(card);
+
+    const chartEl = card.querySelector(".cmp-individual-chart-el");
+    const chart = LightweightCharts.createChart(chartEl, {
+      height: 200,
+      layout: { background: { color: "transparent" }, textColor: light ? "#566072" : "#7d8a9c", fontFamily: "JetBrains Mono, monospace" },
+      grid: { vertLines: { color: light ? "#e4e7ec" : "#1a1f29" }, horzLines: { color: light ? "#e4e7ec" : "#1a1f29" } },
+      timeScale: { borderColor: light ? "#dde1e7" : "#232a36" },
+      rightPriceScale: { borderColor: light ? "#dde1e7" : "#232a36" },
+    });
+
+    const priceSeries = chart.addLineSeries({ color: "#4098d7", lineWidth: 2, title: "Fiyat" });
+    priceSeries.setData(candles.map((c) => ({ time: c.time, value: c.close })));
+
+    const closes = candles.map((c) => c.close);
+    const ema21Series = ema(closes, 21);
+    const emaSeries = chart.addLineSeries({ color: "#d4af37", lineWidth: 1.5, title: "EMA21" });
+    emaSeries.setData(candles.map((c, i) => ({ time: c.time, value: ema21Series[i] })).filter((p) => p.value != null));
+
+    chart.timeScale().fitContent();
+    cmpIndividualChartApis.push(chart);
+  });
 }
 
 // ==========================================================================
