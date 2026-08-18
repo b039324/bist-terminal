@@ -554,6 +554,7 @@
           <input type="text" id="cmpSymbol1" placeholder="1. Hisse (örn. THYAO)" autocomplete="off" />
           <input type="text" id="cmpSymbol2" placeholder="2. Hisse (örn. PGSUS)" autocomplete="off" />
           <input type="text" id="cmpSymbol3" placeholder="3. Hisse (opsiyonel)" autocomplete="off" />
+          <input type="text" id="cmpSymbol4" placeholder="4. Hisse (opsiyonel)" autocomplete="off" />
           <button id="cmpBtn">Karşılaştır</button>
         </div>
         <div class="search-error" id="cmpError" style="text-align:left;margin-top:10px"></div>
@@ -570,6 +571,12 @@
         <div class="portfolio-table-wrap">
           <table class="portfolio-table compare-table" id="compareTable"></table>
         </div>
+      </div>
+
+      <div class="panel-card" id="cmpIndividualCard" style="display:none; margin-top:20px">
+        <div class="card-title" style="margin-bottom:4px">Hisse Bazlı Grafikler</div>
+        <div class="sub-note" style="margin-bottom:14px">Her hissenin kendi fiyat grafiği + EMA21 (turuncu çizgi)</div>
+        <div id="cmpIndividualGrid" class="cmp-individual-grid"></div>
       </div>
 
       <footer class="data-source">Veri kaynağı: Yahoo Finance · Gecikmeli fiyat verisi olabilir</footer>
