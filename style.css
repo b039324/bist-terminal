@@ -796,7 +796,7 @@ footer.data-source {
 
 .compare-form {
   display: grid;
-  grid-template-columns: 1fr 1fr 1fr auto;
+  grid-template-columns: 1fr 1fr 1fr 1fr auto;
   gap: 10px;
 }
 .compare-form input {
@@ -1186,3 +1186,25 @@ footer.data-source {
 .volume-heatmap-cell:hover { transform: scale(1.04); z-index: 2; }
 .volume-heatmap-cell .vhc-symbol { font-family: var(--font-display); font-weight: 700; color: #0a0d12; }
 .volume-heatmap-cell .vhc-volume { font-family: var(--font-mono); color: #0a0d12; opacity: 0.85; }
+
+/* ---------- Karşılaştırma - Hisse Bazlı Bireysel Grafikler ---------- */
+.cmp-individual-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(320px, 1fr));
+  gap: 18px;
+}
+.cmp-individual-card {
+  background: var(--panel-2);
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  padding: 16px 16px 8px;
+}
+.cmp-individual-head {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  margin-bottom: 10px;
+}
+.cmp-individual-head .cih-symbol { font-family: var(--font-display); font-weight: 700; font-size: 15px; }
+.cmp-individual-head .cih-price { font-family: var(--font-mono); font-size: 18px; font-weight: 700; }
+.cmp-individual-head .cih-change { font-family: var(--font-mono); font-size: 12px; margin-left: 6px; }
