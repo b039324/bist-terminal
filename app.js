@@ -1103,10 +1103,11 @@ function renderIndividualCharts(results) {
   cmpIndividualGrid.innerHTML = "";
   const light = isLightTheme();
 
-  results.forEach((r) => {
-    const candles = r.d.candles;
-    if (!candles || candles.length === 0) return;
+  const validResults = results.filter((r) => r.d.candles && r.d.candles.length > 0);
 
+  // 1. AŞAMA: önce TÜM kartları DOM'a ekle (grafik container'ları boş) — böylece
+  // grid düzeni (genişlikler) tüm kartlar orada varken bir kere hesaplanır.
+  const chartEls = validResults.map((r) => {
     const card = document.createElement("div");
     card.className = "cmp-individual-card";
     const changeCls = changeClass(r.d.changes.daily);
@@ -1116,26 +1117,35 @@ function renderIndividualCharts(results) {
       '<span><span class="cih-price">' + fmtTL(r.d.lastClose) + '</span><span class="cih-change ' + changeCls + '">' + fmtPct(r.d.changes.daily) + '</span></span>' +
       '</div><div class="cmp-individual-chart-el" style="height:200px"></div>';
     cmpIndividualGrid.appendChild(card);
+    return card.querySelector(".cmp-individual-chart-el");
+  });
 
-    const chartEl = card.querySelector(".cmp-individual-chart-el");
-    const chart = LightweightCharts.createChart(chartEl, {
-      height: 200,
-      layout: { background: { color: "transparent" }, textColor: light ? "#566072" : "#7d8a9c", fontFamily: "JetBrains Mono, monospace" },
-      grid: { vertLines: { color: light ? "#e4e7ec" : "#1a1f29" }, horzLines: { color: light ? "#e4e7ec" : "#1a1f29" } },
-      timeScale: { borderColor: light ? "#dde1e7" : "#232a36" },
-      rightPriceScale: { borderColor: light ? "#dde1e7" : "#232a36" },
+  // 2. AŞAMA: tarayıcı bir sonraki "frame"de düzeni kesinleştirdikten sonra (requestAnimationFrame)
+  // grafikleri oluştur — bu sayede her kutu KENDİ nihai (doğru) genişliğini ölçer.
+  requestAnimationFrame(() => {
+    validResults.forEach((r, i) => {
+      const candles = r.d.candles;
+      const chartEl = chartEls[i];
+
+      const chart = LightweightCharts.createChart(chartEl, {
+        height: 200,
+        layout: { background: { color: "transparent" }, textColor: light ? "#566072" : "#7d8a9c", fontFamily: "JetBrains Mono, monospace" },
+        grid: { vertLines: { color: light ? "#e4e7ec" : "#1a1f29" }, horzLines: { color: light ? "#e4e7ec" : "#1a1f29" } },
+        timeScale: { borderColor: light ? "#dde1e7" : "#232a36" },
+        rightPriceScale: { borderColor: light ? "#dde1e7" : "#232a36" },
+      });
+
+      const priceSeries = chart.addLineSeries({ color: "#4098d7", lineWidth: 2, title: "Fiyat" });
+      priceSeries.setData(candles.map((c) => ({ time: c.time, value: c.close })));
+
+      const closes = candles.map((c) => c.close);
+      const ema21Series = ema(closes, 21);
+      const emaSeries = chart.addLineSeries({ color: "#d4af37", lineWidth: 1.5, title: "EMA21" });
+      emaSeries.setData(candles.map((c, j) => ({ time: c.time, value: ema21Series[j] })).filter((p) => p.value != null));
+
+      chart.timeScale().fitContent();
+      cmpIndividualChartApis.push(chart);
     });
-
-    const priceSeries = chart.addLineSeries({ color: "#4098d7", lineWidth: 2, title: "Fiyat" });
-    priceSeries.setData(candles.map((c) => ({ time: c.time, value: c.close })));
-
-    const closes = candles.map((c) => c.close);
-    const ema21Series = ema(closes, 21);
-    const emaSeries = chart.addLineSeries({ color: "#d4af37", lineWidth: 1.5, title: "EMA21" });
-    emaSeries.setData(candles.map((c, i) => ({ time: c.time, value: ema21Series[i] })).filter((p) => p.value != null));
-
-    chart.timeScale().fitContent();
-    cmpIndividualChartApis.push(chart);
   });
 }
 
