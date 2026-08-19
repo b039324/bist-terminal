@@ -1208,3 +1208,9 @@ footer.data-source {
 .cmp-individual-head .cih-symbol { font-family: var(--font-display); font-weight: 700; font-size: 15px; }
 .cmp-individual-head .cih-price { font-family: var(--font-mono); font-size: 18px; font-weight: 700; }
 .cmp-individual-head .cih-change { font-family: var(--font-mono); font-size: 12px; margin-left: 6px; }
+.cmp-individual-chart-el {
+  position: relative;
+  overflow: hidden;
+  width: 100%;
+  box-sizing: border-box;
+}
