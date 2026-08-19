@@ -129,8 +129,6 @@ const cmpSymbol1 = document.getElementById("cmpSymbol1");
 const cmpSymbol2 = document.getElementById("cmpSymbol2");
 const cmpSymbol3 = document.getElementById("cmpSymbol3");
 const cmpSymbol4 = document.getElementById("cmpSymbol4");
-const cmpIndividualCard = document.getElementById("cmpIndividualCard");
-const cmpIndividualGrid = document.getElementById("cmpIndividualGrid");
 const cmpBtn = document.getElementById("cmpBtn");
 const cmpError = document.getElementById("cmpError");
 const cmpLoading = document.getElementById("cmpLoading");
@@ -410,6 +408,13 @@ function renderChart(candles, vtl) {
   priceChartApi = LightweightCharts.createChart(pe, { ...opt, height: 340 });
   candleSeries = priceChartApi.addCandlestickSeries({ upColor: "#17c987", downColor: "#ff4757", borderUpColor: "#17c987", borderDownColor: "#ff4757", wickUpColor: "#17c987", wickDownColor: "#ff4757" });
   candleSeries.setData(candles.map((c) => ({ time: c.time, open: c.open, high: c.high, low: c.low, close: c.close })));
+
+  // EMA21 çizgisi — mum grafiğinin üzerine bindirilir
+  const closesForEma = candles.map((c) => c.close);
+  const ema21Series = ema(closesForEma, 21);
+  const ema21LineSeries = priceChartApi.addLineSeries({ color: "#d4af37", lineWidth: 2, title: "EMA21", priceLineVisible: false, lastValueVisible: true });
+  ema21LineSeries.setData(candles.map((c, i) => ({ time: c.time, value: ema21Series[i] })).filter((p) => p.value != null));
+
   volumeChartApi = LightweightCharts.createChart(ve, { ...opt, height: 110 });
   volumeSeries = volumeChartApi.addHistogramSeries({ color: "#4098d7" });
   volumeSeries.setData(vtl.map((v, i) => ({ time: v.time, value: v.volumeTL, color: candles[i].close >= candles[i].open ? "rgba(23,201,135,0.6)" : "rgba(255,71,87,0.6)" })));
@@ -1030,15 +1035,13 @@ async function runCompare() {
   const syms = [cmpSymbol1.value, cmpSymbol2.value, cmpSymbol3.value, cmpSymbol4.value].map((v) => v.toUpperCase().trim().replace(/[^A-Z0-9]/g, "")).filter(Boolean);
   if (syms.length < 2) { cmpError.textContent = "En az 2 hisse gir."; return; }
   if (syms.length > 4) { cmpError.textContent = "En fazla 4 hisse karşılaştırabilirsin."; return; }
-  cmpResultCard.style.display = "none"; cmpIndividualCard.style.display = "none"; cmpLoading.classList.add("active");
+  cmpResultCard.style.display = "none"; cmpLoading.classList.add("active");
   try {
     const results = await Promise.all(syms.map((s) => fetchFullData(s)));
     renderCompareTable(results);
     cmpLoading.classList.remove("active");
     cmpResultCard.style.display = "block"; // ÖNCE görünür yap...
     renderCompareChart(results); // ...SONRA grafiği çiz (aksi halde container 0 genişlik ölçer)
-    cmpIndividualCard.style.display = "block";
-    renderIndividualCharts(results);
   } catch (err) { cmpLoading.classList.remove("active"); cmpError.textContent = err.message; }
 }
 function buildMetricRow(label, results, getValue, formatter, higherIsBetter) {
@@ -1092,61 +1095,6 @@ function renderCompareChart(results) {
   });
 
   cmpChartApi.timeScale().fitContent();
-}
-
-let cmpIndividualChartApis = [];
-
-// Her hisse için ayrı bir fiyat grafiği + EMA21 çizgisi + güncel fiyat gösterimi
-function renderIndividualCharts(results) {
-  cmpIndividualChartApis.forEach((api) => { try { api.remove(); } catch (e) {} });
-  cmpIndividualChartApis = [];
-  cmpIndividualGrid.innerHTML = "";
-  const light = isLightTheme();
-
-  const validResults = results.filter((r) => r.d.candles && r.d.candles.length > 0);
-
-  // 1. AŞAMA: önce TÜM kartları DOM'a ekle (grafik container'ları boş) — böylece
-  // grid düzeni (genişlikler) tüm kartlar orada varken bir kere hesaplanır.
-  const chartEls = validResults.map((r) => {
-    const card = document.createElement("div");
-    card.className = "cmp-individual-card";
-    const changeCls = changeClass(r.d.changes.daily);
-    card.innerHTML =
-      '<div class="cmp-individual-head">' +
-      '<span class="cih-symbol clickable-symbol" onclick="goToStock(\'' + r.symbol + '\')">' + r.symbol + '</span>' +
-      '<span><span class="cih-price">' + fmtTL(r.d.lastClose) + '</span><span class="cih-change ' + changeCls + '">' + fmtPct(r.d.changes.daily) + '</span></span>' +
-      '</div><div class="cmp-individual-chart-el" style="height:200px"></div>';
-    cmpIndividualGrid.appendChild(card);
-    return card.querySelector(".cmp-individual-chart-el");
-  });
-
-  // 2. AŞAMA: tarayıcı bir sonraki "frame"de düzeni kesinleştirdikten sonra (requestAnimationFrame)
-  // grafikleri oluştur — bu sayede her kutu KENDİ nihai (doğru) genişliğini ölçer.
-  requestAnimationFrame(() => {
-    validResults.forEach((r, i) => {
-      const candles = r.d.candles;
-      const chartEl = chartEls[i];
-
-      const chart = LightweightCharts.createChart(chartEl, {
-        height: 200,
-        layout: { background: { color: "transparent" }, textColor: light ? "#566072" : "#7d8a9c", fontFamily: "JetBrains Mono, monospace" },
-        grid: { vertLines: { color: light ? "#e4e7ec" : "#1a1f29" }, horzLines: { color: light ? "#e4e7ec" : "#1a1f29" } },
-        timeScale: { borderColor: light ? "#dde1e7" : "#232a36" },
-        rightPriceScale: { borderColor: light ? "#dde1e7" : "#232a36" },
-      });
-
-      const priceSeries = chart.addLineSeries({ color: "#4098d7", lineWidth: 2, title: "Fiyat" });
-      priceSeries.setData(candles.map((c) => ({ time: c.time, value: c.close })));
-
-      const closes = candles.map((c) => c.close);
-      const ema21Series = ema(closes, 21);
-      const emaSeries = chart.addLineSeries({ color: "#d4af37", lineWidth: 1.5, title: "EMA21" });
-      emaSeries.setData(candles.map((c, j) => ({ time: c.time, value: ema21Series[j] })).filter((p) => p.value != null));
-
-      chart.timeScale().fitContent();
-      cmpIndividualChartApis.push(chart);
-    });
-  });
 }
 
 // ==========================================================================
