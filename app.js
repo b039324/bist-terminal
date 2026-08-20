@@ -13,6 +13,7 @@ const appEl = document.getElementById("app");
 const logoutBtn = document.getElementById("logoutBtn");
 const themeToggleBtn = document.getElementById("themeToggleBtn");
 const printPdfBtn = document.getElementById("printPdfBtn");
+const refreshStockBtn = document.getElementById("refreshStockBtn");
 
 const searchScreen = document.getElementById("searchScreen");
 const searchInput = document.getElementById("searchInput");
@@ -1932,6 +1933,13 @@ initTheme();
 // @media print CSS kuralları sadece hisse sonuç ekranını yazdırılabilir bırakır.
 // ==========================================================================
 printPdfBtn.addEventListener("click", () => { window.print(); });
+
+// Hisse detayını yeniden çeker — aynı sistemi (runSearch) kullanır, sadece
+// "arama" yerine "mevcut hisseyi tazele" amacıyla tetiklenir.
+refreshStockBtn.addEventListener("click", () => {
+  if (!currentSymbol) return;
+  runSearch(currentSymbol);
+});
 
 // ==========================================================================
 // 23) PORTFÖY GETİRİ GRAFİĞİ (ZAMAN İÇİNDE) — Her Portföy ekranı ziyaretinde,
