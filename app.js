@@ -414,143 +414,6 @@ function computeValuationScore(f) {
 function drawMiniVolume(vtl) { const svg = document.getElementById("miniVolumeSvg"); svg.innerHTML = ""; const data = vtl.slice(-30); const max = Math.max(...data.map((d) => d.volumeTL)); const w = 300 / data.length; data.forEach((d, i) => { const h = max ? (d.volumeTL / max) * 55 : 0; const r = document.createElementNS("http://www.w3.org/2000/svg", "rect"); r.setAttribute("x", i * w + 1); r.setAttribute("y", 58 - h); r.setAttribute("width", Math.max(w - 2, 1)); r.setAttribute("height", h); r.setAttribute("fill", "#d4af37"); r.setAttribute("opacity", "0.75"); svg.appendChild(r); }); }
 function isLightTheme() { return document.documentElement.getAttribute("data-theme") === "light"; }
 
-// ==========================================================================
-// 8.1) GÖSTERGE SEÇİCİ (Grafik Göstergeleri)
-// ==========================================================================
-let activeIndicators = {
-    ema21: true,
-    ma50: false,
-    ma200: false,
-    rsi: false,
-    macd: false,
-    bollinger: false,
-};
-let indicatorSeries = {};
-
-function getIndicatorColor(id) {
-    const colors = {
-        ema21: '#d4af37',
-        ma50: '#4098d7',
-        ma200: '#a672e0',
-        rsi: '#e08f4a',
-        macd: '#17c987',
-        bollinger: '#ff6b6b',
-    };
-    return colors[id] || '#7d8a9c';
-}
-
-function getIndicatorTitle(id) {
-    const titles = {
-        ema21: 'EMA21',
-        ma50: 'MA50',
-        ma200: 'MA200',
-        rsi: 'RSI',
-        macd: 'MACD',
-        bollinger: 'Bollinger Bantları',
-    };
-    return titles[id] || id.toUpperCase();
-}
-
-function addIndicator(id, color, title, data) {
-    if (!priceChartApi || !fullChartData) return;
-    
-    // Eğer varsa kaldır
-    if (indicatorSeries[id]) {
-        try {
-            priceChartApi.removeSeries(indicatorSeries[id]);
-        } catch (e) {}
-        delete indicatorSeries[id];
-    }
-    
-    // Eğer aktif değilse ekleme
-    if (!activeIndicators[id]) return;
-    
-    // Veri yoksa hesapla
-    if (!data && fullChartData) {
-        const closes = fullChartData.candles.map(c => c.close);
-        if (id === 'ma50') data = sma(closes, 50);
-        else if (id === 'ma200') data = sma(closes, 200);
-        else if (id === 'ema21') data = ema(closes, 21);
-        else if (id === 'rsi') data = calcRSI(closes, 14);
-        else if (id === 'macd') {
-            const macd = calcMACD(closes);
-            data = macd.macdLine;
-        } else if (id === 'bollinger') {
-            const boll = calcBollinger(closes, 20, 2);
-            data = boll.mid;
-        }
-    }
-    
-    if (!data) return;
-    
-    const series = priceChartApi.addLineSeries({
-        color: color,
-        lineWidth: 2,
-        title: title,
-        priceLineVisible: false,
-        lastValueVisible: true,
-    });
-    
-    const chartData = fullChartData.candles.map((c, i) => ({
-        time: c.time,
-        value: data[i] !== undefined && data[i] !== null ? data[i] : null
-    })).filter(p => p.value !== null);
-    
-    if (chartData.length > 0) {
-        series.setData(chartData);
-        indicatorSeries[id] = series;
-    }
-}
-
-function toggleIndicator(id) {
-    activeIndicators[id] = !activeIndicators[id];
-    
-    if (activeIndicators[id]) {
-        // Göstergeyi ekle
-        addIndicator(id, getIndicatorColor(id), getIndicatorTitle(id));
-    } else {
-        // Göstergeyi kaldır
-        if (indicatorSeries[id]) {
-            try {
-                priceChartApi.removeSeries(indicatorSeries[id]);
-            } catch (e) {}
-            delete indicatorSeries[id];
-        }
-    }
-    
-    // Aktif göstergeleri güncelle
-    updateActiveIndicatorsLabel();
-}
-
-function updateActiveIndicatorsLabel() {
-    const label = document.getElementById('activeIndicators');
-    if (!label) return;
-    
-    const activeList = Object.entries(activeIndicators)
-        .filter(([_, active]) => active)
-        .map(([id]) => getIndicatorTitle(id));
-    
-    if (activeList.length === 0) {
-        label.textContent = '📊 Hiç gösterge aktif değil';
-        return;
-    }
-    
-    const colors = {
-        ema21: '🟡',
-        ma50: '🔵',
-        ma200: '🟣',
-        rsi: '🟠',
-        macd: '🟢',
-        bollinger: '🔴',
-    };
-    
-    label.innerHTML = activeList.map(title => {
-        const id = Object.keys(getIndicatorTitle).find(k => getIndicatorTitle(k) === title);
-        const emoji = colors[id] || '📊';
-        return `${emoji} ${title}`;
-    }).join(' · ');
-}
-
 function renderChart(candles, vtl) {
   const pe = document.getElementById("priceChart"), ve = document.getElementById("volumeChart");
   pe.innerHTML = ""; ve.innerHTML = "";
@@ -559,6 +422,12 @@ function renderChart(candles, vtl) {
   priceChartApi = LightweightCharts.createChart(pe, { ...opt, height: 340 });
   candleSeries = priceChartApi.addCandlestickSeries({ upColor: "#17c987", downColor: "#ff4757", borderUpColor: "#17c987", borderDownColor: "#ff4757", wickUpColor: "#17c987", wickDownColor: "#ff4757" });
   candleSeries.setData(candles.map((c) => ({ time: c.time, open: c.open, high: c.high, low: c.low, close: c.close })));
+
+  // EMA21 çizgisi — mum grafiğinin üzerine bindirilir
+  const closesForEma = candles.map((c) => c.close);
+  const ema21Series = ema(closesForEma, 21);
+  const ema21LineSeries = priceChartApi.addLineSeries({ color: "#d4af37", lineWidth: 2, title: "EMA21", priceLineVisible: false, lastValueVisible: true });
+  ema21LineSeries.setData(candles.map((c, i) => ({ time: c.time, value: ema21Series[i] })).filter((p) => p.value != null));
 
   volumeChartApi = LightweightCharts.createChart(ve, { ...opt, height: 110 });
   volumeSeries = volumeChartApi.addHistogramSeries({ color: "#4098d7" });
@@ -599,15 +468,6 @@ function renderChart(candles, vtl) {
     tooltipEl.style.left = Math.max(0, left) + "px";
     tooltipEl.style.top = Math.max(0, top) + "px";
   });
-
-  // ---- YENİ: Göstergeleri ekle ----
-  Object.keys(activeIndicators).forEach(id => {
-      if (activeIndicators[id]) {
-          addIndicator(id, getIndicatorColor(id), getIndicatorTitle(id));
-      }
-  });
-  
-  updateActiveIndicatorsLabel();
 }
 document.getElementById("rangeTabs").addEventListener("click", async (e) => {
   if (e.target.tagName !== "BUTTON") return;
@@ -658,7 +518,7 @@ async function loadIntradayChart() {
     titleEl.textContent = "Fiyat Grafiği (Gün İçi, 15dk)";
   } catch (err) {
     titleEl.textContent = prevTitle;
-    showToast(err.message || "Gün içi veri çekilemedi.", "error");
+    alert(err.message || "Gün içi veri çekilemedi.");
     // Hata olursa günlük görünüme geri dön
     document.querySelectorAll("#rangeTabs button").forEach((b) => b.classList.remove("active"));
     document.querySelector('#rangeTabs button[data-range="1y"]').classList.add("active");
@@ -866,22 +726,17 @@ posAddBtn.addEventListener("click", addPosition);
 async function addPosition() {
   posError.textContent = "";
   const s = posSymbol.value.toUpperCase().trim().replace(/[^A-Z0-9]/g, ""), q = parseFloat(posQty.value), c = parseFloat(posCost.value);
-  if (!s) { showToast("Hisse kodu gir.", "error"); return; }
-  if (!q || q <= 0) { showToast("Adet gir.", "error"); return; }
-  if (!c || c <= 0) { showToast("Maliyet gir.", "error"); return; }
+  if (!s) { posError.textContent = "Hisse kodu gir."; return; }
+  if (!q || q <= 0) { posError.textContent = "Adet gir."; return; }
+  if (!c || c <= 0) { posError.textContent = "Maliyet gir."; return; }
   try {
     const pos = await loadPortfolio(), ex = pos.find((p) => p.symbol === s);
     if (ex) { const tq = ex.qty + q; ex.cost = (ex.qty * ex.cost + q * c) / tq; ex.qty = tq; }
     else { pos.push({ symbol: s, qty: q, cost: c }); }
     await savePortfolio(pos); posSymbol.value = posQty.value = posCost.value = ""; renderPortfolio();
-    showToast(`${s} pozisyonu eklendi ✓`, "success");
-  } catch (e) { showToast("Kaydedilemedi: " + e.message, "error"); }
+  } catch (e) { posError.textContent = "Kaydedilemedi: " + e.message; }
 }
-async function removePosition(sym) { 
-  await savePortfolio((await loadPortfolio()).filter((p) => p.symbol !== sym)); 
-  renderPortfolio();
-  showToast(`${sym} pozisyonu silindi`, "info");
-}
+async function removePosition(sym) { await savePortfolio((await loadPortfolio()).filter((p) => p.symbol !== sym)); renderPortfolio(); }
 
 // Bir pozisyonun bir kısmını (veya tamamını) "sat" — realize edilmiş K/Z geçmişine kaydeder,
 // kalan adedi günceller (0'a düşerse pozisyonu tamamen kaldırır).
@@ -893,12 +748,12 @@ async function sellPosition(symbol, currentPrice) {
   const qtyStr = window.prompt(`${symbol} — kaç adet satmak istiyorsun? (Elindeki: ${p.qty})`, p.qty);
   if (qtyStr == null) return;
   const qty = parseFloat(qtyStr);
-  if (!qty || qty <= 0 || qty > p.qty) { showToast("Geçersiz adet.", "error"); return; }
+  if (!qty || qty <= 0 || qty > p.qty) { alert("Geçersiz adet."); return; }
 
   const priceStr = window.prompt(`${symbol} — satış fiyatını (₺) gir:`, currentPrice != null ? currentPrice.toFixed(2) : "");
   if (priceStr == null) return;
   const sellPrice = parseFloat(priceStr);
-  if (!sellPrice || sellPrice <= 0) { showToast("Geçersiz fiyat.", "error"); return; }
+  if (!sellPrice || sellPrice <= 0) { alert("Geçersiz fiyat."); return; }
 
   const realizedPnL = qty * (sellPrice - p.cost);
   const realizedPct = p.cost ? ((sellPrice - p.cost) / p.cost) * 100 : 0;
@@ -913,7 +768,6 @@ async function sellPosition(symbol, currentPrice) {
 
   renderPortfolio();
   renderRealized();
-  showToast(`${symbol} satış işlemi tamamlandı`, "success");
 }
 
 function renderRealized() {
@@ -1088,7 +942,7 @@ function downloadCsv(filename, headers, rows) {
 }
 
 portfolioCsvBtn.addEventListener("click", () => {
-  if (portfolioRowsData.length === 0) { showToast("Dışa aktarılacak pozisyon yok.", "info"); return; }
+  if (portfolioRowsData.length === 0) { alert("Dışa aktarılacak pozisyon yok."); return; }
   const rows = portfolioRowsData.map((p) => [p.symbol, p.qty, p.cost, p.price ?? "", p.value ?? "", p.gain ?? "", p.gainPct != null ? fmtNum(p.gainPct, 2) : ""]);
   downloadCsv("portfoy_" + new Date().toISOString().slice(0, 10) + ".csv", ["Hisse", "Adet", "Maliyet", "Güncel Fiyat", "Değer", "K/Z (TL)", "K/Z (%)"], rows);
 });
@@ -1118,31 +972,10 @@ wlSymbol.addEventListener("keydown", (e) => { if (e.key === "Enter") addWatchlis
 async function addWatchlistItem() {
   wlError.textContent = "";
   const sym = wlSymbol.value.toUpperCase().trim().replace(/[^A-Z0-9]/g, "");
-  if (!sym) { showToast("Hisse kodu gir.", "error"); return; }
-  try { 
-    const p = await fetchQuickPrice(sym); 
-    const items = await loadWatchlist(); 
-    if (items.find((i) => i.symbol === sym)) { 
-      showToast(`${sym} zaten listede.`, "info"); 
-      return; 
-    } 
-    items.push({ symbol: sym, addedAt: Date.now(), addedPrice: p.price }); 
-    await saveWatchlist(items); 
-    wlSymbol.value = ""; 
-    wlError.textContent = ""; 
-    renderWatchlist(); 
-    if (currentSymbol === sym) syncWatchlistState();
-    showToast(`${sym} takip listesine eklendi ✓`, "success");
-  } catch (e) { 
-    showToast("Eklenemedi.", "error"); 
-  }
+  if (!sym) { wlError.textContent = "Hisse kodu gir."; return; }
+  try { const p = await fetchQuickPrice(sym); const items = await loadWatchlist(); if (items.find((i) => i.symbol === sym)) { wlError.textContent = sym + " zaten listede."; return; } items.push({ symbol: sym, addedAt: Date.now(), addedPrice: p.price }); await saveWatchlist(items); wlSymbol.value = ""; wlError.textContent = ""; renderWatchlist(); if (currentSymbol === sym) syncWatchlistState(); } catch (e) { wlError.textContent = "Eklenemedi."; }
 }
-async function removeWatchlistItem(sym) { 
-  await saveWatchlist((await loadWatchlist()).filter((i) => i.symbol !== sym)); 
-  renderWatchlist(); 
-  if (currentSymbol === sym) syncWatchlistState();
-  showToast(`${sym} takip listesinden çıkarıldı`, "info");
-}
+async function removeWatchlistItem(sym) { await saveWatchlist((await loadWatchlist()).filter((i) => i.symbol !== sym)); renderWatchlist(); if (currentSymbol === sym) syncWatchlistState(); }
 watchlistToggleBtn.addEventListener("click", async () => {
   if (!currentSymbol) return;
   const items = await loadWatchlist(), exists = items.find((i) => i.symbol === currentSymbol);
@@ -1192,7 +1025,7 @@ function renderWatchlistTableBody() {
 }
 
 watchlistCsvBtn.addEventListener("click", () => {
-  if (watchlistRowsData.length === 0) { showToast("Dışa aktarılacak hisse yok.", "info"); return; }
+  if (watchlistRowsData.length === 0) { alert("Dışa aktarılacak hisse yok."); return; }
   const rows = watchlistRowsData.map((i) => [i.symbol, i.price ?? "", i.changePct != null ? fmtNum(i.changePct, 2) : "", fmtDate(i.addedDate), i.addedPrice ?? "", i.sinceAdded != null ? fmtNum(i.sinceAdded, 2) : ""]);
   downloadCsv("takip_listesi_" + new Date().toISOString().slice(0, 10) + ".csv", ["Hisse", "Güncel Fiyat", "Günlük Değişim (%)", "Eklenme Tarihi", "Eklenme Fiyatı", "Eklenmeden Beri (%)"], rows);
 });
@@ -1214,8 +1047,8 @@ async function fetchFullData(sym) {
 async function runCompare() {
   cmpError.textContent = "";
   const syms = [cmpSymbol1.value, cmpSymbol2.value, cmpSymbol3.value, cmpSymbol4.value].map((v) => v.toUpperCase().trim().replace(/[^A-Z0-9]/g, "")).filter(Boolean);
-  if (syms.length < 2) { showToast("En az 2 hisse gir.", "error"); return; }
-  if (syms.length > 4) { showToast("En fazla 4 hisse karşılaştırabilirsin.", "error"); return; }
+  if (syms.length < 2) { cmpError.textContent = "En az 2 hisse gir."; return; }
+  if (syms.length > 4) { cmpError.textContent = "En fazla 4 hisse karşılaştırabilirsin."; return; }
   cmpResultCard.style.display = "none"; cmpLoading.classList.add("active");
   try {
     const results = await Promise.all(syms.map((s) => fetchFullData(s)));
@@ -1223,7 +1056,7 @@ async function runCompare() {
     cmpLoading.classList.remove("active");
     cmpResultCard.style.display = "block"; // ÖNCE görünür yap...
     renderCompareChart(results); // ...SONRA grafiği çiz (aksi halde container 0 genişlik ölçer)
-  } catch (err) { cmpLoading.classList.remove("active"); showToast(err.message, "error"); }
+  } catch (err) { cmpLoading.classList.remove("active"); cmpError.textContent = err.message; }
 }
 function buildMetricRow(label, results, getValue, formatter, higherIsBetter) {
   const vals = results.map((r) => getValue(r)), valid = vals.filter((v) => v != null && !isNaN(v));
@@ -1854,10 +1687,9 @@ saveNoteBtn.addEventListener("click", async () => {
     notes[currentSymbol] = stockNoteInput.value.trim();
     await saveAllNotes(notes);
     noteSavedText.style.display = "inline";
-    showToast("Not kaydedildi ✓", "success");
     setTimeout(() => { noteSavedText.style.display = "none"; }, 2500);
   } catch (e) {
-    showToast("Not kaydedilemedi: " + e.message, "error");
+    alert("Not kaydedilemedi: " + e.message);
   } finally {
     saveNoteBtn.disabled = false;
   }
@@ -2314,108 +2146,3 @@ function renderSignalResults(points) {
         `<td>${fmtTL(p.lastPrice)}</td></tr>`;
     }).join("") + "</tbody>";
 }
-
-// ==========================================================================
-// 25) TOAST BİLDİRİMLERİ
-// ==========================================================================
-function showToast(message, type = 'info') {
-    const container = document.getElementById('toastContainer');
-    if (!container) return;
-    
-    const toast = document.createElement('div');
-    toast.className = `toast ${type}`;
-    toast.textContent = message;
-    container.appendChild(toast);
-    
-    setTimeout(() => {
-        toast.style.opacity = '0';
-        toast.style.transform = 'translateX(100%)';
-        toast.style.transition = 'all 0.3s ease-out';
-        setTimeout(() => toast.remove(), 300);
-    }, 3000);
-}
-
-// ==========================================================================
-// 26) GÖSTERGE SEÇİCİ DROPDOWN OLAYLARI
-// ==========================================================================
-document.addEventListener('DOMContentLoaded', () => {
-    const toggleBtn = document.getElementById('indicatorToggle');
-    const dropdown = document.getElementById('indicatorDropdown');
-    
-    if (toggleBtn && dropdown) {
-        toggleBtn.addEventListener('click', (e) => {
-            e.stopPropagation();
-            dropdown.classList.toggle('open');
-        });
-        
-        // Dropdown dışına tıklandığında kapat
-        document.addEventListener('click', (e) => {
-            if (!dropdown.contains(e.target) && e.target !== toggleBtn) {
-                dropdown.classList.remove('open');
-            }
-        });
-    }
-    
-    // Checkbox olayları
-    document.querySelectorAll('#indicatorDropdown input[type="checkbox"]').forEach(cb => {
-        cb.addEventListener('change', () => {
-            const id = cb.dataset.indicator;
-            if (id) toggleIndicator(id);
-        });
-    });
-});
-
-// ==========================================================================
-// 27) MOBİL TAB BAR
-// ==========================================================================
-document.addEventListener('DOMContentLoaded', () => {
-    const tabBtns = document.querySelectorAll('.tab-btn');
-    const tabMap = {
-        'homeScreen': showHomeNav,
-        'searchScreen': showSearchNav,
-        'portfolioScreen': showPortfolioNav,
-        'watchlistScreen': showWatchlistNav,
-        'trendsScreen': showTrendsNav,
-    };
-
-    tabBtns.forEach(btn => {
-        btn.addEventListener('click', () => {
-            // Tüm tab'lerin active sınıfını kaldır
-            tabBtns.forEach(b => b.classList.remove('active'));
-            btn.classList.add('active');
-            
-            // İlgili sayfayı göster
-            const target = btn.dataset.target;
-            if (tabMap[target]) {
-                tabMap[target]();
-            }
-        });
-    });
-});
-
-// ==========================================================================
-// 28) KLAVYE KISAYOLLARI
-// ==========================================================================
-document.addEventListener('keydown', (e) => {
-    // Ctrl + K veya / ile arama kutusuna odaklan
-    if ((e.ctrlKey && e.key === 'k') || (e.key === '/' && !e.ctrlKey && !e.metaKey && !e.altKey)) {
-        const searchInput = document.getElementById('searchInput');
-        if (searchInput && document.getElementById('lockScreen').style.display !== 'none') {
-            e.preventDefault();
-            searchInput.focus();
-            searchInput.select();
-        }
-    }
-    
-    // Escape ile arama kutusundan çık
-    if (e.key === 'Escape') {
-        const searchInput = document.getElementById('searchInput');
-        if (document.activeElement === searchInput) {
-            searchInput.blur();
-        }
-        // Dropdown'ları kapat
-        document.querySelectorAll('.indicator-dropdown.open').forEach(el => {
-            el.classList.remove('open');
-        });
-    }
-});
