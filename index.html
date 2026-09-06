@@ -30,9 +30,6 @@
     </div>
   </div>
 
-  <!-- ============ TOAST BİLDİRİMLERİ ============ -->
-  <div id="toastContainer" class="toast-container"></div>
-
   <!-- ============ ANA UYGULAMA ============ -->
   <div id="app" style="display:none;">
 
@@ -177,28 +174,14 @@
         <div class="card-head">
           <div>
             <div class="card-title" style="margin-bottom:0" id="chartCardTitle">Fiyat Grafiği (Son 1 Yıl)</div>
-            <div class="sub-note" style="margin-top:2px" id="activeIndicators">🟡 EMA21</div>
+            <div class="sub-note" style="margin-top:2px">🟡 EMA21</div>
           </div>
-          <div style="display:flex; gap:8px; align-items:center; flex-wrap:wrap;">
-            <!-- Gösterge Seçici -->
-            <div class="indicator-selector">
-              <button class="indicator-toggle" id="indicatorToggle">📊 Göstergeler</button>
-              <div class="indicator-dropdown" id="indicatorDropdown">
-                <label><input type="checkbox" data-indicator="ema21" checked> EMA21</label>
-                <label><input type="checkbox" data-indicator="ma50"> MA50</label>
-                <label><input type="checkbox" data-indicator="ma200"> MA200</label>
-                <label><input type="checkbox" data-indicator="rsi"> RSI</label>
-                <label><input type="checkbox" data-indicator="macd"> MACD</label>
-                <label><input type="checkbox" data-indicator="bollinger"> Bollinger Bantları</label>
-              </div>
-            </div>
-            <div class="range-tabs" id="rangeTabs">
-              <button data-range="intraday">Gün İçi (15dk)</button>
-              <button data-range="1m">1A</button>
-              <button data-range="3m">3A</button>
-              <button data-range="6m">6A</button>
-              <button data-range="1y" class="active">1Y</button>
-            </div>
+          <div class="range-tabs" id="rangeTabs">
+            <button data-range="intraday">Gün İçi (15dk)</button>
+            <button data-range="1m">1A</button>
+            <button data-range="3m">3A</button>
+            <button data-range="6m">6A</button>
+            <button data-range="1y" class="active">1Y</button>
           </div>
         </div>
         <div style="position:relative">
@@ -629,30 +612,6 @@
       </div>
 
       <footer class="data-source">Veri kaynağı: Yahoo Finance · Gecikmeli fiyat verisi olabilir</footer>
-    </div>
-
-    <!-- ============ MOBİL ALT NAVİGASYON ============ -->
-    <div class="mobile-tab-bar" id="mobileTabBar">
-      <button class="tab-btn active" data-target="homeScreen">
-        <span class="tab-icon">🏠</span>
-        <span class="tab-label">Özet</span>
-      </button>
-      <button class="tab-btn" data-target="searchScreen">
-        <span class="tab-icon">🔍</span>
-        <span class="tab-label">Ara</span>
-      </button>
-      <button class="tab-btn" data-target="portfolioScreen">
-        <span class="tab-icon">💼</span>
-        <span class="tab-label">Portföy</span>
-      </button>
-      <button class="tab-btn" data-target="watchlistScreen">
-        <span class="tab-icon">⭐</span>
-        <span class="tab-label">Takip</span>
-      </button>
-      <button class="tab-btn" data-target="trendsScreen">
-        <span class="tab-icon">📊</span>
-        <span class="tab-label">Trendler</span>
-      </button>
     </div>
 
   </div>
