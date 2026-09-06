@@ -42,6 +42,7 @@
         <button class="nav-btn" id="navWatchlistBtn">Takip</button>
         <button class="nav-btn" id="navTrendsBtn">Trendler</button>
         <button class="nav-btn" id="navMoneyBtn">Para Nerede</button>
+        <button class="nav-btn" id="navSignalBtn">17:00 Sinyali</button>
         <button class="nav-btn" id="navCompareBtn">Karşılaştır</button>
         <button class="nav-btn theme-toggle-btn" id="themeToggleBtn" title="Açık/Koyu Tema">🌙</button>
         <button class="logout-btn" id="logoutBtn">Çıkış</button>
@@ -547,6 +548,39 @@
       </div>
 
       <footer class="data-source">BIST 100 listesi periyodik değişebilir · Veri kaynağı: Yahoo Finance</footer>
+    </div>
+
+    <!-- ============ 17:00 SİNYALİ EKRANI ============ -->
+    <div class="signal-screen" id="signalScreen">
+
+      <div class="panel-card" style="margin-bottom:20px">
+        <div class="card-title" style="margin-bottom:6px">17:00 Sinyali</div>
+        <div class="sub-note" style="margin-bottom:14px">
+          BIST 100'ü 15 dakikalık mumlarla tarar; günün 17:00'a kadarki hareketi sakinken,
+          17:00'dan sonra hem hacimde belirgin bir artış hem de fiyatta pozitif yön oluşan
+          hisseleri işaretler. <strong>Bu kesin bir sinyal değil, olasılık göstergesidir</strong> —
+          gün sonuna doğru "sessiz" toplama yapıldığında bazen görülen bir örüntüyü arar,
+          garantili bir sonuç değildir.
+        </div>
+        <button id="signalScanBtn" class="primary-btn">Tara</button>
+        <div class="search-error" id="signalError" style="margin-top:10px"></div>
+      </div>
+
+      <div class="loading-screen" id="signalLoading">
+        <div class="spinner"></div>
+        <span id="signalLoadingText">TARANIYOR...</span>
+      </div>
+
+      <div class="panel-card" id="signalResults" style="display:none">
+        <div class="card-title" style="margin-bottom:4px">Tarama Sonucu</div>
+        <div class="sub-note" style="margin-bottom:14px">⚡ işaretli satırlar, üç şartın tamamını karşılayan hisseleri gösterir</div>
+        <div class="portfolio-table-wrap">
+          <table class="portfolio-table" id="signalTable"></table>
+        </div>
+        <div id="signalEmpty" class="portfolio-empty">Bugün için sinyal veren hisse bulunamadı.</div>
+      </div>
+
+      <footer class="data-source">BIST 100 listesi periyodik değişebilir · Veri kaynağı: Yahoo Finance · 15dk gecikmeli</footer>
     </div>
 
     <!-- ============ KARŞILAŞTIRMA EKRANI ============ -->
