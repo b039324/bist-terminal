@@ -50,6 +50,7 @@ const navPortfolioBtn = document.getElementById("navPortfolioBtn");
 const navWatchlistBtn = document.getElementById("navWatchlistBtn");
 const navTrendsBtn = document.getElementById("navTrendsBtn");
 const navMoneyBtn = document.getElementById("navMoneyBtn");
+const navSignalBtn = document.getElementById("navSignalBtn");
 const navCompareBtn = document.getElementById("navCompareBtn");
 const portfolioScreen = document.getElementById("portfolioScreen");
 const posSymbol = document.getElementById("posSymbol");
@@ -93,6 +94,14 @@ const noteSavedText = document.getElementById("noteSavedText");
 const compareScreen = document.getElementById("compareScreen");
 const trendsScreen = document.getElementById("trendsScreen");
 const moneyScreen = document.getElementById("moneyScreen");
+const signalScreen = document.getElementById("signalScreen");
+const signalScanBtn = document.getElementById("signalScanBtn");
+const signalError = document.getElementById("signalError");
+const signalLoading = document.getElementById("signalLoading");
+const signalLoadingText = document.getElementById("signalLoadingText");
+const signalResults = document.getElementById("signalResults");
+const signalTable = document.getElementById("signalTable");
+const signalEmpty = document.getElementById("signalEmpty");
 const moneyRefreshBtn = document.getElementById("moneyRefreshBtn");
 const moneyError = document.getElementById("moneyError");
 const moneyLoading = document.getElementById("moneyLoading");
@@ -183,8 +192,8 @@ tryEnterApp();
 // ==========================================================================
 // 3) NAVİGASYON
 // ==========================================================================
-function setActiveNav(b) { [navSearchBtn, navHomeBtn, navPortfolioBtn, navWatchlistBtn, navTrendsBtn, navMoneyBtn, navCompareBtn].forEach((x) => x.classList.remove("active")); b.classList.add("active"); }
-function hideAllScreens() { window.scrollTo({ top: 0, behavior: "instant" }); homeScreen.classList.remove("active"); portfolioScreen.classList.remove("active"); watchlistScreen.classList.remove("active"); trendsScreen.classList.remove("active"); moneyScreen.classList.remove("active"); compareScreen.classList.remove("active"); resultScreen.classList.remove("active"); loadingScreen.classList.remove("active"); }
+function setActiveNav(b) { [navSearchBtn, navHomeBtn, navPortfolioBtn, navWatchlistBtn, navTrendsBtn, navMoneyBtn, navSignalBtn, navCompareBtn].forEach((x) => x.classList.remove("active")); b.classList.add("active"); }
+function hideAllScreens() { window.scrollTo({ top: 0, behavior: "instant" }); homeScreen.classList.remove("active"); portfolioScreen.classList.remove("active"); watchlistScreen.classList.remove("active"); trendsScreen.classList.remove("active"); moneyScreen.classList.remove("active"); signalScreen.classList.remove("active"); compareScreen.classList.remove("active"); resultScreen.classList.remove("active"); loadingScreen.classList.remove("active"); }
 function showSearchNav() { setActiveNav(navSearchBtn); homeScreen.classList.remove("active"); portfolioScreen.classList.remove("active"); watchlistScreen.classList.remove("active"); trendsScreen.classList.remove("active"); moneyScreen.classList.remove("active"); compareScreen.classList.remove("active"); searchScreen.classList.remove("hidden"); renderRecentSearches(); }
 function showHomeNav() { setActiveNav(navHomeBtn); searchScreen.classList.add("hidden"); hideAllScreens(); homeScreen.classList.add("active"); renderHomeScreen(); }
 function showPortfolioNav() { setActiveNav(navPortfolioBtn); searchScreen.classList.add("hidden"); hideAllScreens(); portfolioScreen.classList.add("active"); renderPortfolio(); }
@@ -192,7 +201,8 @@ function showWatchlistNav() { setActiveNav(navWatchlistBtn); searchScreen.classL
 function showTrendsNav() { setActiveNav(navTrendsBtn); searchScreen.classList.add("hidden"); hideAllScreens(); trendsScreen.classList.add("active"); }
 function showMoneyNav() { setActiveNav(navMoneyBtn); searchScreen.classList.add("hidden"); hideAllScreens(); moneyScreen.classList.add("active"); }
 function showCompareNav() { setActiveNav(navCompareBtn); searchScreen.classList.add("hidden"); hideAllScreens(); compareScreen.classList.add("active"); }
-navSearchBtn.addEventListener("click", showSearchNav); navHomeBtn.addEventListener("click", showHomeNav); navPortfolioBtn.addEventListener("click", showPortfolioNav); navWatchlistBtn.addEventListener("click", showWatchlistNav); navTrendsBtn.addEventListener("click", showTrendsNav); navMoneyBtn.addEventListener("click", showMoneyNav); navCompareBtn.addEventListener("click", showCompareNav);
+function showSignalNav() { setActiveNav(navSignalBtn); searchScreen.classList.add("hidden"); hideAllScreens(); signalScreen.classList.add("active"); }
+navSearchBtn.addEventListener("click", showSearchNav); navHomeBtn.addEventListener("click", showHomeNav); navPortfolioBtn.addEventListener("click", showPortfolioNav); navWatchlistBtn.addEventListener("click", showWatchlistNav); navTrendsBtn.addEventListener("click", showTrendsNav); navMoneyBtn.addEventListener("click", showMoneyNav); navSignalBtn.addEventListener("click", showSignalNav); navCompareBtn.addEventListener("click", showCompareNav);
 
 // Portföy, Takip, Trendler ve Isı Haritası'ndaki hisse isimlerine tıklayınca
 // o hisseyi arayıp sonuç ekranına götürür — mevcut arama akışını aynen kullanır.
@@ -205,7 +215,10 @@ function goToStock(symbol) {
 // ==========================================================================
 // 4) ARAMA
 // ==========================================================================
-searchInput.addEventListener("keydown", (e) => { if (e.key === "Enter") runSearch(searchInput.value); });
+// NOT: searchInput'un "Enter'a basınca ara" mantığı artık aşağıdaki (18. bölüm)
+// Otomatik Tamamlama dinleyicisinin içinde tek elden yönetiliyor — burada AYRICA
+// bir "keydown" dinleyicisi eklemek, her aramanın YANLIŞLIKLA 2 kez tetiklenmesine
+// (Yahoo'ya çift istek gitmesine) sebep oluyordu. Bilerek burada tekrar eklenmedi.
 newSearchBtn.addEventListener("click", () => runSearch(newSearchInput.value));
 newSearchInput.addEventListener("keydown", (e) => { if (e.key === "Enter") runSearch(newSearchInput.value); });
 
@@ -2024,4 +2037,112 @@ function renderPortfolioHistoryChart() {
   costSeries.setData(filtered.map((h) => ({ time: Math.floor(new Date(h.date).getTime() / 1000), value: h.cost })));
 
   portfolioHistoryChartApi.timeScale().fitContent();
+}
+
+// ==========================================================================
+// 24) 17:00 SİNYALİ — BIST 100'ü 15 dakikalık mumlarla tarar. Günün 17:00'a
+// kadarki hareketi sakinken, 17:00 sonrasında hacim + pozitif fiyat yönünde
+// belirgin bir sapma varsa işaretler. KESİN bir gösterge DEĞİLDİR, olasılık
+// sinyalidir — gün sonuna doğru "sessiz toplama" örüntüsünü arar.
+//
+// Worker'da yeni bir uç GEREKMİYOR — "Gün İçi (15dk)" özelliği için zaten
+// var olan /api/chart?range=1d&interval=15m ucunu BIST 100'ün tamamına
+// uyguluyoruz.
+//
+// Eşikler (istersen buradan kolayca ayarlayabilirsin):
+const SIGNAL_VOL_RATIO_MIN = 1.5;   // 17:00 sonrası ort. hacim, öncesine göre en az %50 fazla olmalı
+const SIGNAL_MIN_CHANGE_AFTER = 0.5; // 17:00 sonrası en az %0,5 pozitif hareket
+const SIGNAL_MAX_DAY_CHANGE_BEFORE = 3; // 17:00'a kadarki gün hareketi %3'ü GEÇMEMİŞ olmalı ("sakin gün")
+
+signalScanBtn.addEventListener("click", runSignalScan);
+
+// Bir hissenin bugünkü 15dk'lık mumlarını çekip 17:00 öncesi/sonrası olarak ayırır
+async function fetchClosingSignalPoint(symbol) {
+  const pass = getPass();
+  const res = await fetchJSON(WORKER_URL + "/api/chart?symbol=" + symbol + "&pass=" + encodeURIComponent(pass) + "&range=1d&interval=15m");
+  if (res.error) throw new Error(res.error);
+  const chartR = res.data?.chart?.result?.[0];
+  if (!chartR || !chartR.timestamp) throw new Error("veri yok");
+
+  const ts = chartR.timestamp, q = chartR.indicators.quote[0];
+  const candles = [];
+  for (let i = 0; i < ts.length; i++) {
+    if (q.close[i] == null) continue;
+    candles.push({ time: ts[i], open: q.open[i] ?? q.close[i], close: q.close[i], volume: q.volume[i] ?? 0 });
+  }
+  if (candles.length < 4) throw new Error("yetersiz gün içi veri");
+
+  // TRT (Türkiye saati) saatini hesapla — piyasa saatleri zaten TRT bazlı
+  const trHour = (t) => { const d = new Date((t + 3 * 3600) * 1000); return d.getUTCHours() + d.getUTCMinutes() / 60; };
+  const before = candles.filter((c) => trHour(c.time) < 17);
+  const after = candles.filter((c) => trHour(c.time) >= 17);
+  if (before.length === 0 || after.length === 0) throw new Error("17:00 öncesi/sonrası veri yok");
+
+  const avgVolBefore = before.reduce((s, c) => s + c.volume, 0) / before.length;
+  const avgVolAfter = after.reduce((s, c) => s + c.volume, 0) / after.length;
+  const priceAt17 = before[before.length - 1].close;
+  const lastPrice = after[after.length - 1].close;
+  const dayOpen = candles[0].open;
+
+  const volRatio = avgVolBefore > 0 ? avgVolAfter / avgVolBefore : null;
+  const changeAfter17Pct = priceAt17 ? ((lastPrice - priceAt17) / priceAt17) * 100 : 0;
+  const dayChangeTo17Pct = dayOpen ? ((priceAt17 - dayOpen) / dayOpen) * 100 : 0;
+
+  const isSignal = volRatio != null && volRatio >= SIGNAL_VOL_RATIO_MIN && changeAfter17Pct >= SIGNAL_MIN_CHANGE_AFTER && Math.abs(dayChangeTo17Pct) <= SIGNAL_MAX_DAY_CHANGE_BEFORE;
+
+  return { symbol, volRatio, changeAfter17Pct, dayChangeTo17Pct, lastPrice, priceAt17, isSignal };
+}
+
+async function runSignalScan() {
+  signalError.textContent = "";
+  signalResults.style.display = "none";
+  signalScanBtn.disabled = true;
+  signalLoading.classList.add("active");
+  signalLoadingText.textContent = `TARANIYOR... (0 / ${BIST100_SYMBOLS.length})`;
+
+  try {
+    const settled = await fetchInBatches(BIST100_SYMBOLS, 8, fetchClosingSignalPoint, (done, total) => {
+      signalLoadingText.textContent = `TARANIYOR... (${done} / ${total})`;
+    });
+
+    const points = settled.filter((r) => r.status === "fulfilled").map((r) => r.value);
+    if (points.length === 0) throw new Error("Hiçbir hisse verisi alınamadı. Piyasa kapalıysa veya gün içi veri henüz oluşmadıysa bu normal olabilir.");
+
+    renderSignalResults(points);
+    signalLoading.classList.remove("active");
+    signalResults.style.display = "block";
+
+    const failedCount = settled.length - points.length;
+    if (failedCount > 0) {
+      signalError.textContent = `${failedCount} hisse için veri alınamadı (atlandı), ${points.length} hisse başarıyla tarandı.`;
+    }
+  } catch (err) {
+    signalLoading.classList.remove("active");
+    signalError.textContent = err.message || "Tarama sırasında bir hata oluştu.";
+  } finally {
+    signalScanBtn.disabled = false;
+  }
+}
+
+function renderSignalResults(points) {
+  // Sinyal verenler en üstte (hacim oranı x değişim büyüklüğüne göre sıralı), sonra geri kalanlar hacim oranına göre
+  const sorted = [...points].sort((a, b) => {
+    if (a.isSignal !== b.isSignal) return a.isSignal ? -1 : 1;
+    const scoreA = (a.volRatio || 0) * Math.max(0, a.changeAfter17Pct);
+    const scoreB = (b.volRatio || 0) * Math.max(0, b.changeAfter17Pct);
+    return scoreB - scoreA;
+  });
+
+  const signalCount = sorted.filter((p) => p.isSignal).length;
+  signalEmpty.classList.toggle("visible", signalCount === 0);
+
+  signalTable.innerHTML = "<thead><tr><th>Hisse</th><th>17:00 Öncesi Değişim</th><th>17:00 Sonrası Değişim</th><th>Hacim Oranı (Sonrası/Öncesi)</th><th>Güncel Fiyat</th></tr></thead><tbody>" +
+    sorted.map((p) => {
+      const flag = p.isSignal ? ' <span class="status-tag buy">⚡ Sinyal</span>' : "";
+      return `<tr><td class="symbol-cell clickable-symbol" onclick="goToStock('${p.symbol}')">${p.symbol}${flag}</td>` +
+        `<td class="${changeClass(p.dayChangeTo17Pct)}">${fmtPct(p.dayChangeTo17Pct)}</td>` +
+        `<td class="${changeClass(p.changeAfter17Pct)}">${fmtPct(p.changeAfter17Pct)}</td>` +
+        `<td>${p.volRatio != null ? fmtNum(p.volRatio, 2) + "x" : "—"}</td>` +
+        `<td>${fmtTL(p.lastPrice)}</td></tr>`;
+    }).join("") + "</tbody>";
 }
