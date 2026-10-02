@@ -1,5 +1,5 @@
 /* ==========================================================================
-   BIST TERMİNAL — app.js (gauge düzeltildi, eski basit yapı)
+   BIST TERMINAL — app.js (gauge düzeltildi, eski basit yapı)
    ========================================================================== */
 
 const LS_PASS_KEY = "bist_terminal_pass";
@@ -1114,26 +1114,36 @@ function renderCompareChart(results) {
 // ==========================================================================
 // 12) TRENDLER — BIST 100 içinde en çok yükselen / düşen / en yüksek hacimli 5 hisse
 // ==========================================================================
-// NOT: BIST 100 endeks içeriği 3 ayda bir (Ocak-Mart, Nisan-Haziran, Temmuz-Eylül,
-// Ekim-Aralık dönemleri başında) güncellenir. Bu listeyi arada bir kontrol edip
-// güncellemek gerekebilir (kaynak: Borsa İstanbul / KAP duyuruları).
+// NOT: BIST endeks içerikleri 3 ayda bir (Ocak-Mart, Nisan-Haziran, Temmuz-Eylül,
+// Ekim-Aralık dönemleri başında) güncellenir. Bu listeler güncel endeks
+// bileşenlerini içerir — arada bir kontrol edip güncellemek gerekebilir.
 const BIST100_SYMBOLS = [
-  "AGHOL","AGROT","AHGAZ","AKBNK","AKSA","AKSEN","ALARK","ALFAS","ALTNY","ANSGR",
-  "AEFES","ANHYT","ARCLK","ARDYZ","ASELS","ASTOR","AVPGY","BTCIM","BSOKE","BERA",
-  "BIMAS","BRSAN","BRYAT","CCOLA","CWENE","CANTE","CLEBI","CIMSA","DOHOL","DOAS",
-  "DSTKF","EFORC","EGEEN","ECILC","EKGYO","ENJSA","ENERY","ENKAI","EREGL","EUPWR","FROTO",
-  "GSRAY","GESAN","GOLTS","GRTHO","GUBRF","SAHOL","HEKTS","IEYHO","ISMEN","KRDMD",
-  "KARSN","KTLEV","KCAER","KCHOL","KONTR","KONYA","KOZAL","KOZAA","LMKDC","MAGEN",
-  "MAVI","MIATK","MGROS","MPARK","OBAMS","ODAS","OTKAR","OYAKC","PASEU","PGSUS",
-  "PETKM","RALYH","REEDR","RYGYO","SASA","SELEC","SMRTG","SKBNK","SOKM","TABGD",
-  "TAVHL","TKFEN","TOASO","TCELL","TUPRS","THYAO","GARAN","HALKB","ISCTR","TSKB",
-  "TURSG","SISE","VAKBN","TTKOM","TTRAK","ULKER","VESTL","YKBNK","YEOTK","ZOREN",
+  "BINHO","AGHOL","AHGAZ","AKBNK","AKCNS","AKFYE","AKSA","AKSEN","ALARK","ALBRK",
+  "ALTNY","ANSGR","AEFES","ANHYT","ARCLK","ASELS","ASTOR","AYGAZ","BTCIM","BERA",
+  "BIMAS","BRSAN","BRYAT","CCOLA","CVKMD","CWENE","CANTE","CIMSA","DOHOL","DOAS",
+  "ECZYT","EGEEN","EGGUB","ECILC","EKGYO","ENJSA","ENERY","ENKAI","EREGL","EUREN",
+  "FENER","FROTO","GWIND","GLYHO","GUBRF","GLRMK","GRSEL","SAHOL","HEKTS","ENTRA",
+  "ISDMR","ISMEN","KRDMD","KARSN","KATMR","TCKRC","KCAER","KCHOL","KORDS","LMKDC",
+  "MAVI","MGROS","MPARK","OBAMS","ODAS","OTKAR","OYAKC","PAHOL","PGSUS","PETKM",
+  "RYSAS","RGYAS","SASA","SNGYO","SOKM","TABGD","TAVHL","TKFEN","TOASO","TRGYO",
+  "TRMET","TRENJ","TUKAS","TCELL","TUPRS","TRALT","THYAO","GARAN","HALKB","ISCTR",
+  "TSKB","TURSG","SISE","VAKBN","TTKOM","TTRAK","ULKER","VESTL","YKBNK","ZOREN",
 ];
+
 // BIST 30 — en büyük/likit 30 hisse (BIST 100'ün alt kümesi). 3 ayda bir güncellenebilir.
 const BIST30_SYMBOLS = [
-  "EREGL","KRDMD","AKBNK","GARAN","ISCTR","YKBNK","ASTOR","DSTKF","EKGYO","BIMAS",
-  "MGROS","ULKER","KCHOL","SAHOL","AEFES","TCELL","TTKOM","ENKAI","GUBRF","PETKM",
-  "SASA","SISE","TUPRS","KOZAL","FROTO","TOASO","ASELS","PGSUS","TAVHL","THYAO",
+  "AKBNK","AEFES","ASELS","ASTOR","BIMAS","EKGYO","ENKAI","EREGL","FROTO","GUBRF",
+  "SAHOL","KRDMD","KCHOL","MGROS","PGSUS","PETKM","SASA","TAVHL","TOASO","TRMET",
+  "TCELL","TUPRS","TRALT","THYAO","GARAN","ISCTR","SISE","VAKBN","TTKOM","YKBNK",
+];
+
+// BIST 50 — BIST 30 + 20 büyük şirket daha (yardımcı endeks, opsiyonel kullanım için)
+const BIST50_SYMBOLS = [
+  "AKBNK","AKSEN","ALARK","AEFES","ASELS","ASTOR","BTCIM","BIMAS","BRSAN","CCOLA",
+  "CVKMD","CWENE","CANTE","CIMSA","DOAS","ECILC","EKGYO","ENERY","ENKAI","EREGL",
+  "FROTO","GUBRF","GLRMK","SAHOL","HEKTS","KRDMD","KCHOL","MAVI","MGROS","OYAKC",
+  "PGSUS","PETKM","SASA","TAVHL","TOASO","TRMET","TCELL","TUPRS","TRALT","THYAO",
+  "GARAN","HALKB","ISCTR","TSKB","TURSG","SISE","VAKBN","TTKOM","ULKER","YKBNK",
 ];
 const TRENDS_TOP_N = 5;
 
@@ -1511,50 +1521,62 @@ function renderGaugeDistribution(results) {
 // 15) PARA NEREDE — BIST 100'ü kaba sektörlere ayırıp hacim anormalliğini gösterir.
 // Trendler'in kullandığı AYNI toplu sorgu ucunu (quotebatch) kullanır, ekstra
 // bir Yahoo endpoint'i gerekmez. Formül: bugünkü hacim / normal (10 günlük ort.) hacim.
-// NOT: Sektör eşleştirmesi Yahoo'dan gelmiyor, elle hazırlanmış bir listedir —
-// BIST 100 bileşenleri değiştikçe bu haritanın da güncellenmesi gerekebilir.
+//
+// Sektör eşleştirmesi artık BIST'in RESMİ SEKTÖR ENDEKSLERİNDEN otomatik olarak
+// türetiliyor — elle hazırlanmış bir harita YOK. Bu sayede:
+//   1) Yeni hisse eklendiğinde/çıktığında haritayı güncellemek gerekmez
+//   2) Sektör atamaları BIST'in kendi sınıflandırmasıyla birebir uyumludur
+// Bir hisse birden fazla sektör endeksinde yer alırsa, en özel (en az üyeli)
+// endeks kazanır (örn. bir hisse hem "MALİ" hem "BANKA"daysa → "BANKA").
 // ==========================================================================
-const SECTOR_MAP = {
-  AKBNK: "Bankacılık", GARAN: "Bankacılık", HALKB: "Bankacılık", ISCTR: "Bankacılık",
-  TSKB: "Bankacılık", VAKBN: "Bankacılık", YKBNK: "Bankacılık", SKBNK: "Bankacılık",
 
-  AGHOL: "Holding", ALARK: "Holding", DOHOL: "Holding", KCHOL: "Holding", SAHOL: "Holding",
-  TKFEN: "Holding", BRYAT: "Holding", GRTHO: "Holding", IEYHO: "Holding",
+// BIST'in resmi sektör endeksleri (en özelden en gene doğru sıralı — çakışma
+// durumunda ilk eşleşme kazanır). Kaynak: Borsa İstanbul endeks listesi.
+const SECTOR_INDEX_MAP = {
+  "Bankacılık": ["AKBNK","ALBRK","ICBCT","SKBNK","GARAN","HALKB","ISCTR","TSKB","VAKBN","YKBNK"],
+  "Sigorta": ["AGESA","AKGRT","ANSGR","ANHYT","QUICK","RAYSG","TURSG"],
+  "Faktoring & Finansal Kiralama": ["CRDFA","DSTKF","GARFA","ISFIN","LIDFA","SEKFK","ULUFA","VAKFA","VAKFN"],
+  "Aracı Kurum": ["A1CAP","GEDIK","GLBMD","INFO","ISMEN","OSMEN","OYYAT","SKYMD"],
+  "Menkul Kıymet Y.O.": ["ATLAS","EUKYO","EUYO","ETYAT","GRNYO","ISYAT","MTRYO","OYAYO","VKFYO"],
+  "Girişim Sermayesi Y.O.": ["BULGS","GOZDE","HDFGS","HUBVC","ICUGS","ISGSY","PRDGS","VERTU"],
+  "Gayrimenkul Yat. Ort.": ["ADGYO","AAGYO","AHSGY","AKFGY","AKSGY","AKMGY","ALGYO","ASGYO","ATAGY","AGYO","AVGYO","AVPGY","BKRGY","BASGZ","BEGYO","DZGYO","DGGYO","EGEGY","EKGYO","EYGYO","FZLGY","HLGYO","IDGYO","ISGYO","KZBGY","KLGYO","KGYO","KRGYO","KZGYO","LXGYO","MRGYO","MHRGY","MSGYO","NUGYO","OZKGY","OZGYO","PAGYO","PSGYO","PEKGY","RYGYO","SVGYO","SRVGY","SNGYO","SURGY","SEGYO","TRGYO","TDGYO","TSGYO","VKGYO","VRGYO","YGGYO","ZERGY","ZGYO","ZRGYO"],
+  "Holding ve Yatırım": ["BINHO","AGHOL","AKYHO","ALARK","ARSAN","AVHOL","BERA","BRYAT","COSMO","DENGE","DERHL","DOHOL","DUNYH","ECZYT","ECILC","GLYHO","GRTHO","GSDHO","GLRYH","SAHOL","HEDEF","INVEO","INVES","IEYHO","IHLAS","IHYAY","KLRHO","KCHOL","LRSHO","LYDHO","MZHLD","METRO","NTHOL","OSTIM","OTTO","PAHOL","POLHO","RALYH","TAVHL","TKFEN","TRHOL","TEHOL","TRCAS","SISE","UFUK","USHOL","UNLU","VERUS","YESIL"],
 
-  FROTO: "Otomotiv & Yan Sanayi", TOASO: "Otomotiv & Yan Sanayi", DOAS: "Otomotiv & Yan Sanayi",
-  OTKAR: "Otomotiv & Yan Sanayi", KARSN: "Otomotiv & Yan Sanayi", TTRAK: "Otomotiv & Yan Sanayi",
-  BERA: "Otomotiv & Yan Sanayi", EGEEN: "Otomotiv & Yan Sanayi",
+  "Elektrik": ["A1YEN","AHGAZ","AKENR","AKFYE","AKSEN","AKSUE","ALFAS","ARFYE","AYDEM","AYEN","BESTE","BIOEN","BIGEN","CONSE","CWENE","CANTE","CATES","ARASE","ECOGR","ENDAE","ENJSA","ENERY","ESEN","GWIND","HUNER","ENTRA","IZENR","KLYPV","LYDYE","MAGEN","MASFN","METEN","MOGAN","NTGAZ","NATEN","ODAS","PAMEL","SMRTG","TATEN","VEYAS","ZEDUR","ZOREN"],
+  "İletişim": ["TCELL","TTKOM"],
+  "İnşaat": ["AKFIS","ANELE","BRLSM","DAPGM","EDIP","ENKAI","GESAN","GLRMK","KUYAS","ORGE","SANEL","TURGG","UCAYM","YAYLA"],
+  "Spor": ["BJKAS","FENER","GSRAY","TSPOR"],
 
-  EREGL: "Sanayi, Metal & Cam", KRDMD: "Sanayi, Metal & Cam", BRSAN: "Sanayi, Metal & Cam",
-  KOZAL: "Sanayi, Metal & Cam", KOZAA: "Sanayi, Metal & Cam", KCAER: "Sanayi, Metal & Cam",
-  SISE: "Sanayi, Metal & Cam", ALTNY: "Sanayi, Metal & Cam",
+  "Madencilik": ["CVKMD","PRKME","RUZYE","TRMET","TRENJ","TRALT","VSNMD"],
+  "Metal Ana": ["BLUME","BMSTL","BMSCH","BRSAN","BURCE","BURVA","CELHA","CEMAS","CEMTS","CUSAN","DMSAS","DOFER","DOKTA","EKDMR","ERBOS","ERCB","EREGL","ISDMR","IZMDC","KARCL","KRDMA","KRDMB","KRDMD","TCKRC","KCAER","KOCMT","MEGMT","OZYSR","PNLSN","SARKY","TUCLK","YKSLN"],
+  "Metal Eşya, Makina": ["ALCAR","ASUZU","ARCLK","ASTOR","BNTAS","BETAE","BFREN","BVSAN","DITAS","EGEEN","EKOS","EMKEL","EUPWR","FMIZP","FROTO","FORMT","GEREL","HATSN","HKTM","IHEVA","IMASM","JANTS","KARSN","KATMR","KLMSN","MAKIM","MAKTK","MEKAG","OTKAR","OZATD","PARSN","SAFKR","SNICA","SAYAS","SILVR","SARAE","TOASO","TMSN","PRKAB","TTRAK","ULUSE","VESBE","VESTL","YIGIT"],
+  "Orman, Kağıt, Basım": ["ALKA","BAKAB","DGNMO","DURDO","TEZOL","GENTS","GIPTA","KAPLM","KARTN","KLSYN","KONKA","LILAK","MNDTR","PRZMA","SAMAT","VKING"],
+  "Taş, Toprak": ["AFYON","AKCNS","ALBTN","BTCIM","BSOKE","BIENY","BOBET","BUCIM","CGCAM","CMBTN","CIMSA","DOGUB","EGSER","GOLTS","ISVEA","KLKIM","KLSER","KONYA","KUTPO","LMKDC","NIBAS","NUHCM","OYAKC","QUAGR","SERNT","MARBL"],
+  "Tekstil, Deri": ["ARTMS","BLCYT","BOSSA","DERIM","DESA","ENSRI","HATEK","ISSEN","KRTEK","KORDS","LUKSK","MNDRS","RODRG","RUBNS","SOHOE","SKTAS","SUNTK","YATAS","YUNSA"],
 
-  SASA: "Kimya, Petrokimya & Çimento", PETKM: "Kimya, Petrokimya & Çimento", GUBRF: "Kimya, Petrokimya & Çimento",
-  AKSA: "Kimya, Petrokimya & Çimento", HEKTS: "Kimya, Petrokimya & Çimento", CIMSA: "Kimya, Petrokimya & Çimento",
-  BTCIM: "Kimya, Petrokimya & Çimento", BSOKE: "Kimya, Petrokimya & Çimento", CANTE: "Kimya, Petrokimya & Çimento",
-  GOLTS: "Kimya, Petrokimya & Çimento", KONYA: "Kimya, Petrokimya & Çimento", OYAKC: "Kimya, Petrokimya & Çimento",
-  LMKDC: "Kimya, Petrokimya & Çimento",
+  "Kimya, Petrol, Plastik": ["ACSEL","AKSA","ALKIM","ANGEN","AYGAZ","BAGFS","BAHKM","BAYRK","BRKSN","BRISA","DEVA","DNISI","DYOBY","EGGUB","EPLAS","EGPRO","EUREN","FRMPL","GEDZA","GENKM","GOODY","GUBRF","HEKTS","ISKPL","IZFAS","KPEKS","KMPUR","KRPLS","KOPOL","KBORU","MARMR","MRSHL","MEDTR","MERCN","NETGL","ONCSM","ORZAX","OZRDN","PETKM","POLTK","RNPOL","RTALB","SANFM","SASA","SEKUR","SEYKM","TARKM","TKNKA","TMPOL","TUPRS"],
+  "Gıda, İçecek": ["AVOD","AKHAN","ALKLC","AEFES","ARMGD","ATAKP","BALSU","BANVT","BESLR","BORSK","CEMZY","CCOLA","DARDL","DMRGD","DURKN","EFOR","EKSUN","ELITE","ERSU","FADE","FRIGO","GOLDA","GOKNR","GUNDG","KAYSE","KRVGD","KRSTL","KTSKR","MERKO","MEYSU","OBAMS","OFSYM","ORCAY","OYLUM","PENGD","PETUN","PINSU","PNSUT","SEGMN","SELVA","SOKE","TATGD","TUKAS","TBORG","ULUUN","ULKER","VANGD","YYLGD"],
 
-  AHGAZ: "Enerji", AKSEN: "Enerji", ALFAS: "Enerji", ASTOR: "Enerji", AVPGY: "Enerji",
-  CWENE: "Enerji", ENJSA: "Enerji", ENERY: "Enerji", EUPWR: "Enerji", GESAN: "Enerji",
-  KTLEV: "Enerji", MAGEN: "Enerji", ODAS: "Enerji", SELEC: "Enerji", SMRTG: "Enerji",
-  TUPRS: "Enerji", YEOTK: "Enerji", ZOREN: "Enerji",
+  "Toptan Ticaret": ["ARZUM","DCTTR","DOAS","GENIL","INTEM","KUVVA","PSDTC","SANKO","SELEC","TGSAS"],
+  "Perakende Ticaret": ["BIMAS","BIZIM","CRFSA","CITAS","DAGI","EBEBK","KIMMR","GMTAS","KOTON","MAVI","MEPET","MGROS","MOPAS","SSAAT","SUWEN","SOKM","TKNSA","VAKKO"],
+  "Konaklama": ["AYCES","ATATR","AVTUR","MAALT","MARTI","MERIT","PKENT","TEKTU","ULAS"],
+  "Yiyecek İçecek Hizmetleri": ["BYDNR","BIGCH","DOCO","ETILR","TABGD"],
 
-  THYAO: "Havacılık & Turizm", PGSUS: "Havacılık & Turizm", TAVHL: "Havacılık & Turizm", CLEBI: "Havacılık & Turizm",
+  "Ulaştırma": ["BEYAZ","CLEBI","GSDDE","GRSEL","HRKET","HOROZ","PASEU","PGSUS","RYSAS","TLMAN","TUREX","THYAO"],
 
-  BIMAS: "Perakende & Tüketim", MGROS: "Perakende & Tüketim", SOKM: "Perakende & Tüketim",
-  ULKER: "Perakende & Tüketim", CCOLA: "Perakende & Tüketim", AEFES: "Perakende & Tüketim",
-  ARCLK: "Perakende & Tüketim", VESTL: "Perakende & Tüketim", MAVI: "Perakende & Tüketim", TABGD: "Perakende & Tüketim",
-
-  ASELS: "Teknoloji, Savunma & İletişim", TCELL: "Teknoloji, Savunma & İletişim", TTKOM: "Teknoloji, Savunma & İletişim",
-  ARDYZ: "Teknoloji, Savunma & İletişim", KONTR: "Teknoloji, Savunma & İletişim", EFORC: "Teknoloji, Savunma & İletişim",
-  REEDR: "Teknoloji, Savunma & İletişim", OBAMS: "Teknoloji, Savunma & İletişim",
-
-  EKGYO: "GYO & İnşaat", RYGYO: "GYO & İnşaat", ENKAI: "GYO & İnşaat",
-
-  ANSGR: "Sigorta & Finans", ANHYT: "Sigorta & Finans", TURSG: "Sigorta & Finans",
-  ISMEN: "Sigorta & Finans", DSTKF: "Sigorta & Finans",
+  "Bilişim": ["ALCTL","ARDYZ","ARENA","ATATP","AZTEK","BINBN","DGATE","DESPC","DOFRB","EDATA","EMPAE","ESCOM","FONET","FORTE","HTTBT","INGRM","INDES","INTET","KFEIN","KAREL","KRONT","LINK","LOGO","MANAS","MTRKS","MCARD","MIATK","MOBTL","NETAS","NETCD","OBASE","ODINE","ONRYT","PAPIL","PATEK","PENTA","PKART","REEDR","SDTTR","SMART","VBTYZ"],
+  "Teknoloji": ["ALTNY","ASELS"],  // Savunma ağırlıklı teknoloji
 };
+
+// Hızlı arama için ters indeks (symbol -> sektör adı). Bir hisse birden fazla
+// endekste görünürse, SECTOR_INDEX_MAP'teki İLK (en özel) tanım kazanır.
+const SECTOR_MAP = {};
+Object.entries(SECTOR_INDEX_MAP).forEach(([sectorName, symbols]) => {
+  symbols.forEach((sym) => {
+    if (!SECTOR_MAP[sym]) SECTOR_MAP[sym] = sectorName;
+  });
+});
+
 function getSector(symbol) { return SECTOR_MAP[symbol] || "Diğer"; }
 
 moneyRefreshBtn.addEventListener("click", runMoneyFlowScan);
