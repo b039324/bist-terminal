@@ -1,5 +1,5 @@
 /* ==========================================================================
-   BIST TERMINAL — app.js (gauge düzeltildi, eski basit yapı)
+   BIST TERMINAL — app.js (gauge düzeltildi, eski basit yapı + canlı polling)
    ========================================================================== */
 
 const LS_PASS_KEY = "bist_terminal_pass";
@@ -194,14 +194,14 @@ tryEnterApp();
 // ==========================================================================
 function setActiveNav(b) { [navSearchBtn, navHomeBtn, navPortfolioBtn, navWatchlistBtn, navTrendsBtn, navMoneyBtn, navSignalBtn, navCompareBtn].forEach((x) => x.classList.remove("active")); b.classList.add("active"); }
 function hideAllScreens() { window.scrollTo({ top: 0, behavior: "instant" }); homeScreen.classList.remove("active"); portfolioScreen.classList.remove("active"); watchlistScreen.classList.remove("active"); trendsScreen.classList.remove("active"); moneyScreen.classList.remove("active"); signalScreen.classList.remove("active"); compareScreen.classList.remove("active"); resultScreen.classList.remove("active"); loadingScreen.classList.remove("active"); }
-function showSearchNav() { setActiveNav(navSearchBtn); homeScreen.classList.remove("active"); portfolioScreen.classList.remove("active"); watchlistScreen.classList.remove("active"); trendsScreen.classList.remove("active"); moneyScreen.classList.remove("active"); compareScreen.classList.remove("active"); searchScreen.classList.remove("hidden"); renderRecentSearches(); }
-function showHomeNav() { setActiveNav(navHomeBtn); searchScreen.classList.add("hidden"); hideAllScreens(); homeScreen.classList.add("active"); renderHomeScreen(); }
-function showPortfolioNav() { setActiveNav(navPortfolioBtn); searchScreen.classList.add("hidden"); hideAllScreens(); portfolioScreen.classList.add("active"); renderPortfolio(); }
-function showWatchlistNav() { setActiveNav(navWatchlistBtn); searchScreen.classList.add("hidden"); hideAllScreens(); watchlistScreen.classList.add("active"); renderWatchlist(); }
-function showTrendsNav() { setActiveNav(navTrendsBtn); searchScreen.classList.add("hidden"); hideAllScreens(); trendsScreen.classList.add("active"); }
-function showMoneyNav() { setActiveNav(navMoneyBtn); searchScreen.classList.add("hidden"); hideAllScreens(); moneyScreen.classList.add("active"); }
-function showCompareNav() { setActiveNav(navCompareBtn); searchScreen.classList.add("hidden"); hideAllScreens(); compareScreen.classList.add("active"); }
-function showSignalNav() { setActiveNav(navSignalBtn); searchScreen.classList.add("hidden"); hideAllScreens(); signalScreen.classList.add("active"); }
+function showSearchNav() { setActiveNav(navSearchBtn); homeScreen.classList.remove("active"); portfolioScreen.classList.remove("active"); watchlistScreen.classList.remove("active"); trendsScreen.classList.remove("active"); moneyScreen.classList.remove("active"); compareScreen.classList.remove("active"); searchScreen.classList.remove("hidden"); renderRecentSearches(); setLivePage("none"); }
+function showHomeNav() { setActiveNav(navHomeBtn); searchScreen.classList.add("hidden"); hideAllScreens(); homeScreen.classList.add("active"); renderHomeScreen(); setLivePage("home"); }
+function showPortfolioNav() { setActiveNav(navPortfolioBtn); searchScreen.classList.add("hidden"); hideAllScreens(); portfolioScreen.classList.add("active"); renderPortfolio(); setLivePage("none"); }
+function showWatchlistNav() { setActiveNav(navWatchlistBtn); searchScreen.classList.add("hidden"); hideAllScreens(); watchlistScreen.classList.add("active"); renderWatchlist(); setLivePage("watchlist"); }
+function showTrendsNav() { setActiveNav(navTrendsBtn); searchScreen.classList.add("hidden"); hideAllScreens(); trendsScreen.classList.add("active"); setLivePage("trends"); }
+function showMoneyNav() { setActiveNav(navMoneyBtn); searchScreen.classList.add("hidden"); hideAllScreens(); moneyScreen.classList.add("active"); setLivePage("none"); }
+function showCompareNav() { setActiveNav(navCompareBtn); searchScreen.classList.add("hidden"); hideAllScreens(); compareScreen.classList.add("active"); setLivePage("none"); }
+function showSignalNav() { setActiveNav(navSignalBtn); searchScreen.classList.add("hidden"); hideAllScreens(); signalScreen.classList.add("active"); setLivePage("none"); }
 navSearchBtn.addEventListener("click", showSearchNav); navHomeBtn.addEventListener("click", showHomeNav); navPortfolioBtn.addEventListener("click", showPortfolioNav); navWatchlistBtn.addEventListener("click", showWatchlistNav); navTrendsBtn.addEventListener("click", showTrendsNav); navMoneyBtn.addEventListener("click", showMoneyNav); navSignalBtn.addEventListener("click", showSignalNav); navCompareBtn.addEventListener("click", showCompareNav);
 
 // Portföy, Takip, Trendler ve Isı Haritası'ndaki hisse isimlerine tıklayınca
@@ -210,6 +210,140 @@ function goToStock(symbol) {
   window.scrollTo({ top: 0, behavior: "instant" });
   showSearchNav();
   runSearch(symbol);
+}
+
+// ==========================================================================
+// 3.5) CANLI GÜNCELLEME (POLLING) SİSTEMİ
+// ==========================================================================
+// Açık olan sayfaya göre arka planda sessizce veri tazeler. Sayfa sekmesi
+// gizlenince (document.hidden) otomatik durur, geri dönünce devam eder.
+// Kullanıcı elle bir şey yapmaz — fiyatlar kendi kendine güncellenir.
+const LIVE_INTERVAL_WATCHLIST = 10000;  // Takip Listesi: 10 saniye
+const LIVE_INTERVAL_TRENDS    = 15000;  // Trendler: 15 saniye
+const LIVE_INTERVAL_HOME      = 12000;  // Özet (Takip mini widget): 12 saniye
+
+let liveTimer = null;
+let livePage = "none";        // "watchlist" | "trends" | "home" | "none"
+let liveInFlight = false;     // aynı anda üst üste istek atmayı önler
+
+function setLivePage(page) {
+  if (livePage === page) return;
+  livePage = page;
+  if (liveTimer) { clearInterval(liveTimer); liveTimer = null; }
+  if (page === "none") return;
+
+  const interval = page === "watchlist" ? LIVE_INTERVAL_WATCHLIST
+                 : page === "trends"    ? LIVE_INTERVAL_TRENDS
+                 : LIVE_INTERVAL_HOME;
+
+  liveTimer = setInterval(() => {
+    if (document.hidden) return;       // sekme gizliyse çalışma
+    if (liveInFlight) return;          // önceki istek hâlâ sürüyorsa bekle
+    liveTick();
+  }, interval);
+}
+
+async function liveTick() {
+  if (liveInFlight) return;
+  liveInFlight = true;
+  try {
+    if (livePage === "watchlist") {
+      await liveRefreshWatchlist();
+    } else if (livePage === "trends") {
+      await liveRefreshTrends();
+    } else if (livePage === "home") {
+      await liveRefreshHomeWatchlist();
+    }
+  } catch (e) {
+    // sessizce yut — kullanıcıya hata gösterme, bir sonraki tick tekrar dener
+  } finally {
+    liveInFlight = false;
+  }
+}
+
+// Sekme görünürlüğü değişince: gizlenince durur, geri gelince hemen bir kez tazeler
+document.addEventListener("visibilitychange", () => {
+  if (!document.hidden && livePage !== "none") {
+    liveTick();
+  }
+});
+
+// --- Takip Listesi sayfasını sessizce yenile ---
+async function liveRefreshWatchlist() {
+  if (watchlistRowsData.length === 0) return;
+  const symbols = watchlistRowsData.map((i) => i.symbol);
+  const fresh = await fetchQuoteBatch(symbols);
+  if (!fresh || fresh.length === 0) return;
+  const map = {};
+  fresh.forEach((p) => { map[p.symbol] = p; });
+
+  watchlistRowsData.forEach((row) => {
+    const p = map[row.symbol];
+    if (!p) return;
+    row.price = p.price;
+    row.changePct = p.changePct;
+    if (row.addedPrice) row.sinceAdded = ((p.price - row.addedPrice) / row.addedPrice) * 100;
+  });
+
+  // Sıralama durumunu koru, sadece hücreleri güncelle
+  renderWatchlistTableBody();
+}
+
+// --- Trendler sayfasını sessizce yenile (ağır değil, quotebatch kullanır) ---
+async function liveRefreshTrends() {
+  if (!trendsResults || trendsResults.style.display === "none") return;
+  const points = [];
+  const chunkSize = 25;
+  for (let i = 0; i < BIST100_SYMBOLS.length; i += chunkSize) {
+    const chunk = BIST100_SYMBOLS.slice(i, i + chunkSize);
+    try {
+      const part = await fetchQuoteBatch(chunk);
+      points.push(...part);
+    } catch (e) { /* bu grubu atla */ }
+  }
+  if (points.length === 0) return;
+
+  const SANITY_LIMIT = 30;
+  const reliablePoints = points.filter((p) => Math.abs(p.changePct) <= SANITY_LIMIT);
+  const gainers = [...reliablePoints].sort((a, b) => b.changePct - a.changePct).slice(0, TRENDS_TOP_N);
+  const losers = [...reliablePoints].sort((a, b) => a.changePct - b.changePct).slice(0, TRENDS_TOP_N);
+  const byVolume = [...points].sort((a, b) => b.volumeTL - a.volumeTL).slice(0, TRENDS_TOP_N);
+
+  renderTrendsTable(trendsGainersTable, gainers, true);
+  renderTrendsTable(trendsLosersTable, losers, true);
+  renderTrendsTable(trendsVolumeTable, byVolume, true, true);
+  renderMarketPulse(points);
+  renderHeatmap(points);
+  renderVolumeHeatmap(points);
+  render52WeekBreakouts(points);
+  renderBist30PeakDistance(points);
+
+  lastTrendsPoints = points;
+  lastTrendsScanTime = Date.now();
+}
+
+// --- Özet (Ana Sayfa) Takip mini widget'ını sessizce yenile ---
+async function liveRefreshHomeWatchlist() {
+  const items = await loadWatchlist();
+  if (items.length === 0) return;
+  const symbols = items.map((i) => i.symbol);
+  let fresh = [];
+  try { fresh = await fetchQuoteBatch(symbols); } catch (e) { return; }
+  if (!fresh || fresh.length === 0) return;
+
+  const withData = fresh
+    .map((p) => ({ symbol: p.symbol, price: p.price, changePct: p.changePct }))
+    .filter((p) => p.price != null)
+    .sort((a, b) => Math.abs(b.changePct) - Math.abs(a.changePct))
+    .slice(0, 5);
+
+  if (withData.length === 0) return;
+  homeWatchlistMovers.innerHTML = withData.map((p) => `
+    <div class="home-mover-row">
+      <span class="symbol-cell clickable-symbol" onclick="goToStock('${p.symbol}')">${p.symbol}</span>
+      <span>${fmtTL(p.price)}</span>
+      <span class="${changeClass(p.changePct)}">${fmtPct(p.changePct)}</span>
+    </div>`).join("");
 }
 
 // ==========================================================================
