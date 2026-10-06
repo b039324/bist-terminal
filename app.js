@@ -1,5 +1,5 @@
 /* ==========================================================================
-   BIST TERMINAL — app.js (v2 tasarım + canlı polling + alarm + filtre)
+   BIST TERMINAL — app.js (v3 + BIST 30 Canlı Ekranı)
    ========================================================================== */
 
 const LS_PASS_KEY = "bist_terminal_pass";
@@ -33,8 +33,8 @@ const alarmToggleBtn = document.getElementById("alarmToggleBtn");
 
 const navSearchBtn = document.getElementById("navSearchBtn");
 const navHomeBtn = document.getElementById("navHomeBtn");
+const navBist30Btn = document.getElementById("navBist30Btn");
 const homeScreen = document.getElementById("homeScreen");
-// Yeni bento grid elemanları
 const homePortfolioHeroValue = document.getElementById("homePortfolioHeroValue");
 const homePortfolioHeroChange = document.getElementById("homePortfolioHeroChange");
 const homePortfolioHeroFooter = document.getElementById("homePortfolioHeroFooter");
@@ -93,6 +93,24 @@ const watchlistTableBody = document.getElementById("watchlistTableBody");
 const watchlistEmpty = document.getElementById("watchlistEmpty");
 const watchlistCsvBtn = document.getElementById("watchlistCsvBtn");
 const watchlistFilter = document.getElementById("watchlistFilter");
+
+// BIST 30 ekranı
+const bist30Screen = document.getElementById("bist30Screen");
+const bist30LiveDot = document.getElementById("bist30LiveDot");
+const bist30LiveLabel = document.getElementById("bist30LiveLabel");
+const bist30Filter = document.getElementById("bist30Filter");
+const bist30RefreshBtn = document.getElementById("bist30RefreshBtn");
+const bist30Stats = document.getElementById("bist30Stats");
+const bist30UpCount = document.getElementById("bist30UpCount");
+const bist30DownCount = document.getElementById("bist30DownCount");
+const bist30FlatCount = document.getElementById("bist30FlatCount");
+const bist30AvgChange = document.getElementById("bist30AvgChange");
+const bist30AvgChangeCell = document.getElementById("bist30AvgChangeCell");
+const bist30TotalVol = document.getElementById("bist30TotalVol");
+const bist30Loading = document.getElementById("bist30Loading");
+const bist30LoadingText = document.getElementById("bist30LoadingText");
+const bist30TableCard = document.getElementById("bist30TableCard");
+const bist30TableBody = document.getElementById("bist30TableBody");
 
 const earningsChartSvg = document.getElementById("earningsChartSvg");
 const earningsEmpty = document.getElementById("earningsEmpty");
@@ -181,6 +199,11 @@ let fullChartData = null, currentSymbol = null;
 let lastTrendsPoints = null, lastTrendsScanTime = null;
 let cmpChartApi = null;
 
+// BIST 30 state
+let bist30RowsData = [];
+let bist30SortState = { key: "changePct", dir: -1 };  // default: günlük değişime göre büyükten küçüğe
+let bist30InFlight = false;
+
 // ==========================================================================
 // 0) PWA
 // ==========================================================================
@@ -198,7 +221,7 @@ function addSvgText(svg, x, y, text, styles) { const t = document.createElementN
 function fmtTL(n, o = {}) { if (n == null || isNaN(n)) return "—"; return new Intl.NumberFormat("tr-TR", { style: "currency", currency: "TRY", maximumFractionDigits: 2, ...o }).format(n); }
 function fmtNum(n, d = 2) { if (n == null || isNaN(n)) return "—"; return new Intl.NumberFormat("tr-TR", { maximumFractionDigits: d }).format(n); }
 function fmtPct(n, d = 2) { if (n == null || isNaN(n)) return "—"; const s = n > 0 ? "+" : ""; return s + fmtNum(n, d) + "%"; }
-function fmtCompactTL(n) { if (n == null || isNaN(n)) return "—"; const a = Math.abs(n); if (a >= 1e9) return "₺" + fmtNum(n / 1e9, 2) + " Milyar"; if (a >= 1e6) return "₺" + fmtNum(n / 1e6, 2) + " Milyon"; if (a >= 1e3) return "₺" + fmtNum(n / 1e3, 1) + " Bin"; return fmtTL(n); }
+function fmtCompactTL(n) { if (n == null || isNaN(n)) return "—"; const a = Math.abs(n); if (a >= 1e9) return "₺" + fmtNum(n / 1e9, 2) + " Mlr"; if (a >= 1e6) return "₺" + fmtNum(n / 1e6, 2) + " Mn"; if (a >= 1e3) return "₺" + fmtNum(n / 1e3, 1) + " Bin"; return fmtTL(n); }
 function changeClass(n) { return n > 0.001 ? "up" : n < -0.001 ? "down" : "flat"; }
 function arrow(n) { return n > 0.001 ? "▲" : n < -0.001 ? "▼" : "▬"; }
 function fmtDate(ts) { if (!ts) return "—"; return new Date(ts).toLocaleDateString("tr-TR", { day: "2-digit", month: "2-digit", year: "numeric" }); }
@@ -243,9 +266,9 @@ tryEnterApp();
 // ==========================================================================
 // 4) NAVİGASYON
 // ==========================================================================
-function setActiveNav(b) { [navSearchBtn, navHomeBtn, navPortfolioBtn, navWatchlistBtn, navTrendsBtn, navMoneyBtn, navSignalBtn, navCompareBtn].forEach((x) => x.classList.remove("active")); if (b) b.classList.add("active"); }
-function hideAllScreens() { window.scrollTo({ top: 0, behavior: "instant" }); homeScreen.classList.remove("active"); portfolioScreen.classList.remove("active"); watchlistScreen.classList.remove("active"); trendsScreen.classList.remove("active"); moneyScreen.classList.remove("active"); signalScreen.classList.remove("active"); compareScreen.classList.remove("active"); resultScreen.classList.remove("active"); loadingScreen.classList.remove("active"); }
-function showSearchNav() { setActiveNav(navSearchBtn); homeScreen.classList.remove("active"); portfolioScreen.classList.remove("active"); watchlistScreen.classList.remove("active"); trendsScreen.classList.remove("active"); moneyScreen.classList.remove("active"); compareScreen.classList.remove("active"); searchScreen.classList.remove("hidden"); renderRecentSearches(); setLivePage("none"); }
+function setActiveNav(b) { [navSearchBtn, navHomeBtn, navBist30Btn, navPortfolioBtn, navWatchlistBtn, navTrendsBtn, navMoneyBtn, navSignalBtn, navCompareBtn].forEach((x) => x.classList.remove("active")); if (b) b.classList.add("active"); }
+function hideAllScreens() { window.scrollTo({ top: 0, behavior: "instant" }); homeScreen.classList.remove("active"); portfolioScreen.classList.remove("active"); watchlistScreen.classList.remove("active"); trendsScreen.classList.remove("active"); moneyScreen.classList.remove("active"); signalScreen.classList.remove("active"); compareScreen.classList.remove("active"); resultScreen.classList.remove("active"); loadingScreen.classList.remove("active"); bist30Screen.classList.remove("active"); }
+function showSearchNav() { setActiveNav(navSearchBtn); homeScreen.classList.remove("active"); portfolioScreen.classList.remove("active"); watchlistScreen.classList.remove("active"); trendsScreen.classList.remove("active"); moneyScreen.classList.remove("active"); compareScreen.classList.remove("active"); bist30Screen.classList.remove("active"); searchScreen.classList.remove("hidden"); renderRecentSearches(); setLivePage("none"); }
 function showHomeNav() { setActiveNav(navHomeBtn); searchScreen.classList.add("hidden"); hideAllScreens(); homeScreen.classList.add("active"); renderHomeScreen(); setLivePage("home"); }
 function showPortfolioNav() { setActiveNav(navPortfolioBtn); searchScreen.classList.add("hidden"); hideAllScreens(); portfolioScreen.classList.add("active"); renderPortfolio(); setLivePage("none"); }
 function showWatchlistNav() { setActiveNav(navWatchlistBtn); searchScreen.classList.add("hidden"); hideAllScreens(); watchlistScreen.classList.add("active"); renderWatchlist(); setLivePage("watchlist"); }
@@ -253,7 +276,27 @@ function showTrendsNav() { setActiveNav(navTrendsBtn); searchScreen.classList.ad
 function showMoneyNav() { setActiveNav(navMoneyBtn); searchScreen.classList.add("hidden"); hideAllScreens(); moneyScreen.classList.add("active"); setLivePage("none"); }
 function showCompareNav() { setActiveNav(navCompareBtn); searchScreen.classList.add("hidden"); hideAllScreens(); compareScreen.classList.add("active"); setLivePage("none"); }
 function showSignalNav() { setActiveNav(navSignalBtn); searchScreen.classList.add("hidden"); hideAllScreens(); signalScreen.classList.add("active"); setLivePage("none"); }
-navSearchBtn.addEventListener("click", showSearchNav); navHomeBtn.addEventListener("click", showHomeNav); navPortfolioBtn.addEventListener("click", showPortfolioNav); navWatchlistBtn.addEventListener("click", showWatchlistNav); navTrendsBtn.addEventListener("click", showTrendsNav); navMoneyBtn.addEventListener("click", showMoneyNav); navSignalBtn.addEventListener("click", showSignalNav); navCompareBtn.addEventListener("click", showCompareNav);
+
+// BIST 30 navigasyonu
+function showBist30Nav() {
+  setActiveNav(navBist30Btn);
+  searchScreen.classList.add("hidden");
+  hideAllScreens();
+  bist30Screen.classList.add("active");
+  setLivePage("bist30");
+  // İlk açılışta veya her seferinde tazele (hafif, tek istek)
+  refreshBist30();
+}
+
+navSearchBtn.addEventListener("click", showSearchNav);
+navHomeBtn.addEventListener("click", showHomeNav);
+navBist30Btn.addEventListener("click", showBist30Nav);
+navPortfolioBtn.addEventListener("click", showPortfolioNav);
+navWatchlistBtn.addEventListener("click", showWatchlistNav);
+navTrendsBtn.addEventListener("click", showTrendsNav);
+navMoneyBtn.addEventListener("click", showMoneyNav);
+navSignalBtn.addEventListener("click", showSignalNav);
+navCompareBtn.addEventListener("click", showCompareNav);
 
 function goToStock(symbol) {
   window.scrollTo({ top: 0, behavior: "instant" });
@@ -289,6 +332,7 @@ document.addEventListener("keydown", (e) => {
 const LIVE_INTERVAL_WATCHLIST = 10000;
 const LIVE_INTERVAL_TRENDS    = 15000;
 const LIVE_INTERVAL_HOME      = 12000;
+const LIVE_INTERVAL_BIST30    = 15000;   // BIST 30: 15 saniye
 const LIVE_INTERVAL_ALARMS    = 30000;
 
 let liveTimer = null;
@@ -304,6 +348,7 @@ function setLivePage(page) {
 
   const interval = page === "watchlist" ? LIVE_INTERVAL_WATCHLIST
                  : page === "trends"    ? LIVE_INTERVAL_TRENDS
+                 : page === "bist30"    ? LIVE_INTERVAL_BIST30
                  : LIVE_INTERVAL_HOME;
 
   liveTimer = setInterval(() => {
@@ -319,6 +364,7 @@ async function liveTick() {
   try {
     if (livePage === "watchlist") await liveRefreshWatchlist();
     else if (livePage === "trends") await liveRefreshTrends();
+    else if (livePage === "bist30") await refreshBist30();
     else if (livePage === "home") await liveRefreshHomeWatchlist();
   } catch (e) {} finally { liveInFlight = false; }
 }
@@ -388,7 +434,180 @@ async function liveRefreshHomeWatchlist() {
 }
 
 // ==========================================================================
-// 5.5) ALARM SİSTEMİ
+// 5.5) BIST 30 CANLI EKRANI
+// ==========================================================================
+// Tek istek (fetchQuoteBatch) ile 30 hisseyi birden çeker. Her 15 saniyede
+// bir tazelenir. Sayfa gizlenince polling durur.
+async function refreshBist30() {
+  if (bist30InFlight) return;
+  bist30InFlight = true;
+
+  // İlk açılışta yükleniyor göster; sonraki tazelemelerde sessizce güncelle
+  const isFirstLoad = bist30RowsData.length === 0;
+  if (isFirstLoad) {
+    bist30Loading.classList.add("active");
+    bist30LoadingText.textContent = "BIST 30 YÜKLENİYOR...";
+    bist30TableCard.style.display = "none";
+  }
+
+  try {
+    const points = await fetchQuoteBatch(BIST30_SYMBOLS);
+    if (!points || points.length === 0) {
+      if (isFirstLoad) {
+        bist30Loading.classList.remove("active");
+        bist30LoadingText.textContent = "Veri alınamadı, tekrar denenecek...";
+      }
+      return;
+    }
+
+    // Eski fiyatlarla karşılaştır → flash için
+    const oldMap = {};
+    bist30RowsData.forEach((r) => { oldMap[r.symbol] = r.price; });
+
+    // 52H konum + diğer alanları hesapla
+    bist30RowsData = points.map((p) => {
+      const w52Pos = (p.week52Low != null && p.week52High != null && p.week52High > p.week52Low)
+        ? ((p.price - p.week52Low) / (p.week52High - p.week52Low)) * 100
+        : null;
+      const oldPrice = oldMap[p.symbol];
+      let flash = null;
+      if (oldPrice != null && p.price != null && Math.abs(p.price - oldPrice) > 0.0001) {
+        flash = p.price > oldPrice ? "up" : "down";
+      }
+      return {
+        symbol: p.symbol,
+        price: p.price,
+        changePct: p.changePct,
+        volumeTL: p.volumeTL,
+        week52High: p.week52High,
+        week52Low: p.week52Low,
+        week52Pos: w52Pos,
+        _flash: flash,
+      };
+    });
+
+    // Sembol alfabetik sırada (BIST30_SYMBOLS sırasını koru)
+    bist30RowsData.sort((a, b) => BIST30_SYMBOLS.indexOf(a.symbol) - BIST30_SYMBOLS.indexOf(b.symbol));
+
+    renderBist30Stats();
+    renderBist30Table();
+
+    // Canlı göstergesi
+    bist30LiveDot.style.display = "inline-block";
+    bist30LiveLabel.textContent = "Canlı · " + new Date().toLocaleTimeString("tr-TR", { hour: "2-digit", minute: "2-digit", second: "2-digit" }) + " · 15 sn'de bir güncellenir";
+
+    if (isFirstLoad) {
+      bist30Loading.classList.remove("active");
+      bist30TableCard.style.display = "block";
+    }
+  } catch (err) {
+    if (isFirstLoad) {
+      bist30Loading.classList.remove("active");
+      bist30LoadingText.textContent = "Bağlantı hatası — yeniden denenecek...";
+    }
+  } finally {
+    bist30InFlight = false;
+  }
+}
+
+function renderBist30Stats() {
+  const rows = bist30RowsData;
+  const up = rows.filter((r) => r.changePct > 0.05).length;
+  const down = rows.filter((r) => r.changePct < -0.05).length;
+  const flat = rows.length - up - down;
+  const avg = rows.length ? rows.reduce((s, r) => s + (r.changePct || 0), 0) / rows.length : 0;
+  const totalVol = rows.reduce((s, r) => s + (r.volumeTL || 0), 0);
+
+  bist30UpCount.textContent = up;
+  bist30DownCount.textContent = down;
+  bist30FlatCount.textContent = flat;
+  bist30AvgChange.textContent = fmtPct(avg);
+  bist30AvgChangeCell.className = "stat-cell " + changeClass(avg);
+  bist30TotalVol.textContent = fmtCompactTL(totalVol);
+}
+
+function renderBist30Table() {
+  let rows = [...bist30RowsData];
+
+  // Filtre
+  const f = bist30Filter.value;
+  if (f === "up") rows = rows.filter((r) => r.changePct > 0.05);
+  else if (f === "down") rows = rows.filter((r) => r.changePct < -0.05);
+  else if (f === "highvol") {
+    const avgVol = rows.reduce((s, r) => s + (r.volumeTL || 0), 0) / (rows.length || 1);
+    rows = rows.filter((r) => (r.volumeTL || 0) > avgVol);
+  } else if (f === "nearhigh") {
+    rows = rows.filter((r) => r.week52Pos != null && r.week52Pos >= 90);
+  }
+
+  // Sıralama
+  if (bist30SortState.key) {
+    rows.sort((a, b) => {
+      let av = a[bist30SortState.key], bv = b[bist30SortState.key];
+      if (typeof av === "string") { av = av || ""; bv = bv || ""; return av.localeCompare(bv) * bist30SortState.dir; }
+      av = av == null ? -Infinity : av; bv = bv == null ? -Infinity : bv;
+      return (av - bv) * bist30SortState.dir;
+    });
+  }
+
+  // Başlık okları
+  document.querySelectorAll("#bist30Table .sortable-th").forEach((th) => {
+    if (!th.dataset.label) th.dataset.label = th.textContent.trim();
+    th.innerHTML = th.dataset.label + (bist30SortState.key === th.dataset.key ? (bist30SortState.dir === 1 ? ' <span class="sort-arrow">▲</span>' : ' <span class="sort-arrow">▼</span>') : "");
+  });
+
+  if (rows.length === 0) {
+    bist30TableBody.innerHTML = '<tr><td colspan="6" style="text-align:center;color:var(--text-faint);padding:40px 0">Bu filtreye uyan hisse yok.</td></tr>';
+    return;
+  }
+
+  bist30TableBody.innerHTML = rows.map((r) => {
+    const flashCls = r._flash ? "flash-" + r._flash : "";
+    r._flash = null;  // bir kez göster
+    const hasAlarm = loadAlarms().some((a) => a.symbol === r.symbol && !a.triggered);
+
+    const w52Bar = (r.week52Pos != null)
+      ? '<div class="w52-cell">' +
+        '<div class="w52-bar"><div class="w52-fill" style="width:' + Math.max(0, Math.min(100, r.week52Pos)) + '%"></div></div>' +
+        '<span class="w52-pct">' + fmtNum(r.week52Pos, 0) + '%</span>' +
+        '</div>'
+      : '<span style="color:var(--text-faint)">—</span>';
+
+    return '<tr class="' + flashCls + '">' +
+      '<td class="symbol-cell clickable-symbol" onclick="goToStock(\'' + r.symbol + '\')">' + r.symbol + '</td>' +
+      '<td>' + fmtTL(r.price) + '</td>' +
+      '<td class="' + changeClass(r.changePct) + '">' + fmtPct(r.changePct) + '</td>' +
+      '<td>' + fmtCompactTL(r.volumeTL) + '</td>' +
+      '<td>' + w52Bar + '</td>' +
+      '<td><button class="alarm-btn ' + (hasAlarm ? "has-alarm" : "") + '" data-symbol="' + r.symbol + '" title="Alarm kur">🔔</button></td>' +
+      '</tr>';
+  }).join("");
+
+  // Alarm butonları
+  bist30TableBody.querySelectorAll(".alarm-btn").forEach((b) => {
+    b.addEventListener("click", (e) => {
+      e.stopPropagation();
+      openAlarmSetModal(b.dataset.symbol);
+    });
+  });
+
+  // Sıralama başlıkları
+  document.querySelectorAll("#bist30Table .sortable-th").forEach((th) => {
+    th.onclick = () => {
+      const key = th.dataset.key;
+      if (bist30SortState.key === key) bist30SortState.dir *= -1;
+      else { bist30SortState.key = key; bist30SortState.dir = -1; }
+      renderBist30Table();
+    };
+  });
+}
+
+// Filtre değişince
+bist30Filter.addEventListener("change", () => renderBist30Table());
+bist30RefreshBtn.addEventListener("click", () => refreshBist30());
+
+// ==========================================================================
+// 5.6) ALARM SİSTEMİ
 // ==========================================================================
 const LS_ALARMS_KEY = "bist_terminal_alarms";
 
@@ -494,6 +713,8 @@ alarmSaveBtn.addEventListener("click", () => {
   showToast("🔔 Alarm Kuruldu", alarmSetSymbol + " · " + alarmDescription({ type: alarmType.value, value: val }), "info", 3500);
   closeAlarmSetModal();
   if (typeof currentSymbol !== "undefined" && currentSymbol === alarmSetSymbol) syncAlarmToggleState();
+  // BIST 30 ekranı açıksa tabloyu yenile (alarm ikonları güncellensin)
+  if (livePage === "bist30") renderBist30Table();
 });
 
 function ensureNotificationPermission() {
@@ -2096,12 +2317,10 @@ async function renderHomePortfolio() {
   const tg = tv - tc, tgp = tc ? (tg / tc) * 100 : 0;
   const tdcPct = tv ? (tdc / (tv - tdc)) * 100 : 0;
 
-  // Hero: portföy değeri + K/Z
   homePortfolioHeroValue.textContent = fmtTL(tv);
   homePortfolioHeroChange.textContent = (tg >= 0 ? "+" : "") + fmtTL(tg) + " (" + fmtPct(tgp) + ")";
   homePortfolioHeroChange.className = "bento-hero-change " + changeClass(tg);
 
-  // Mini stats
   homePortfolioCost.textContent = fmtTL(tc);
   homePortfolioCostSub.textContent = "Toplam yatırım";
 
@@ -2112,7 +2331,6 @@ async function renderHomePortfolio() {
   homePortfolioCount.textContent = pos.length;
   homePortfolioCountSub.textContent = "aktif pozisyon";
 
-  // Sektör notu
   if (tv > 0 && alloc.length > 0) {
     const bySector = {};
     alloc.forEach((a) => { const sec = getSector(a.symbol); bySector[sec] = (bySector[sec] || 0) + a.value; });
@@ -2405,7 +2623,7 @@ async function runSignalScan() {
     });
 
     const points = settled.filter((r) => r.status === "fulfilled").map((r) => r.value);
-    if (points.length === 0) throw new Error("Hiçbir hisse verisi alınamadı. Piyasa kapalıysa normal olabilir.");
+    if (points.length === 0) throw new Error("Hiçbir hisse verisi alınamadı.");
 
     renderSignalResults(points);
     signalLoading.classList.remove("active");
