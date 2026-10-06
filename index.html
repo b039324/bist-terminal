@@ -44,6 +44,7 @@
         <button class="nav-btn" id="navMoneyBtn">Para Nerede</button>
         <button class="nav-btn" id="navSignalBtn">17:00 Sinyali</button>
         <button class="nav-btn" id="navCompareBtn">Karşılaştır</button>
+        <button class="nav-btn" id="alarmsBtn" title="Fiyat Alarmları">🔔 <span id="alarmsBadge" class="alarms-badge" style="display:none">0</span></button>
         <button class="nav-btn theme-toggle-btn" id="themeToggleBtn" title="Açık/Koyu Tema">🌙</button>
         <button class="logout-btn" id="logoutBtn">Çıkış</button>
       </div>
@@ -56,7 +57,7 @@
         <input type="text" id="searchInput" placeholder="örn. ALARK, THYAO, ASELS" autocomplete="off" />
         <div id="autocompleteBox" class="autocomplete-box"></div>
       </div>
-      <div class="search-hint">Enter'a bas — veri sadece arama yaptığında çekilir</div>
+      <div class="search-hint">Enter'a bas — veri sadece arama yaptığında çekilir · <kbd>/</kbd> ile buraya odaklan</div>
       <div class="search-error" id="searchError"></div>
       <div id="recentSearchesWrap" class="recent-searches-wrap" style="display:none">
         <div class="recent-searches-label">Son Aramalar</div>
@@ -127,6 +128,7 @@
         <button id="newSearchBtn">Ara</button>
         <button id="refreshStockBtn" class="wl-toggle-btn" title="Bu hissenin verisini yeniden çek">🔄 Yenile</button>
         <button id="watchlistToggleBtn" class="wl-toggle-btn" data-symbol="">★ Takip Ekle</button>
+        <button id="alarmToggleBtn" class="wl-toggle-btn" title="Fiyat alarmı kur">🔔 Alarm Kur</button>
         <button id="printPdfBtn" class="wl-toggle-btn">🖨️ PDF Al / Yazdır</button>
       </div>
 
@@ -306,9 +308,16 @@
       <div class="two-col-grid" style="grid-template-columns: 1.6fr 1fr;">
         <div class="panel-card">
           <div class="card-title" style="margin-bottom:8px">Pozisyonlar</div>
-          <div style="display:flex; gap:8px; margin-bottom:12px; flex-wrap:wrap">
+          <div class="toolbar-row">
             <button id="detailToggleBtn" class="ghost-btn">+ Detaylı Görünüm (AL/SAT Skoru)</button>
             <button id="portfolioCsvBtn" class="ghost-btn">CSV İndir</button>
+            <select id="portfolioFilter" class="filter-select" title="Filtrele">
+              <option value="all">Tümü</option>
+              <option value="gain">Sadece Kâr Edenler</option>
+              <option value="loss">Sadece Zarar Edenler</option>
+              <option value="up">Bugün Yükselenler</option>
+              <option value="down">Bugün Düşenler</option>
+            </select>
           </div>
           <div class="portfolio-table-wrap">
             <table class="portfolio-table" id="portfolioTable">
@@ -387,7 +396,16 @@
 
       <div class="panel-card">
         <div class="card-title" style="margin-bottom:8px">Takip Listesi</div>
-        <button id="watchlistCsvBtn" class="ghost-btn" style="margin-bottom:12px">CSV İndir</button>
+        <div class="toolbar-row">
+          <button id="watchlistCsvBtn" class="ghost-btn">CSV İndir</button>
+          <select id="watchlistFilter" class="filter-select" title="Filtrele">
+            <option value="all">Tümü</option>
+            <option value="up">Bugün Yükselenler</option>
+            <option value="down">Bugün Düşenler</option>
+            <option value="gain">Eklenmeden Beri Kâr Edenler</option>
+            <option value="loss">Eklenmeden Beri Zarar Edenler</option>
+          </select>
+        </div>
         <div class="portfolio-table-wrap">
           <table class="portfolio-table" id="watchlistTable">
             <thead>
@@ -410,7 +428,15 @@
       <div class="panel-card" style="margin-bottom:20px">
         <div class="card-title" style="margin-bottom:6px">BIST 100 Trendleri</div>
         <div class="sub-note" style="margin-bottom:14px">Günlük değişim ve hacme göre öne çıkan hisseler</div>
-        <button id="trendsRefreshBtn" class="primary-btn">Tara / Yenile</button>
+        <div class="toolbar-row">
+          <button id="trendsRefreshBtn" class="primary-btn">Tara / Yenile</button>
+          <select id="trendsFilter" class="filter-select" title="Filtrele">
+            <option value="all">Tümü</option>
+            <option value="up">Sadece Yükselenler</option>
+            <option value="down">Sadece Düşenler</option>
+            <option value="highvol">Yüksek Hacimliler (ort. üstü)</option>
+          </select>
+        </div>
         <div class="search-error" id="trendsError" style="margin-top:10px"></div>
       </div>
 
@@ -613,6 +639,52 @@
 
       <footer class="data-source">Veri kaynağı: Yahoo Finance · Gecikmeli fiyat verisi olabilir</footer>
     </div>
+
+    <!-- ============ ALARM PANELİ (MODAL) ============ -->
+    <div class="modal-backdrop" id="alarmsModal" style="display:none">
+      <div class="modal-card">
+        <div class="modal-head">
+          <div class="card-title" style="margin-bottom:0">🔔 Fiyat Alarmları</div>
+          <button id="alarmsCloseBtn" class="modal-close-btn" title="Kapat">✕</button>
+        </div>
+        <div class="sub-note" style="margin-bottom:14px">
+          Alarmlar sadece bu uygulama açıkken kontrol edilir. Bildirimler tarayıcı üzerinden gösterilir.
+        </div>
+        <div id="alarmsList" class="alarms-list"></div>
+        <div id="alarmsEmpty" class="portfolio-empty">Henüz alarm kurmadın. Bir hisseye bakarken "🔔 Alarm Kur" butonuna tıkla.</div>
+      </div>
+    </div>
+
+    <!-- ============ ALARM KURMA (MODAL) ============ -->
+    <div class="modal-backdrop" id="alarmSetModal" style="display:none">
+      <div class="modal-card modal-card-small">
+        <div class="modal-head">
+          <div class="card-title" style="margin-bottom:0" id="alarmSetTitle">🔔 Alarm Kur</div>
+          <button id="alarmSetCloseBtn" class="modal-close-btn" title="Kapat">✕</button>
+        </div>
+        <div class="alarm-form">
+          <label class="alarm-label">Alarm tipi</label>
+          <select id="alarmType" class="filter-select" style="width:100%">
+            <option value="above">Fiyat şu değerin ÜSTÜNE çıkarsa</option>
+            <option value="below">Fiyat şu değerin ALTINA düşerse</option>
+            <option value="pct_up">Günlük değişim % şu değeri AŞARSA (+)</option>
+            <option value="pct_down">Günlük değişim % şu değerin ALTINA düşerse (-)</option>
+          </select>
+          <label class="alarm-label" style="margin-top:12px">Değer</label>
+          <input type="number" id="alarmValue" class="alarm-input" placeholder="örn. 125.50" step="0.01" />
+          <label class="alarm-label" style="margin-top:12px">Not (opsiyonel)</label>
+          <input type="text" id="alarmNote" class="alarm-input" placeholder="örn. Kâr realizasyonu" />
+          <div class="search-error" id="alarmSetError" style="margin-top:10px; text-align:left"></div>
+          <div style="display:flex; gap:8px; margin-top:16px">
+            <button id="alarmSaveBtn" class="primary-btn" style="flex:1">Kaydet</button>
+            <button id="alarmCancelBtn" class="ghost-btn" style="flex:1">İptal</button>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Toast Bildirim Alanı -->
+    <div id="toastWrap" class="toast-wrap"></div>
 
   </div>
 
