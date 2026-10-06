@@ -1,5 +1,5 @@
 /* ==========================================================================
-   BIST TERMINAL — app.js (canlı polling + alarm + filtre + klavye kısayolları)
+   BIST TERMINAL — app.js (v2 tasarım + canlı polling + alarm + filtre)
    ========================================================================== */
 
 const LS_PASS_KEY = "bist_terminal_pass";
@@ -34,7 +34,16 @@ const alarmToggleBtn = document.getElementById("alarmToggleBtn");
 const navSearchBtn = document.getElementById("navSearchBtn");
 const navHomeBtn = document.getElementById("navHomeBtn");
 const homeScreen = document.getElementById("homeScreen");
-const homePortfolioSummary = document.getElementById("homePortfolioSummary");
+// Yeni bento grid elemanları
+const homePortfolioHeroValue = document.getElementById("homePortfolioHeroValue");
+const homePortfolioHeroChange = document.getElementById("homePortfolioHeroChange");
+const homePortfolioHeroFooter = document.getElementById("homePortfolioHeroFooter");
+const homePortfolioCost = document.getElementById("homePortfolioCost");
+const homePortfolioCostSub = document.getElementById("homePortfolioCostSub");
+const homePortfolioDayChange = document.getElementById("homePortfolioDayChange");
+const homePortfolioDayChangeSub = document.getElementById("homePortfolioDayChangeSub");
+const homePortfolioCount = document.getElementById("homePortfolioCount");
+const homePortfolioCountSub = document.getElementById("homePortfolioCountSub");
 const homePortfolioEmpty = document.getElementById("homePortfolioEmpty");
 const homeWatchlistMovers = document.getElementById("homeWatchlistMovers");
 const homeWatchlistEmpty = document.getElementById("homeWatchlistEmpty");
@@ -152,7 +161,6 @@ const cmpResultCard = document.getElementById("cmpResultCard");
 const cmpChartEl = document.getElementById("cmpChart");
 const compareTable = document.getElementById("compareTable");
 
-// Alarm modalları
 const alarmsModal = document.getElementById("alarmsModal");
 const alarmsCloseBtn = document.getElementById("alarmsCloseBtn");
 const alarmsList = document.getElementById("alarmsList");
@@ -203,7 +211,7 @@ function calcBollinger(cl, p = 20, m = 2) { const mid = sma(cl, p), up = [], lo 
 function calcStochRSI(cl, rp = 14, sp = 14) { const rsi = calcRSI(cl, rp); const o = new Array(cl.length).fill(null); for (let i = 0; i < rsi.length; i++) { if (rsi[i] == null) continue; const ws = Math.max(0, i - sp + 1); const wv = rsi.slice(ws, i + 1).filter((v) => v != null); if (wv.length < sp) continue; const mn = Math.min(...wv), mx = Math.max(...wv); o[i] = mx > mn ? ((rsi[i] - mn) / (mx - mn)) * 100 : 50; } return o; }
 
 // ==========================================================================
-// 2) TOAST BİLDİRİM SİSTEMİ
+// 2) TOAST
 // ==========================================================================
 function showToast(title, msg, kind = "info", durationMs = 5000) {
   const el = document.createElement("div");
@@ -216,19 +224,18 @@ function showToast(title, msg, kind = "info", durationMs = 5000) {
   }, durationMs);
 }
 
-// Tarayıcı bildirimi (kullanıcı izin verdiyse)
 function browserNotify(title, body) {
   if (!("Notification" in window)) return;
   if (Notification.permission === "granted") {
-    try { new Notification(title, { body, icon: "data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 512 512'%3E%3Crect width='512' height='512' rx='100' fill='%230a0d12'/%3E%3Cpath d='M160 360 L240 200 L320 280 L400 120' stroke='%23d4af37' stroke-width='28' fill='none'/%3E%3C/svg%3E" }); } catch (e) {}
+    try { new Notification(title, { body }); } catch (e) {}
   }
 }
 
 // ==========================================================================
 // 3) ŞİFRE / GİRİŞ
 // ==========================================================================
-function tryEnterApp() { if (localStorage.getItem(LS_PASS_KEY)) { lockScreen.style.display = "none"; appEl.style.display = "block"; syncWatchlistState(); renderRecentSearches(); checkShareableLink(); refreshAlarmsBadge(); } }
-passSubmit.addEventListener("click", () => { const v = passInput.value.trim(); if (!v) { lockError.textContent = "Lütfen şifre gir."; return; } localStorage.setItem(LS_PASS_KEY, v); lockScreen.style.display = "none"; appEl.style.display = "block"; searchInput.focus(); renderRecentSearches(); checkShareableLink(); refreshAlarmsBadge(); });
+function tryEnterApp() { if (localStorage.getItem(LS_PASS_KEY)) { lockScreen.style.display = "none"; appEl.style.display = "flex"; syncWatchlistState(); renderRecentSearches(); checkShareableLink(); refreshAlarmsBadge(); } }
+passSubmit.addEventListener("click", () => { const v = passInput.value.trim(); if (!v) { lockError.textContent = "Lütfen şifre gir."; return; } localStorage.setItem(LS_PASS_KEY, v); lockScreen.style.display = "none"; appEl.style.display = "flex"; searchInput.focus(); renderRecentSearches(); checkShareableLink(); refreshAlarmsBadge(); });
 passInput.addEventListener("keydown", (e) => { if (e.key === "Enter") passSubmit.click(); });
 logoutBtn.addEventListener("click", () => { localStorage.removeItem(LS_PASS_KEY); location.reload(); });
 tryEnterApp();
@@ -236,7 +243,7 @@ tryEnterApp();
 // ==========================================================================
 // 4) NAVİGASYON
 // ==========================================================================
-function setActiveNav(b) { [navSearchBtn, navHomeBtn, navPortfolioBtn, navWatchlistBtn, navTrendsBtn, navMoneyBtn, navSignalBtn, navCompareBtn].forEach((x) => x.classList.remove("active")); b.classList.add("active"); }
+function setActiveNav(b) { [navSearchBtn, navHomeBtn, navPortfolioBtn, navWatchlistBtn, navTrendsBtn, navMoneyBtn, navSignalBtn, navCompareBtn].forEach((x) => x.classList.remove("active")); if (b) b.classList.add("active"); }
 function hideAllScreens() { window.scrollTo({ top: 0, behavior: "instant" }); homeScreen.classList.remove("active"); portfolioScreen.classList.remove("active"); watchlistScreen.classList.remove("active"); trendsScreen.classList.remove("active"); moneyScreen.classList.remove("active"); signalScreen.classList.remove("active"); compareScreen.classList.remove("active"); resultScreen.classList.remove("active"); loadingScreen.classList.remove("active"); }
 function showSearchNav() { setActiveNav(navSearchBtn); homeScreen.classList.remove("active"); portfolioScreen.classList.remove("active"); watchlistScreen.classList.remove("active"); trendsScreen.classList.remove("active"); moneyScreen.classList.remove("active"); compareScreen.classList.remove("active"); searchScreen.classList.remove("hidden"); renderRecentSearches(); setLivePage("none"); }
 function showHomeNav() { setActiveNav(navHomeBtn); searchScreen.classList.add("hidden"); hideAllScreens(); homeScreen.classList.add("active"); renderHomeScreen(); setLivePage("home"); }
@@ -257,12 +264,10 @@ function goToStock(symbol) {
 // ==========================================================================
 // 4.5) KLAVYE KISAYOLLARI
 // ==========================================================================
-// "/" → arama kutusuna odaklan · Esc → autocomplete/modal kapat
 document.addEventListener("keydown", (e) => {
   const tag = (e.target.tagName || "").toLowerCase();
   const isEditing = tag === "input" || tag === "textarea" || tag === "select";
 
-  // "/" ile aramaya odaklan (bir input'ta yazmıyorsan)
   if (e.key === "/" && !isEditing) {
     e.preventDefault();
     showSearchNav();
@@ -271,7 +276,6 @@ document.addEventListener("keydown", (e) => {
     return;
   }
 
-  // Esc → açık modal varsa kapat, autocomplete açıksa kapat
   if (e.key === "Escape") {
     if (alarmsModal.style.display !== "none") { alarmsModal.style.display = "none"; return; }
     if (alarmSetModal.style.display !== "none") { alarmSetModal.style.display = "none"; return; }
@@ -280,12 +284,12 @@ document.addEventListener("keydown", (e) => {
 });
 
 // ==========================================================================
-// 5) CANLI GÜNCELLEME (POLLING) SİSTEMİ
+// 5) CANLI POLLING
 // ==========================================================================
 const LIVE_INTERVAL_WATCHLIST = 10000;
 const LIVE_INTERVAL_TRENDS    = 15000;
 const LIVE_INTERVAL_HOME      = 12000;
-const LIVE_INTERVAL_ALARMS    = 30000;  // Alarm kontrolü her sayfada 30 sn
+const LIVE_INTERVAL_ALARMS    = 30000;
 
 let liveTimer = null;
 let livePage = "none";
@@ -313,26 +317,16 @@ async function liveTick() {
   if (liveInFlight) return;
   liveInFlight = true;
   try {
-    if (livePage === "watchlist") {
-      await liveRefreshWatchlist();
-    } else if (livePage === "trends") {
-      await liveRefreshTrends();
-    } else if (livePage === "home") {
-      await liveRefreshHomeWatchlist();
-    }
-  } catch (e) {
-  } finally {
-    liveInFlight = false;
-  }
+    if (livePage === "watchlist") await liveRefreshWatchlist();
+    else if (livePage === "trends") await liveRefreshTrends();
+    else if (livePage === "home") await liveRefreshHomeWatchlist();
+  } catch (e) {} finally { liveInFlight = false; }
 }
 
 document.addEventListener("visibilitychange", () => {
-  if (!document.hidden && livePage !== "none") {
-    liveTick();
-  }
+  if (!document.hidden && livePage !== "none") liveTick();
 });
 
-// --- Takip Listesi sessiz tazeleme ---
 async function liveRefreshWatchlist() {
   if (watchlistRowsData.length === 0) return;
   const symbols = watchlistRowsData.map((i) => i.symbol);
@@ -348,16 +342,13 @@ async function liveRefreshWatchlist() {
     row.price = p.price;
     row.changePct = p.changePct;
     if (row.addedPrice) row.sinceAdded = ((p.price - row.addedPrice) / row.addedPrice) * 100;
-    // Flash için eski fiyatı sakla
     if (oldPrice != null && p.price != null && Math.abs(p.price - oldPrice) > 0.0001) {
       row._flash = p.price > oldPrice ? "up" : "down";
     }
   });
-
   renderWatchlistTableBody();
 }
 
-// --- Trendler sessiz tazeleme ---
 async function liveRefreshTrends() {
   if (!trendsResults || trendsResults.style.display === "none") return;
   const points = [];
@@ -367,13 +358,12 @@ async function liveRefreshTrends() {
     try {
       const part = await fetchQuoteBatch(chunk);
       points.push(...part);
-    } catch (e) { }
+    } catch (e) {}
   }
   if (points.length === 0) return;
   renderTrendsAll(points);
 }
 
-// --- Özet sayfası Takip mini widget ---
 async function liveRefreshHomeWatchlist() {
   const items = await loadWatchlist();
   if (items.length === 0) return;
@@ -400,8 +390,6 @@ async function liveRefreshHomeWatchlist() {
 // ==========================================================================
 // 5.5) ALARM SİSTEMİ
 // ==========================================================================
-// Alarmlar localStorage'da tutulur. Basit ve cihaza özel — buluta senkron
-// etmek istersen worker'a kolayca taşınabilir.
 const LS_ALARMS_KEY = "bist_terminal_alarms";
 
 function loadAlarms() {
@@ -440,7 +428,7 @@ function renderAlarmsList() {
     <div class="alarm-row ${a.triggered ? "triggered" : ""}">
       <div class="alarm-left">
         <div class="alarm-symbol clickable-symbol" onclick="alarmsModal.style.display='none';goToStock('${a.symbol}')">${a.symbol}</div>
-        <div class="alarm-cond">${alarmDescription(a)}${a.triggered ? ' · <span style="color:var(--gold)">⚡ Tetiklendi</span>' : ""}</div>
+        <div class="alarm-cond">${alarmDescription(a)}${a.triggered ? ' · <span style="color:var(--accent)">⚡ Tetiklendi</span>' : ""}</div>
         ${a.note ? '<div class="alarm-note">' + a.note + '</div>' : ""}
       </div>
       <div class="alarm-actions">
@@ -463,7 +451,6 @@ alarmsBtn.addEventListener("click", () => {
 alarmsCloseBtn.addEventListener("click", () => { alarmsModal.style.display = "none"; });
 alarmsModal.addEventListener("click", (e) => { if (e.target === alarmsModal) alarmsModal.style.display = "none"; });
 
-// Alarm kurma modalı
 let alarmSetSymbol = null;
 function openAlarmSetModal(symbol) {
   alarmSetSymbol = symbol;
@@ -509,32 +496,24 @@ alarmSaveBtn.addEventListener("click", () => {
   if (typeof currentSymbol !== "undefined" && currentSymbol === alarmSetSymbol) syncAlarmToggleState();
 });
 
-// Tarayıcı bildirim izni — bir kez istenir
 function ensureNotificationPermission() {
   if (!("Notification" in window)) return;
   if (Notification.permission === "default") {
     Notification.requestPermission().catch(() => {});
   }
 }
-// İzin istemek için: alarm kurarken tetikle
 alarmSaveBtn.addEventListener("click", ensureNotificationPermission, { once: true });
 
-// Alarmları kontrol et — polling tick'lerinde çağrılır
 async function checkAlarms(pointsOverride) {
   const alarms = loadAlarms();
   if (alarms.length === 0) return;
   const active = alarms.filter((a) => !a.triggered);
   if (active.length === 0) return;
 
-  // Hangi hisselerin fiyatı lazım?
   const symbols = [...new Set(active.map((a) => a.symbol))];
-
-  // Eğer elde zaten taze veri varsa (trendler taramasından) onu kullan
   let points = pointsOverride;
   if (!points) {
-    try {
-      points = await fetchQuoteBatch(symbols);
-    } catch (e) { return; }
+    try { points = await fetchQuoteBatch(symbols); } catch (e) { return; }
   }
   if (!points || points.length === 0) return;
 
@@ -563,22 +542,20 @@ async function checkAlarms(pointsOverride) {
   if (changed) { saveAlarms(alarms); refreshAlarmsBadge(); }
 }
 
-// Alarm kontrolünü periyodik olarak yap (her sayfada çalışır)
 alarmTimer = setInterval(() => {
   if (document.hidden) return;
   checkAlarms();
 }, LIVE_INTERVAL_ALARMS);
 
-// Hisse detay ekranındaki "Alarm Kur" butonunun durumunu güncelle
 function syncAlarmToggleState() {
-  if (!currentSymbol) { alarmToggleBtn.classList.remove("has-alarm"); alarmToggleBtn.textContent = "🔔 Alarm Kur"; return; }
+  if (!currentSymbol) { alarmToggleBtn.classList.remove("has-alarm"); alarmToggleBtn.textContent = "🔔 Alarm"; return; }
   const alarms = loadAlarms().filter((a) => a.symbol === currentSymbol && !a.triggered);
   if (alarms.length > 0) {
     alarmToggleBtn.classList.add("has-alarm");
     alarmToggleBtn.textContent = "🔔 Alarm (" + alarms.length + ")";
   } else {
     alarmToggleBtn.classList.remove("has-alarm");
-    alarmToggleBtn.textContent = "🔔 Alarm Kur";
+    alarmToggleBtn.textContent = "🔔 Alarm";
   }
 }
 
@@ -819,10 +796,7 @@ document.getElementById("rangeTabs").addEventListener("click", async (e) => {
   e.target.classList.add("active");
   const range = e.target.dataset.range;
 
-  if (range === "intraday") {
-    await loadIntradayChart();
-    return;
-  }
+  if (range === "intraday") { await loadIntradayChart(); return; }
 
   if (isIntradayView) { renderChart(fullChartData.candles, fullChartData.volumesTL); isIntradayView = false; }
   if (!priceChartApi || !fullChartData) return;
@@ -843,7 +817,7 @@ async function loadIntradayChart() {
     const res = await fetchJSON(WORKER_URL + "/api/chart?symbol=" + currentSymbol + "&pass=" + encodeURIComponent(pass) + "&range=1d&interval=15m");
     if (res.error) throw new Error(res.error);
     const chartR = res.data?.chart?.result?.[0];
-    if (!chartR || !chartR.timestamp) throw new Error("Gün içi veri bulunamadı (piyasa henüz açılmamış olabilir).");
+    if (!chartR || !chartR.timestamp) throw new Error("Gün içi veri bulunamadı.");
 
     const ts = chartR.timestamp, q = chartR.indicators.quote[0];
     const candles = [], vtl = [];
@@ -853,7 +827,7 @@ async function loadIntradayChart() {
       candles.push({ time: t, open: q.open[i] ?? c, high: q.high[i] ?? c, low: q.low[i] ?? c, close: c, volume: q.volume[i] ?? 0 });
       vtl.push({ time: t, volumeTL: (q.volume[i] ?? 0) * c });
     }
-    if (candles.length === 0) throw new Error("Gün içi veri bulunamadı (piyasa henüz açılmamış olabilir).");
+    if (candles.length === 0) throw new Error("Gün içi veri bulunamadı.");
 
     renderChart(candles, vtl);
     isIntradayView = true;
@@ -882,7 +856,7 @@ function renderAll(sym, d, f) {
   if (f.targetMeanPrice != null && f.targetMeanPrice > 0) {
     const pot = ((f.targetMeanPrice - d.lastClose) / d.lastClose) * 100, pc = pot > 1 ? "up" : pot < -1 ? "down" : "";
     ae.style.display = "block";
-    ae.innerHTML = '<div class="target-row"><div class="target-item"><div class="target-label">Hedef Düşük</div><div class="target-value">' + (f.targetLowPrice ? fmtTL(f.targetLowPrice) : "—") + '</div></div><div class="target-item"><div class="target-label">Hedef Ort.</div><div class="target-value" style="color:var(--gold)">' + fmtTL(f.targetMeanPrice) + '</div></div><div class="target-item"><div class="target-label">Hedef Yüksek</div><div class="target-value">' + (f.targetHighPrice ? fmtTL(f.targetHighPrice) : "—") + '</div></div><div class="target-item"><div class="target-label">Potansiyel</div><div class="target-value target-potential ' + pc + '">' + fmtPct(pot) + "</div></div></div>";
+    ae.innerHTML = '<div class="target-row"><div class="target-item"><div class="target-label">Hedef Düşük</div><div class="target-value">' + (f.targetLowPrice ? fmtTL(f.targetLowPrice) : "—") + '</div></div><div class="target-item"><div class="target-label">Hedef Ort.</div><div class="target-value" style="color:var(--accent)">' + fmtTL(f.targetMeanPrice) + '</div></div><div class="target-item"><div class="target-label">Hedef Yüksek</div><div class="target-value">' + (f.targetHighPrice ? fmtTL(f.targetHighPrice) : "—") + '</div></div><div class="target-item"><div class="target-label">Potansiyel</div><div class="target-value target-potential ' + pc + '">' + fmtPct(pot) + "</div></div></div>";
   } else { ae.style.display = "none"; }
 
   document.getElementById("changeBadges").innerHTML = [["Günlük", d.changes.daily], ["Haftalık", d.changes.weekly], ["Aylık", d.changes.monthly], ["6 Aylık", d.changes.sixMonth], ["Yıllık", d.changes.yearly]].map(([l, v]) => '<div class="badge"><div class="badge-label">' + l + '</div><div class="badge-value ' + changeClass(v) + '">' + fmtPct(v) + "</div></div>").join("");
@@ -926,7 +900,7 @@ function renderAll(sym, d, f) {
     rowHTML("Piyasa Değeri", fmtCompactTL(f.marketCap)),
     rowHTML("F/K (Trailing)", fmtNum(f.trailingPE)), rowHTML("F/K (Forward)", fmtNum(f.forwardPE)),
     rowHTML("PD/DD", fmtNum(f.priceToBook)), rowHTML("PD/Satış", fmtNum(f.priceToSales)),
-    bv != null ? '<div class="data-row highlight-book"><span class="row-label">Defter Değeri (Hisse Başı)</span><span class="row-value" style="color:var(--gold)">' + fmtTL(bv) + '<span style="font-size:10px;color:var(--text-faint);margin-left:4px">' + bvn + "</span></span></div>" : rowHTML("Defter Değeri", "—"),
+    bv != null ? '<div class="data-row highlight-book"><span class="row-label">Defter Değeri (Hisse Başı)</span><span class="row-value" style="color:var(--accent)">' + fmtTL(bv) + '<span style="font-size:10px;color:var(--text-faint);margin-left:4px">' + bvn + "</span></span></div>" : rowHTML("Defter Değeri", "—"),
     rowHTML("Temettü Verimi", f.dividendYield != null ? fmtPct(f.dividendYield * 100) : "—"),
     rowHTML("ROE", f.returnOnEquity != null ? fmtPct(f.returnOnEquity * 100) : "—"),
     rowHTML("Net Kar Marjı", f.profitMargins != null ? fmtPct(f.profitMargins * 100) : "—"),
@@ -1021,12 +995,12 @@ function renderRecTrend(recTrend) {
         <div class="rec-trend-bar">
           ${seg(t.strongBuy, "#17c987")}${seg(t.buy, "#5fd9a8")}${seg(t.hold, "#7d8a9c")}${seg(t.sell, "#ff8a94")}${seg(t.strongSell, "#ff4757")}
         </div>
-        <div style="font-family:var(--font-mono); color:var(--text-faint); width:26px; text-align:right">${total}</div>
+        <div style="font-family:var(--font-mono); color:var(--text-faint); width:26px; text-align:right; font-size:11px">${total}</div>
       </div>`;
   }).filter(Boolean);
 
   recTrendChart.innerHTML = `<div class="rec-trend-row">${rows.join("")}</div>
-    <div style="display:flex; gap:12px; margin-top:12px; flex-wrap:wrap; font-size:10.5px; color:var(--text-faint)">
+    <div style="display:flex; gap:12px; margin-top:14px; flex-wrap:wrap; font-size:10.5px; color:var(--text-faint)">
       <span>🟢 Güçlü Al</span><span style="color:#5fd9a8">🟢 Al</span><span>⚪ Nötr</span><span style="color:#ff8a94">🔴 Sat</span><span style="color:#ff4757">🔴 Güçlü Sat</span>
     </div>`;
 }
@@ -1143,7 +1117,7 @@ async function fetchQuickPrice(sym) {
 let portfolioDetailMode = false;
 detailToggleBtn.addEventListener("click", () => {
   portfolioDetailMode = !portfolioDetailMode;
-  detailToggleBtn.textContent = portfolioDetailMode ? "− Basit Görünüme Dön" : "+ Detaylı Görünüm (AL/SAT Skoru)";
+  detailToggleBtn.textContent = portfolioDetailMode ? "− Basit Görünüm" : "+ Detaylı Görünüm";
   renderPortfolio();
 });
 
@@ -1200,7 +1174,6 @@ function renderPortfolioTableBody() {
   const colspanEmpty = portfolioDetailMode ? 5 : 4;
   let rows = [...portfolioRowsData];
 
-  // Filtre uygula
   const f = portfolioFilter.value;
   if (f === "gain") rows = rows.filter((p) => !p.error && p.gain != null && p.gain > 0);
   else if (f === "loss") rows = rows.filter((p) => !p.error && p.gain != null && p.gain < 0);
@@ -1258,12 +1231,12 @@ function renderSectorBreakdown(alloc, total) {
         <div><span class="msr-name">${s.name}</span></div>
         <div class="msr-right"><span class="msr-change" style="color:var(--text-dim)">${fmtTL(s.value)}</span><span class="msr-ratio normal">${fmtNum(s.pct, 0)}%</span></div>
       </div>
-      <div class="msr-bar-wrap"><div class="msr-bar" style="width:${s.pct}%; background:var(--gold)"></div></div>
+      <div class="msr-bar-wrap"><div class="msr-bar" style="width:${s.pct}%; background:var(--accent)"></div></div>
     </div>`).join("");
 
   const maxSector = sectorList[0];
   if (maxSector && maxSector.pct >= 40) {
-    sectorConcentrationWarn.textContent = `⚠️ Portföyünün %${fmtNum(maxSector.pct, 0)}'i tek bir sektörde (${maxSector.name}) yoğunlaşmış — çeşitlendirmeyi düşünebilirsin.`;
+    sectorConcentrationWarn.textContent = `⚠️ Portföyünün %${fmtNum(maxSector.pct, 0)}'i tek bir sektörde (${maxSector.name}) yoğunlaşmış.`;
   } else {
     sectorConcentrationWarn.textContent = "";
   }
@@ -1322,8 +1295,8 @@ watchlistToggleBtn.addEventListener("click", async () => {
   syncWatchlistState();
 });
 async function syncWatchlistState() {
-  if (!currentSymbol) { watchlistToggleBtn.textContent = "★ Takip Ekle"; watchlistToggleBtn.classList.remove("following"); return; }
-  try { const items = await loadWatchlist(); if (items.find((i) => i.symbol === currentSymbol)) { watchlistToggleBtn.textContent = "★ Takip Ediliyor"; watchlistToggleBtn.classList.add("following"); } else { watchlistToggleBtn.textContent = "★ Takip Ekle"; watchlistToggleBtn.classList.remove("following"); } } catch (e) {}
+  if (!currentSymbol) { watchlistToggleBtn.textContent = "★ Takip"; watchlistToggleBtn.classList.remove("following"); return; }
+  try { const items = await loadWatchlist(); if (items.find((i) => i.symbol === currentSymbol)) { watchlistToggleBtn.textContent = "★ Takip Ediliyor"; watchlistToggleBtn.classList.add("following"); } else { watchlistToggleBtn.textContent = "★ Takip"; watchlistToggleBtn.classList.remove("following"); } } catch (e) {}
 }
 let watchlistRowsData = [];
 let watchlistSortState = { key: null, dir: 1 };
@@ -1351,7 +1324,6 @@ async function renderWatchlist() {
 function renderWatchlistTableBody() {
   let rows = [...watchlistRowsData];
 
-  // Filtre
   const f = watchlistFilter.value;
   if (f === "up") rows = rows.filter((i) => !i.error && i.changePct != null && i.changePct > 0);
   else if (f === "down") rows = rows.filter((i) => !i.error && i.changePct != null && i.changePct < 0);
@@ -1369,7 +1341,7 @@ function renderWatchlistTableBody() {
   watchlistTableBody.innerHTML = rows.map((item) => {
     if (item.error) return '<tr><td class="symbol-cell clickable-symbol" onclick="goToStock(\'' + item.symbol + '\')">' + item.symbol + '</td><td colspan="5" style="color:var(--down)">Veri alınamadı</td><td><button class="remove-btn" data-symbol="' + item.symbol + '">Çıkar</button></td></tr>';
     const flashCls = item._flash ? "flash-" + item._flash : "";
-    item._flash = null;  // Flash'ı bir kez göster
+    item._flash = null;
     const hasAlarm = loadAlarms().some((a) => a.symbol === item.symbol && !a.triggered);
     return '<tr class="' + flashCls + '"><td class="symbol-cell clickable-symbol" onclick="goToStock(\'' + item.symbol + '\')">' + item.symbol + "</td><td>" + fmtTL(item.price) + '</td><td class="' + changeClass(item.changePct) + '">' + fmtPct(item.changePct) + "</td><td>" + fmtDate(item.addedDate) + "</td><td>" + fmtTL(item.addedPrice) + '</td><td class="' + changeClass(item.sinceAdded) + '">' + (item.sinceAdded != null ? fmtPct(item.sinceAdded) : "—") + '</td><td><button class="alarm-btn ' + (hasAlarm ? "has-alarm" : "") + '" data-symbol="' + item.symbol + '" title="Alarm kur">🔔</button><button class="remove-btn" data-symbol="' + item.symbol + '">Çıkar</button></td></tr>';
   }).join("");
@@ -1560,7 +1532,7 @@ async function runTrendsScan() {
       }
     }
 
-    if (points.length === 0) throw new Error("Hiçbir hisse verisi alınamadı. Worker/Yahoo bağlantısını kontrol et.");
+    if (points.length === 0) throw new Error("Hiçbir hisse verisi alınamadı.");
 
     lastTrendsPoints = points;
     lastTrendsScanTime = Date.now();
@@ -1569,7 +1541,6 @@ async function runTrendsScan() {
     trendsLoading.classList.remove("active");
     trendsResults.style.display = "block";
 
-    // Trendler taramasından sonra alarmları da kontrol et (aynı veriyi kullanır)
     checkAlarms(points);
 
     if (failedCount > 0) {
@@ -1583,7 +1554,6 @@ async function runTrendsScan() {
   }
 }
 
-// Filtre uygulanmış trendler render'ı
 function renderTrendsAll(points) {
   const SANITY_LIMIT = 30;
   const reliablePoints = points.filter((p) => Math.abs(p.changePct) <= SANITY_LIMIT);
@@ -1593,7 +1563,6 @@ function renderTrendsAll(points) {
   if (f === "up") filtered = reliablePoints.filter((p) => p.changePct > 0);
   else if (f === "down") filtered = reliablePoints.filter((p) => p.changePct < 0);
   else if (f === "highvol") {
-    // Ortalama hacmin üstündekiler
     const avgVol = points.reduce((s, p) => s + (p.volumeTL || 0), 0) / (points.length || 1);
     filtered = points.filter((p) => (p.volumeTL || 0) > avgVol);
   }
@@ -1651,7 +1620,7 @@ function renderMarketPulse(points) {
     <div class="pulse-stat up"><div class="pulse-num">${up}</div><div class="pulse-label">Yükselen</div></div>
     <div class="pulse-stat down"><div class="pulse-num">${down}</div><div class="pulse-label">Düşen</div></div>
     <div class="pulse-stat flat"><div class="pulse-num">${flat}</div><div class="pulse-label">Sabit</div></div>
-    <div class="pulse-stat ${changeClass(avgChange)}"><div class="pulse-num">${fmtPct(avgChange)}</div><div class="pulse-label">Ortalama Değişim</div></div>
+    <div class="pulse-stat ${changeClass(avgChange)}"><div class="pulse-num">${fmtPct(avgChange)}</div><div class="pulse-label">Ort. Değişim</div></div>
     <div class="pulse-bar">
       <div style="width:${upPct}%; background:var(--up)"></div>
       <div style="width:${flatPct}%; background:var(--text-faint)"></div>
@@ -1673,11 +1642,8 @@ function renderHeatmap(points) {
         ? lerpColor("#1a2e28", "#17c987", intensity)
         : lerpColor("#2e1a1e", "#ff4757", intensity);
       const border = isSuspect ? "border:2px dashed #d4af37;" : "";
-      const warn = isSuspect ? ' <span title="Bu değer olağan dışı — Yahoo verisinde bir hata olabilir, teyit et.">⚠️</span>' : "";
-      const titleText = isSuspect
-        ? `${p.symbol}: ${fmtPct(p.changePct)} (ŞÜPHELİ VERİ — bu kadar büyük bir günlük hareket BIST'te olağan değil, teyit etmeden güvenme)`
-        : `${p.symbol}: ${fmtPct(p.changePct)}`;
-      return `<div class="heatmap-cell" style="background:${color};${border}" title="${titleText}" onclick="goToStock('${p.symbol}')">
+      const warn = isSuspect ? ' <span title="Şüpheli veri">⚠️</span>' : "";
+      return `<div class="heatmap-cell" style="background:${color};${border}" title="${p.symbol}: ${fmtPct(p.changePct)}" onclick="goToStock('${p.symbol}')">
         <div class="hc-symbol">${p.symbol}${warn}</div>
         <div class="hc-change">${fmtPct(p.changePct, 1)}</div>
       </div>`;
@@ -1792,11 +1758,11 @@ async function runDeepScan() {
 
     const failedCount = settled.length - results.length;
     if (failedCount > 0) {
-      deepScanError.textContent = `${failedCount} hisse için veri alınamadı (atlandı), ${results.length} hisse başarıyla tarandı.`;
+      deepScanError.textContent = `${failedCount} hisse için veri alınamadı, ${results.length} hisse tarandı.`;
     }
   } catch (err) {
     deepScanLoading.classList.remove("active");
-    deepScanError.textContent = err.message || "Detaylı tarama sırasında bir hata oluştu.";
+    deepScanError.textContent = err.message || "Hata oluştu.";
   } finally {
     deepScanBtn.disabled = false;
   }
@@ -1907,7 +1873,7 @@ async function runMoneyFlowScan() {
         try {
           await new Promise((r) => setTimeout(r, 500));
           points.push(...(await fetchQuoteBatch(chunks[i])));
-        } catch (e2) { }
+        } catch (e2) {}
       }
     }
 
@@ -1917,7 +1883,6 @@ async function runMoneyFlowScan() {
     moneyLoading.classList.remove("active");
     moneyResults.style.display = "block";
 
-    // Alarmları da kontrol et
     checkAlarms(points);
   } catch (err) {
     moneyLoading.classList.remove("active");
@@ -1963,7 +1928,7 @@ function renderMoneyFlow(points) {
     const stocksSorted = [...s.stocks].sort((a, b) => (b.volRatio ?? 0) - (a.volRatio ?? 0));
     const stocksHtml = stocksSorted.map((p) => {
       const isSuspect = p.changePct != null && Math.abs(p.changePct) > 30;
-      const warn = isSuspect ? ' <span title="Bu değer olağan dışı, teyit et">⚠️</span>' : "";
+      const warn = isSuspect ? ' <span title="Teyit et">⚠️</span>' : "";
       return `
       <div class="money-stock-row">
         <div class="msl-left">
@@ -2086,7 +2051,7 @@ function checkShareableLink() {
 }
 
 // ==========================================================================
-// 24) ÖZET (ANA SAYFA) EKRANI
+// 24) ÖZET (ANA SAYFA) EKRANI — BENTO GRID
 // ==========================================================================
 async function renderHomeScreen() {
   await renderHomePortfolio();
@@ -2101,11 +2066,20 @@ async function renderHomePortfolio() {
   const pos = await loadPortfolio();
   if (pos.length === 0) {
     homePortfolioEmpty.classList.add("visible");
-    homePortfolioSummary.innerHTML = ""; homeSectorNote.textContent = "";
+    homePortfolioHeroValue.textContent = "—";
+    homePortfolioHeroChange.textContent = "—";
+    homePortfolioHeroChange.className = "bento-hero-change flat";
+    homePortfolioCost.textContent = "—";
+    homePortfolioCostSub.textContent = "—";
+    homePortfolioDayChange.textContent = "—";
+    homePortfolioDayChange.className = "bento-mini-value flat";
+    homePortfolioDayChangeSub.textContent = "—";
+    homePortfolioCount.textContent = "—";
+    homePortfolioCountSub.textContent = "—";
+    homeSectorNote.textContent = "";
     return;
   }
   homePortfolioEmpty.classList.remove("visible");
-  homePortfolioSummary.innerHTML = '<div class="summary-card"><div class="summary-label">Yükleniyor</div><div class="summary-value">—</div></div>';
 
   const results = await Promise.allSettled(pos.map((p) => fetchQuickPrice(p.symbol)));
   let tc = 0, tv = 0, tdc = 0; const alloc = [];
@@ -2120,12 +2094,25 @@ async function renderHomePortfolio() {
     } else { tv += cv; }
   });
   const tg = tv - tc, tgp = tc ? (tg / tc) * 100 : 0;
-  homePortfolioSummary.innerHTML =
-    '<div class="summary-card"><div class="summary-label">Toplam Değer</div><div class="summary-value">' + fmtTL(tv) + '</div></div>' +
-    '<div class="summary-card"><div class="summary-label">Kâr/Zarar</div><div class="summary-value ' + changeClass(tg) + '">' + (tg >= 0 ? "+" : "") + fmtTL(tg) + " (" + fmtPct(tgp) + ')</div></div>' +
-    '<div class="summary-card"><div class="summary-label">Bugünkü Değişim</div><div class="summary-value ' + changeClass(tdc) + '">' + (tdc >= 0 ? "+" : "") + fmtTL(tdc) + " (" + fmtPct(tv ? (tdc / (tv - tdc)) * 100 : 0) + ')</div></div>' +
-    '<div class="summary-card"><div class="summary-label">Pozisyon Sayısı</div><div class="summary-value">' + pos.length + "</div></div>";
+  const tdcPct = tv ? (tdc / (tv - tdc)) * 100 : 0;
 
+  // Hero: portföy değeri + K/Z
+  homePortfolioHeroValue.textContent = fmtTL(tv);
+  homePortfolioHeroChange.textContent = (tg >= 0 ? "+" : "") + fmtTL(tg) + " (" + fmtPct(tgp) + ")";
+  homePortfolioHeroChange.className = "bento-hero-change " + changeClass(tg);
+
+  // Mini stats
+  homePortfolioCost.textContent = fmtTL(tc);
+  homePortfolioCostSub.textContent = "Toplam yatırım";
+
+  homePortfolioDayChange.textContent = (tdc >= 0 ? "+" : "") + fmtTL(tdc);
+  homePortfolioDayChange.className = "bento-mini-value " + changeClass(tdc);
+  homePortfolioDayChangeSub.textContent = fmtPct(tdcPct) + " bugün";
+
+  homePortfolioCount.textContent = pos.length;
+  homePortfolioCountSub.textContent = "aktif pozisyon";
+
+  // Sektör notu
   if (tv > 0 && alloc.length > 0) {
     const bySector = {};
     alloc.forEach((a) => { const sec = getSector(a.symbol); bySector[sec] = (bySector[sec] || 0) + a.value; });
@@ -2142,18 +2129,18 @@ async function renderHomePortfolioChart() {
   let history = [];
   try { history = await loadPortfolioHistory(); } catch (e) { history = []; }
   if (!history || history.length < 2) {
-    homePortfolioChartCard.style.display = history && history.length > 0 ? "block" : "none";
+    homePortfolioChartCard.style.display = history && history.length > 0 ? "" : "none";
     homePortfolioChartEmpty.classList.add("visible");
     homePortfolioChartEl.innerHTML = "";
     return;
   }
-  homePortfolioChartCard.style.display = "block";
+  homePortfolioChartCard.style.display = "";
   homePortfolioChartEmpty.classList.remove("visible");
   homePortfolioChartEl.innerHTML = "";
 
   const light = isLightTheme();
   const chart = LightweightCharts.createChart(homePortfolioChartEl, {
-    height: 140,
+    height: 150,
     layout: { background: { color: "transparent" }, textColor: light ? "#566072" : "#7d8a9c", fontFamily: "JetBrains Mono, monospace" },
     grid: { vertLines: { visible: false }, horzLines: { color: light ? "#e4e7ec" : "#1a1f29" } },
     timeScale: { borderColor: light ? "#dde1e7" : "#232a36" },
@@ -2226,7 +2213,7 @@ function renderHomePulse() {
   if (!lastTrendsPoints) {
     homePulseEmpty.classList.add("visible");
     homePulseRow.innerHTML = "";
-    homePulseNote.textContent = "Trendler'den son tarama sonucu";
+    homePulseNote.textContent = "Trendler'den son tarama";
     return;
   }
   homePulseEmpty.classList.remove("visible");
@@ -2235,7 +2222,7 @@ function renderHomePulse() {
   const down = points.filter((p) => p.changePct < -0.05).length;
   const flat = points.length - up - down;
   const minsAgo = Math.round((Date.now() - lastTrendsScanTime) / 60000);
-  homePulseNote.textContent = minsAgo < 1 ? "Az önce tarandı" : minsAgo + " dakika önce tarandı";
+  homePulseNote.textContent = minsAgo < 1 ? "Az önce tarandı" : minsAgo + " dakika önce";
   homePulseRow.innerHTML =
     '<div class="pulse-row">' +
     '<div class="pulse-stat up"><div class="pulse-num">' + up + '</div><div class="pulse-label">Yükselen</div></div>' +
@@ -2245,12 +2232,17 @@ function renderHomePulse() {
 }
 
 // ==========================================================================
-// 25) AÇIK/KOYU TEMA
+// 25) TEMA
 // ==========================================================================
 const LS_THEME_KEY = "bist_terminal_theme";
 function applyTheme(theme) {
-  if (theme === "light") { document.documentElement.setAttribute("data-theme", "light"); themeToggleBtn.textContent = "☀️"; }
-  else { document.documentElement.removeAttribute("data-theme"); themeToggleBtn.textContent = "🌙"; }
+  if (theme === "light") {
+    document.documentElement.setAttribute("data-theme", "light");
+    themeToggleBtn.querySelector(".side-icon").textContent = "☀️";
+  } else {
+    document.documentElement.removeAttribute("data-theme");
+    themeToggleBtn.querySelector(".side-icon").textContent = "🌙";
+  }
 }
 function initTheme() {
   const saved = localStorage.getItem(LS_THEME_KEY) || "dark";
@@ -2265,7 +2257,7 @@ themeToggleBtn.addEventListener("click", () => {
 initTheme();
 
 // ==========================================================================
-// 26) PDF AL / YAZDIR
+// 26) PDF / YAZDIR
 // ==========================================================================
 printPdfBtn.addEventListener("click", () => { window.print(); });
 
@@ -2319,11 +2311,11 @@ historyRangeTabs.addEventListener("click", (e) => {
 function renderPortfolioHistoryChart() {
   const history = lastPortfolioHistory;
   if (!history || history.length < 2) {
-    portfolioHistoryCard.style.display = history && history.length === 1 ? "block" : "none";
+    portfolioHistoryCard.style.display = history && history.length === 1 ? "" : "none";
     if (history && history.length === 1) { portfolioHistoryEmpty.classList.add("visible"); portfolioHistoryChartEl.innerHTML = ""; }
     return;
   }
-  portfolioHistoryCard.style.display = "block";
+  portfolioHistoryCard.style.display = "";
   portfolioHistoryEmpty.classList.remove("visible");
 
   let filtered = [...history];
@@ -2413,7 +2405,7 @@ async function runSignalScan() {
     });
 
     const points = settled.filter((r) => r.status === "fulfilled").map((r) => r.value);
-    if (points.length === 0) throw new Error("Hiçbir hisse verisi alınamadı. Piyasa kapalıysa veya gün içi veri henüz oluşmadıysa bu normal olabilir.");
+    if (points.length === 0) throw new Error("Hiçbir hisse verisi alınamadı. Piyasa kapalıysa normal olabilir.");
 
     renderSignalResults(points);
     signalLoading.classList.remove("active");
@@ -2421,7 +2413,7 @@ async function runSignalScan() {
 
     const failedCount = settled.length - points.length;
     if (failedCount > 0) {
-      signalError.textContent = `${failedCount} hisse için veri alınamadı (atlandı), ${points.length} hisse başarıyla tarandı.`;
+      signalError.textContent = `${failedCount} hisse için veri alınamadı, ${points.length} hisse tarandı.`;
     }
   } catch (err) {
     signalLoading.classList.remove("active");
@@ -2442,7 +2434,7 @@ function renderSignalResults(points) {
   const signalCount = sorted.filter((p) => p.isSignal).length;
   signalEmpty.classList.toggle("visible", signalCount === 0);
 
-  signalTable.innerHTML = "<thead><tr><th>Hisse</th><th>17:00 Öncesi Değişim</th><th>17:00 Sonrası Değişim</th><th>Hacim Oranı (Sonrası/Öncesi)</th><th>Güncel Fiyat</th></tr></thead><tbody>" +
+  signalTable.innerHTML = "<thead><tr><th>Hisse</th><th>17:00 Öncesi</th><th>17:00 Sonrası</th><th>Hacim Oranı</th><th>Güncel Fiyat</th></tr></thead><tbody>" +
     sorted.map((p) => {
       const flag = p.isSignal ? ' <span class="status-tag buy">⚡ Sinyal</span>' : "";
       return `<tr><td class="symbol-cell clickable-symbol" onclick="goToStock('${p.symbol}')">${p.symbol}${flag}</td>` +
