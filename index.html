@@ -49,6 +49,10 @@
           <span class="side-icon">🏠</span>
           <span class="side-label">Özet</span>
         </button>
+        <button class="side-btn" id="navBist30Btn" data-tip="BIST 30 (Canlı)">
+          <span class="side-icon">🏛️</span>
+          <span class="side-label">BIST 30</span>
+        </button>
         <button class="side-btn" id="navPortfolioBtn" data-tip="Portföy">
           <span class="side-icon">💼</span>
           <span class="side-label">Portföy</span>
@@ -108,10 +112,86 @@
         </div>
       </div>
 
+      <!-- ============ BIST 30 EKRANI (CANLI) ============ -->
+      <div class="bist30-screen" id="bist30Screen">
+
+        <div class="bist30-header">
+          <div class="bist30-title-wrap">
+            <div class="bist30-title">🏛️ BIST 30</div>
+            <div class="bist30-subtitle">
+              <span id="bist30LiveDot" class="live-dot"></span>
+              <span id="bist30LiveLabel">Canlı · 15 sn'de bir güncellenir</span>
+            </div>
+          </div>
+          <div class="bist30-actions">
+            <select id="bist30Filter" class="filter-select">
+              <option value="all">Tümü</option>
+              <option value="up">Sadece Yükselenler</option>
+              <option value="down">Sadece Düşenler</option>
+              <option value="highvol">Yüksek Hacimliler</option>
+              <option value="nearhigh">52H Zirveye Yakın</option>
+            </select>
+            <button id="bist30RefreshBtn" class="ghost-btn">🔄 Yenile</button>
+          </div>
+        </div>
+
+        <!-- Mini statlar -->
+        <div class="bist30-stats" id="bist30Stats">
+          <div class="stat-cell up">
+            <div class="stat-num" id="bist30UpCount">—</div>
+            <div class="stat-lbl">Yükselen</div>
+          </div>
+          <div class="stat-cell down">
+            <div class="stat-num" id="bist30DownCount">—</div>
+            <div class="stat-lbl">Düşen</div>
+          </div>
+          <div class="stat-cell flat">
+            <div class="stat-num" id="bist30FlatCount">—</div>
+            <div class="stat-lbl">Sabit</div>
+          </div>
+          <div class="stat-cell" id="bist30AvgChangeCell">
+            <div class="stat-num" id="bist30AvgChange">—</div>
+            <div class="stat-lbl">Ort. Değişim</div>
+          </div>
+          <div class="stat-cell">
+            <div class="stat-num" id="bist30TotalVol">—</div>
+            <div class="stat-lbl">Toplam Hacim</div>
+          </div>
+        </div>
+
+        <!-- Yükleniyor -->
+        <div class="loading-screen" id="bist30Loading">
+          <div class="spinner"></div>
+          <span id="bist30LoadingText">YÜKLENİYOR...</span>
+        </div>
+
+        <!-- Tablo -->
+        <div class="panel-card" id="bist30TableCard" style="display:none">
+          <div class="portfolio-table-wrap">
+            <table class="portfolio-table bist30-table" id="bist30Table">
+              <thead>
+                <tr>
+                  <th class="sortable-th" data-key="symbol">Hisse</th>
+                  <th class="sortable-th" data-key="price">Fiyat</th>
+                  <th class="sortable-th" data-key="changePct">Günlük</th>
+                  <th class="sortable-th" data-key="volumeTL">Hacim (TL)</th>
+                  <th class="sortable-th" data-key="week52Pos">52H Konum</th>
+                  <th>Alarm</th>
+                </tr>
+              </thead>
+              <tbody id="bist30TableBody"></tbody>
+            </table>
+          </div>
+          <div class="bist30-footnote">
+            BIST 30 bileşenleri 3 ayda bir güncellenir · Veri kaynağı: Yahoo Finance · 15 dk gecikmeli olabilir
+          </div>
+        </div>
+
+      </div>
+
       <!-- ============ ÖZET (ANA SAYFA) EKRANI — BENTO GRID ============ -->
       <div class="home-screen" id="homeScreen">
 
-        <!-- Üst satır: büyük portföy kartı + özet stats -->
         <div class="bento-hero">
           <div class="bento-cell bento-portfolio-hero">
             <div class="bento-label">Portföy Değeri</div>
@@ -142,7 +222,6 @@
           </div>
         </div>
 
-        <!-- İkinci satır: chart + takip + nabız -->
         <div class="bento-row-3">
           <div class="bento-cell bento-chart" id="homePortfolioChartCard">
             <div class="bento-label">Portföy Getirisi (Mini)</div>
@@ -164,7 +243,6 @@
           </div>
         </div>
 
-        <!-- Üçüncü satır: BIST 30 mini + Isı haritası mini -->
         <div class="bento-row-2">
           <div class="bento-cell">
             <div class="bento-label">BIST 30 — Zirveden En Uzak</div>
@@ -201,7 +279,6 @@
           <button id="printPdfBtn" class="ghost-btn" title="PDF al">🖨️</button>
         </div>
 
-        <!-- Fiyat özeti — daha büyük, daha ferah -->
         <div class="stock-header">
           <div class="top-row">
             <div class="stock-id">
@@ -217,7 +294,6 @@
           <div class="change-badges" id="changeBadges"></div>
         </div>
 
-        <!-- 52 hafta aralığı -->
         <div class="range-card">
           <div class="card-title">52 Hafta Aralığı</div>
           <div class="range-track">
@@ -240,7 +316,6 @@
           </div>
         </div>
 
-        <!-- Grafik -->
         <div class="chart-card">
           <div class="card-head">
             <div>
@@ -262,7 +337,6 @@
           <div id="volumeChart"></div>
         </div>
 
-        <!-- AL/SAT ve Değerleme -->
         <div class="two-col-grid">
           <div class="gauge-card">
             <div class="card-title">Genel Değerlendirme</div>
@@ -292,7 +366,6 @@
           </div>
         </div>
 
-        <!-- Teknik + Temel -->
         <div class="two-col-grid">
           <div class="panel-card">
             <div class="card-title" style="margin-bottom:16px">Teknik Göstergeler</div>
@@ -304,7 +377,6 @@
           </div>
         </div>
 
-        <!-- Çeyreklik + Analist Trendi -->
         <div class="two-col-grid">
           <div class="panel-card">
             <div class="card-title" style="margin-bottom:4px">Çeyreklik Gelir & Kâr</div>
@@ -320,14 +392,12 @@
           </div>
         </div>
 
-        <!-- Şirket Profili -->
         <div class="panel-card" id="profileCard" style="display:none">
           <div class="card-title" style="margin-bottom:6px">Şirket Profili</div>
           <div class="sub-note" id="profileMeta" style="margin-bottom:12px"></div>
           <div id="profileSummary" class="profile-summary"></div>
         </div>
 
-        <!-- Not -->
         <div class="panel-card">
           <div class="card-title" style="margin-bottom:12px">Kendi Notun</div>
           <textarea id="stockNoteInput" class="note-textarea" placeholder="Bu hisseyle ilgili kendine not bırak..."></textarea>
@@ -337,7 +407,6 @@
           </div>
         </div>
 
-        <!-- Hacim -->
         <div class="volume-card">
           <div class="volume-main">
             <div class="card-title">Günlük Hacim (TL)</div>
