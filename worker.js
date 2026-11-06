@@ -34,8 +34,15 @@ function json(body, status = 200) {
   });
 }
 
-// Bellek-içi cookie/crumb cache (25 dakika)
-let authCache = null;
+// ---------------------------------------------------------------------
+// Yahoo cookie + crumb (v2): crumb KV'de saklanır, isolate değişse de yeniden alınmaz.
+// Yahoo 429/401 verirse önbellek sıfırlanıp bir kez yeniden denenir; crumb hiç
+// alınamazsa toplu fiyat için crumb gerektirmeyen chart uç noktasına düşülür.
+// ---------------------------------------------------------------------
+const AUTH_KV_KEY = "yahoo_auth";
+const AUTH_TTL_MS = 6 * 60 * 60 * 1000; // taze sayılma süresi
+let authCache = null; // bellek-içi
+let authFail = null; // crumb alınamazsa 3 dk boyunca Yahoo'ya tekrar tekrar sorma { until, err }
 
 function extractCookie(res) {
   if (typeof res.headers.getSetCookie === "function") {
@@ -46,36 +53,205 @@ function extractCookie(res) {
   return single ? single.split(";")[0] : "";
 }
 
-async function getAuth() {
-  if (authCache && authCache.expires > Date.now()) return authCache;
-
-  const cookieRes = await fetch("https://fc.yahoo.com/", {
-    headers: BROWSER_HEADERS,
-    redirect: "manual",
-  });
-  const cookie = extractCookie(cookieRes);
-
-  const crumbRes = await fetch("https://query2.finance.yahoo.com/v1/test/getcrumb", {
-    headers: { ...BROWSER_HEADERS, Cookie: cookie },
-  });
-  const crumb = (await crumbRes.text()).trim();
-
-  if (!crumb || crumb.includes("<html") || !crumbRes.ok) {
-    throw new Error(`Crumb alınamadı (status ${crumbRes.status}).`);
-  }
-
-  authCache = { cookie, crumb, expires: Date.now() + 25 * 60 * 1000 };
-  return authCache;
+function swapHost(u) {
+  return u.includes("//query1.") ? u.replace("//query1.", "//query2.") : u.replace("//query2.", "//query1.");
 }
 
-async function yahooFetch(url) {
-  const auth = await getAuth();
+async function fetchAuth() {
+  let lastErr = null;
+  for (const cookieUrl of ["https://fc.yahoo.com/", "https://finance.yahoo.com/quote/AAPL"]) {
+    try {
+      const cookieRes = await fetch(cookieUrl, { headers: BROWSER_HEADERS, redirect: "manual" });
+      const cookie = extractCookie(cookieRes);
+      if (!cookie) { lastErr = new Error("Cookie alınamadı."); continue; }
+      for (const host of ["query2", "query1"]) {
+        const crumbRes = await fetch(`https://${host}.finance.yahoo.com/v1/test/getcrumb`, {
+          headers: { ...BROWSER_HEADERS, Cookie: cookie },
+        });
+        const crumb = (await crumbRes.text()).trim();
+        if (crumbRes.ok && crumb && !crumb.includes("<html")) return { cookie, crumb };
+        lastErr = new Error(`Crumb alınamadı (status ${crumbRes.status}).`);
+      }
+    } catch (e) {
+      lastErr = e;
+    }
+  }
+  throw lastErr || new Error("Crumb alınamadı.");
+}
+
+async function getAuth(env, force = false) {
+  const now = Date.now();
+  if (!force && authCache && authCache.expires > now) return authCache;
+  let kvAuth = null;
+  if (env && env.PORTFOLIO_KV) {
+    try { kvAuth = await env.PORTFOLIO_KV.get(AUTH_KV_KEY, "json"); } catch (e) { /* KV okunamadıysa yeniden al */ }
+  }
+  if (!force && kvAuth && kvAuth.expires > now) { authCache = kvAuth; return kvAuth; }
+  if (authFail && authFail.until > now) {
+    const stale0 = authCache || kvAuth;
+    if (stale0) return stale0;
+    throw authFail.err;
+  }
+  try {
+    const a = await fetchAuth();
+    authFail = null;
+    const rec = { ...a, expires: now + AUTH_TTL_MS };
+    authCache = rec;
+    if (env && env.PORTFOLIO_KV) {
+      try { await env.PORTFOLIO_KV.put(AUTH_KV_KEY, JSON.stringify(rec)); } catch (e) { /* yazılamadıysa bellekte kalır */ }
+    }
+    return rec;
+  } catch (e) {
+    authFail = { until: now + 3 * 60 * 1000, err: e };
+    const stale = authCache || kvAuth; // yenisi alınamadıysa eskisini kullan
+    if (stale) return stale;
+    throw e;
+  }
+}
+
+async function callWithAuth(url, auth) {
   const sep = url.includes("?") ? "&" : "?";
-  const fullUrl = `${url}${sep}crumb=${encodeURIComponent(auth.crumb)}`;
-  const res = await fetch(fullUrl, {
+  return fetch(`${url}${sep}crumb=${encodeURIComponent(auth.crumb)}`, {
     headers: { ...BROWSER_HEADERS, Cookie: auth.cookie },
   });
+}
+
+async function yahooFetch(url, env) {
+  let auth = await getAuth(env);
+  let res = await callWithAuth(url, auth);
+  if (res.status === 401 || res.status === 403 || res.status === 429) {
+    try {
+      auth = await getAuth(env, true);
+      const retry = await callWithAuth(swapHost(url), auth);
+      if (retry.ok || !res.ok) res = retry;
+    } catch (e) { /* ilk yanıt döner */ }
+  }
   return res;
+}
+
+// crumb gerektirmeyen istek (chart); ana ve yedek sunucu denenir
+async function yahooPlain(url) {
+  let last = null;
+  for (const u of [url, swapHost(url)]) {
+    try {
+      const res = await fetch(u, { headers: BROWSER_HEADERS });
+      if (res.ok) return res;
+      last = res;
+    } catch (e) { /* diğer sunucuyu dene */ }
+  }
+  if (last) return last;
+  throw new Error("Yahoo'ya ulaşılamadı.");
+}
+
+// toplu fiyat yedeği: her hisse için chart meta bilgisinden quote benzeri kayıt üretir
+async function quotesFromChart(symbols) {
+  const out = [];
+  let i = 0;
+  const worker = async () => {
+    while (i < symbols.length) {
+      const s = symbols[i++];
+      try {
+        const res = await yahooPlain(`https://query1.finance.yahoo.com/v8/finance/chart/${s}.IS?range=1d&interval=1d`);
+        if (!res.ok) continue;
+        const m = (await res.json())?.chart?.result?.[0]?.meta;
+        if (!m || m.regularMarketPrice == null) continue;
+        const prev = m.previousClose ?? m.chartPreviousClose ?? null;
+        out.push({
+          symbol: `${s}.IS`,
+          shortName: m.shortName || m.longName || s,
+          regularMarketPrice: m.regularMarketPrice,
+          regularMarketChangePercent: prev ? ((m.regularMarketPrice - prev) / prev) * 100 : null,
+          regularMarketPreviousClose: prev,
+          regularMarketVolume: m.regularMarketVolume || 0,
+        });
+      } catch (e) { /* bu hisse atlanır */ }
+    }
+  };
+  await Promise.all(Array.from({ length: Math.min(6, symbols.length) }, worker));
+  return out;
+}
+
+// ---------------------------------------------------------------------
+// v3: kur (USD/TRY, EUR/TRY) ve kripto (CoinGecko ilk 50) uç noktaları
+// Önbellek: isolate belleği (kısa) + KV'de "son bilinen iyi değer" (en fazla 15 dakikada bir yazılır,
+// KV yazma kotasını yemesin diye). Kaynak hata verirse eski değer "stale: true" ile döner.
+// ---------------------------------------------------------------------
+const memCache = new Map();
+async function cachedLoad(env, key, ttlMs, loader) {
+  const now = Date.now();
+  const m = memCache.get(key);
+  if (m && now - m.t < ttlMs) return { ...m.data };
+  try {
+    const data = await loader();
+    memCache.set(key, { t: now, data, kv: m ? m.kv : 0 });
+    if (env.PORTFOLIO_KV && now - (m ? m.kv || 0 : 0) > 15 * 60 * 1000) {
+      try { await env.PORTFOLIO_KV.put("cache_" + key, JSON.stringify({ t: now, data })); memCache.get(key).kv = now; } catch (e) { /* KV yazılamadıysa bellek yeter */ }
+    }
+    return { ...data };
+  } catch (e) {
+    if (m) return { ...m.data, stale: true, staleSince: m.t };
+    if (env.PORTFOLIO_KV) {
+      try {
+        const rec = await env.PORTFOLIO_KV.get("cache_" + key, "json");
+        if (rec) return { ...rec.data, stale: true, staleSince: rec.t };
+      } catch (e2) { /* KV okunamadı */ }
+    }
+    throw e;
+  }
+}
+
+async function fxRate(pair) {
+  const res = await yahooPlain(`https://query1.finance.yahoo.com/v8/finance/chart/${pair}=X?range=1d&interval=1d`);
+  if (!res.ok) throw new Error(`${pair}: status ${res.status}`);
+  const m = (await res.json())?.chart?.result?.[0]?.meta;
+  if (!m || m.regularMarketPrice == null) throw new Error(`${pair}: veri yok`);
+  const prev = m.chartPreviousClose ?? m.previousClose ?? null;
+  return { pair, price: m.regularMarketPrice, prev, changePct: prev ? ((m.regularMarketPrice - prev) / prev) * 100 : null, time: m.regularMarketTime || null };
+}
+
+async function loadFx(pairs) {
+  const out = (await Promise.all(pairs.map((p) => fxRate(p).catch(() => null)))).filter(Boolean);
+  if (!out.length) throw new Error("Kur verisi alınamadı.");
+  return { rates: out, t: Date.now() };
+}
+
+const CG_HEADERS = { "User-Agent": BROWSER_HEADERS["User-Agent"], Accept: "application/json" };
+async function cgFetch(path) {
+  const res = await fetch(`https://api.coingecko.com/api/v3/${path}`, { headers: CG_HEADERS });
+  if (!res.ok) throw new Error(`CoinGecko status ${res.status}`);
+  return res.json();
+}
+
+async function loadCrypto() {
+  const [rows, usd] = await Promise.all([
+    cgFetch("coins/markets?vs_currency=usd&order=market_cap_desc&per_page=50&page=1&sparkline=false&price_change_percentage=24h%2C7d%2C30d"),
+    fxRate("USDTRY").catch(() => null),
+  ]);
+  if (!Array.isArray(rows) || !rows.length) throw new Error("CoinGecko boş liste döndürdü.");
+  const coins = rows.map((r) => ({
+    id: r.id, sym: String(r.symbol || "").toUpperCase(), name: r.name, rank: r.market_cap_rank,
+    price: r.current_price, chg24: r.price_change_percentage_24h_in_currency ?? r.price_change_percentage_24h ?? null,
+    chg7: r.price_change_percentage_7d_in_currency ?? null, chg30: r.price_change_percentage_30d_in_currency ?? null,
+    mcap: r.market_cap, vol: r.total_volume, hi24: r.high_24h ?? null, lo24: r.low_24h ?? null,
+  }));
+  return { coins, usdtry: usd ? usd.price : null, t: Date.now() };
+}
+
+// CoinGecko günlük fiyat serisini Yahoo chart biçimine çevirir (uygulamanın göstergeleri aynı kodu kullanır)
+async function loadCryptoChart(id, days) {
+  const d = await cgFetch(`coins/${id}/market_chart?vs_currency=usd&days=${days}&interval=daily`);
+  const byDay = new Map();
+  (d.prices || []).forEach(([ms, p]) => { if (p != null) byDay.set(Math.floor(ms / 86400000), { t: Math.floor(ms / 1000), p }); });
+  const vmap = new Map();
+  (d.total_volumes || []).forEach(([ms, v]) => { if (v != null) vmap.set(Math.floor(ms / 86400000), v); });
+  const keys = [...byDay.keys()].sort((a, b) => a - b);
+  if (keys.length < 5) throw new Error("Grafik verisi yetersiz.");
+  const ts = [], o = [], h = [], l = [], c = [], v = [];
+  keys.forEach((k, i) => {
+    const cur = byDay.get(k).p, prev = i ? c[i - 1] : cur;
+    ts.push(byDay.get(k).t); o.push(prev); c.push(cur); h.push(Math.max(prev, cur)); l.push(Math.min(prev, cur)); v.push(vmap.get(k) ?? 0);
+  });
+  return { chart: { result: [{ meta: { currency: "USD", regularMarketPrice: c[c.length - 1], chartPreviousClose: c[c.length - 2], approx: true }, timestamp: ts, indicators: { quote: [{ open: o, high: h, low: l, close: c, volume: v }] } }], error: null } };
 }
 
 export default {
@@ -281,21 +457,46 @@ export default {
         return json({ error: "Geçerli hisse kodları girin." }, 400);
       }
       const yahooSymbols = symbolsList.map((s) => `${s}.IS`).join(",");
+      let detail = "";
       try {
-        const res = await yahooFetch(
-          `https://query1.finance.yahoo.com/v7/finance/quote?symbols=${yahooSymbols}`
-        );
+        const res = await yahooFetch(`https://query1.finance.yahoo.com/v7/finance/quote?symbols=${yahooSymbols}`, env);
         const text = await res.text();
-        if (!res.ok) {
-          return json(
-            { error: "Yahoo Finance'ten toplu veri alınamadı.", status: res.status, detail: text.slice(0, 300) },
-            502
-          );
+        if (res.ok) {
+          const data = JSON.parse(text);
+          if ((data?.quoteResponse?.result || []).length) return json(data);
+          detail = "Yahoo boş liste döndürdü.";
+        } else {
+          detail = `status ${res.status}: ${text.slice(0, 200)}`;
         }
-        return json(JSON.parse(text));
       } catch (e) {
-        return json({ error: "Sunucu hatası.", detail: String(e && e.message ? e.message : e) }, 500);
+        detail = String(e && e.message ? e.message : e);
       }
+      // yedek yol: crumb gerektirmeyen chart verisinden fiyat üret
+      const result = await quotesFromChart(symbolsList);
+      if (result.length) return json({ quoteResponse: { result }, fallback: true });
+      return json({ error: "Yahoo Finance'ten toplu veri alınamadı.", detail }, 502);
+    }
+
+    // --- Kur: USD/TRY, EUR/TRY (Yahoo chart meta) ---
+    if (url.pathname === "/api/fx") {
+      const pairs = (url.searchParams.get("pairs") || "USDTRY,EURTRY").toUpperCase().split(",").map((p) => p.trim()).filter((p) => /^[A-Z]{6}$/.test(p)).slice(0, 6);
+      try { return json(await cachedLoad(env, "fx_" + pairs.join("_"), 30000, () => loadFx(pairs))); }
+      catch (e) { return json({ error: "Kur verisi alınamadı.", detail: String(e && e.message ? e.message : e) }, 502); }
+    }
+
+    // --- Kripto: piyasa değerine göre ilk 50 (CoinGecko) ---
+    if (url.pathname === "/api/crypto") {
+      try { return json(await cachedLoad(env, "crypto50", 60000, loadCrypto)); }
+      catch (e) { return json({ error: "Kripto verisi alınamadı.", detail: String(e && e.message ? e.message : e) }, 502); }
+    }
+
+    // --- Kripto günlük grafik (Yahoo biçiminde) ---
+    if (url.pathname === "/api/cryptochart") {
+      const id = (url.searchParams.get("id") || "").toLowerCase();
+      const days = Math.max(30, Math.min(365, parseInt(url.searchParams.get("days") || "365", 10) || 365));
+      if (!/^[a-z0-9-]{1,60}$/.test(id)) return json({ error: "Geçersiz kripto kimliği." }, 400);
+      try { return json(await cachedLoad(env, `cc_${id}_${days}`, 10 * 60000, () => loadCryptoChart(id, days))); }
+      catch (e) { return json({ error: "Kripto grafiği alınamadı.", detail: String(e && e.message ? e.message : e) }, 502); }
     }
 
     const rawSymbol = (url.searchParams.get("symbol") || "").toUpperCase().trim();
@@ -310,9 +511,10 @@ export default {
       if (url.pathname === "/api/chart") {
         const range = url.searchParams.get("range") || "1y";
         const interval = url.searchParams.get("interval") || "1d";
-        const res = await yahooFetch(
-          `https://query2.finance.yahoo.com/v8/finance/chart/${yahooSymbol}?range=${range}&interval=${interval}&includeAdjustedClose=true`
-        );
+        const chartUrl = `https://query2.finance.yahoo.com/v8/finance/chart/${yahooSymbol}?range=${range}&interval=${interval}&includeAdjustedClose=true`;
+        let res = null;
+        try { res = await yahooPlain(chartUrl); } catch (e) { /* crumb'lı yola düş */ }
+        if (!res || !res.ok) res = await yahooFetch(chartUrl, env);
         const text = await res.text();
         if (!res.ok) {
           return json(
@@ -335,7 +537,8 @@ export default {
           "assetProfile",
         ].join(",");
         const res = await yahooFetch(
-          `https://query2.finance.yahoo.com/v10/finance/quoteSummary/${yahooSymbol}?modules=${modules}&formatted=false&corsDomain=finance.yahoo.com`
+          `https://query2.finance.yahoo.com/v10/finance/quoteSummary/${yahooSymbol}?modules=${modules}&formatted=false&corsDomain=finance.yahoo.com`,
+          env
         );
         const text = await res.text();
         if (!res.ok) {
