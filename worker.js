@@ -222,7 +222,7 @@ async function cgFetch(path) {
   return res.json();
 }
 
-async function loadCrypto() {
+async function loadCryptoCG() {
   const [rows, usd] = await Promise.all([
     cgFetch("coins/markets?vs_currency=usd&order=market_cap_desc&per_page=50&page=1&sparkline=false&price_change_percentage=24h%2C7d%2C30d"),
     fxRate("USDTRY").catch(() => null),
@@ -235,6 +235,45 @@ async function loadCrypto() {
     mcap: r.market_cap, vol: r.total_volume, hi24: r.high_24h ?? null, lo24: r.low_24h ?? null,
   }));
   return { coins, usdtry: usd ? usd.price : null, t: Date.now() };
+}
+
+
+// Yedek kaynak: CryptoCompare (anahtarsız). CoinGecko Cloudflare IP'lerini engellerse devreye girer.
+async function ccFetch(path) {
+  const res = await fetch(`https://min-api.cryptocompare.com/data/${path}`, { headers: CG_HEADERS });
+  if (!res.ok) throw new Error(`CryptoCompare status ${res.status}`);
+  const j = await res.json();
+  if (j.Response === "Error") throw new Error("CryptoCompare: " + (j.Message || "hata"));
+  return j;
+}
+async function loadCryptoCC() {
+  const [j, usd] = await Promise.all([ccFetch("top/mktcapfull?limit=50&tsym=USD"), fxRate("USDTRY").catch(() => null)]);
+  const coins = (j.Data || []).filter((x) => x.RAW && x.RAW.USD && x.RAW.USD.PRICE != null).map((x, i) => {
+    const r = x.RAW.USD, n = x.CoinInfo.Name;
+    return { id: "cc-" + String(n).toLowerCase().replace(/[^a-z0-9]/g, ""), sym: String(n).toUpperCase(), name: x.CoinInfo.FullName, rank: i + 1,
+      price: r.PRICE, chg24: r.CHANGEPCT24HOUR ?? null, chg7: null, chg30: null, mcap: r.MKTCAP, vol: r.TOTALVOLUME24HTO ?? r.VOLUME24HOURTO ?? null, hi24: r.HIGH24HOUR ?? null, lo24: r.LOW24HOUR ?? null };
+  });
+  if (!coins.length) throw new Error("CryptoCompare boş liste döndürdü.");
+  return { coins, usdtry: usd ? usd.price : null, t: Date.now(), source: "cryptocompare" };
+}
+async function loadCrypto() {
+  try { const r = await loadCryptoCG(); r.source = "coingecko"; return r; }
+  catch (e1) {
+    try { return await loadCryptoCC(); }
+    catch (e2) { throw new Error(`${e1.message}; ${e2.message}`); }
+  }
+}
+async function loadCryptoChartCC(sym, days) {
+  const j = await ccFetch(`v2/histoday?fsym=${encodeURIComponent(sym.toUpperCase())}&tsym=USD&limit=${days - 1}`);
+  const rows = (j.Data && j.Data.Data || []).filter((r) => r.close > 0);
+  if (rows.length < 5) throw new Error("Grafik verisi yetersiz.");
+  const c = rows.map((r) => r.close);
+  return { chart: { result: [{ meta: { currency: "USD", regularMarketPrice: c[c.length - 1], chartPreviousClose: c[c.length - 2], source: "cryptocompare" }, timestamp: rows.map((r) => r.time), indicators: { quote: [{ open: rows.map((r) => r.open), high: rows.map((r) => r.high), low: rows.map((r) => r.low), close: c, volume: rows.map((r) => r.volumeto || 0) }] } }], error: null } };
+}
+async function loadCryptoChartAny(id, sym, days) {
+  if (id.startsWith("cc-")) return loadCryptoChartCC(sym || id.slice(3), days);
+  try { return await loadCryptoChart(id, days); }
+  catch (e1) { if (!sym) throw e1; try { return await loadCryptoChartCC(sym, days); } catch (e2) { throw new Error(`${e1.message}; ${e2.message}`); } }
 }
 
 // CoinGecko günlük fiyat serisini Yahoo chart biçimine çevirir (uygulamanın göstergeleri aynı kodu kullanır)
@@ -495,7 +534,7 @@ export default {
       const id = (url.searchParams.get("id") || "").toLowerCase();
       const days = Math.max(30, Math.min(365, parseInt(url.searchParams.get("days") || "365", 10) || 365));
       if (!/^[a-z0-9-]{1,60}$/.test(id)) return json({ error: "Geçersiz kripto kimliği." }, 400);
-      try { return json(await cachedLoad(env, `cc_${id}_${days}`, 10 * 60000, () => loadCryptoChart(id, days))); }
+      try { return json(await cachedLoad(env, `cc_${id}_${days}`, 10 * 60000, () => loadCryptoChartAny(id, (url.searchParams.get("sym") || "").replace(/[^A-Za-z0-9]/g, "").slice(0, 12), days))); }
       catch (e) { return json({ error: "Kripto grafiği alınamadı.", detail: String(e && e.message ? e.message : e) }, 502); }
     }
 
