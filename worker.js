@@ -256,12 +256,51 @@ async function loadCryptoCC() {
   if (!coins.length) throw new Error("CryptoCompare boş liste döndürdü.");
   return { coins, usdtry: usd ? usd.price : null, t: Date.now(), source: "cryptocompare" };
 }
-async function loadCrypto() {
-  try { const r = await loadCryptoCG(); r.source = "coingecko"; return r; }
-  catch (e1) {
-    try { return await loadCryptoCC(); }
-    catch (e2) { throw new Error(`${e1.message}; ${e2.message}`); }
-  }
+
+// Birincil kaynak: Yahoo Finance (hisselerde zaten çalışıyor). Aday liste piyasa değerine göre sıralanır, ilk 50 alınır.
+const YC = ["BTC","ETH","USDT","XRP","BNB","SOL","USDC","DOGE","TRX","ADA","LINK","XLM","BCH","AVAX","HBAR","LTC","SHIB","DOT","XMR","ETC","ICP","ATOM","NEAR","UNI7083","AAVE","PEPE24478","SUI20947","TON11419","APT21794","ARB11841","OP11840","FIL","VET","ALGO","INJ","RUNE","MKR","GRT6719","EGLD","QNT","XTZ","EOS","THETA","AXS","SAND","MANA","CRO","KAS","TAO22974","ENA","STX4847","IMX10603","FLOW","CHZ","NEO","BSV","RNDR","FET","WLD","ONDO"].map((x) => x + "-USD");
+const ycName = (s, n) => ({ sym: String(s).replace(/-USD$/, "").replace(/\d{4,}$/, ""), name: String(n || s).replace(/\s+USD$/, "") });
+async function loadCryptoYahoo(env) {
+  const [usd, res] = await Promise.all([fxRate("USDTRY").catch(() => null), yahooFetch(`https://query1.finance.yahoo.com/v7/finance/quote?symbols=${YC.join(",")}`, env)]);
+  if (!res.ok) throw new Error(`Yahoo status ${res.status}`);
+  const list = (await res.json())?.quoteResponse?.result || [];
+  const rows = list.filter((r) => r.regularMarketPrice != null && r.marketCap > 0).sort((a, b) => b.marketCap - a.marketCap).slice(0, 50);
+  if (rows.length < 10) throw new Error("Yahoo kripto listesi boş/eksik.");
+  const coins = rows.map((r, i) => ({ ...ycName(r.symbol, r.shortName), id: r.symbol.toLowerCase(), rank: i + 1, price: r.regularMarketPrice, chg24: r.regularMarketChangePercent ?? null, chg7: null, chg30: null,
+    mcap: r.marketCap, vol: r.volume24Hr ?? r.regularMarketVolume ?? null, hi24: r.regularMarketDayHigh ?? null, lo24: r.regularMarketDayLow ?? null }));
+  return { coins, usdtry: usd ? usd.price : null, t: Date.now(), source: "yahoo" };
+}
+// v7 (crumb) 429 verirse: her coin için chart meta'sından fiyat al (Cloudflare ücretsiz plan 50 alt istek sınırı için 44 coin)
+async function loadCryptoYahooChartMeta() {
+  const usd = await fxRate("USDTRY").catch(() => null);
+  const syms = YC.slice(0, 44), out = new Array(syms.length).fill(null);
+  let i = 0;
+  const wk = async () => { while (i < syms.length) { const k = i++; try {
+    const res = await yahooPlain(`https://query1.finance.yahoo.com/v8/finance/chart/${syms[k]}?range=1d&interval=1d`);
+    if (!res.ok) continue; const m = (await res.json())?.chart?.result?.[0]?.meta; if (!m || m.regularMarketPrice == null) continue;
+    const prev = m.chartPreviousClose ?? m.previousClose ?? null;
+    out[k] = { ...ycName(syms[k], m.shortName || m.longName), id: syms[k].toLowerCase(), price: m.regularMarketPrice, chg24: prev ? ((m.regularMarketPrice - prev) / prev) * 100 : null, chg7: null, chg30: null, mcap: null, vol: m.regularMarketVolume ?? null, hi24: m.regularMarketDayHigh ?? null, lo24: m.regularMarketDayLow ?? null };
+  } catch (e) { /* atla */ } } };
+  await Promise.all(Array.from({ length: 6 }, wk));
+  const coins = out.filter(Boolean).map((c, n) => ({ ...c, rank: n + 1 }));
+  if (coins.length < 10) throw new Error("Yahoo grafik yedeği boş.");
+  return { coins, usdtry: usd ? usd.price : null, t: Date.now(), source: "yahoo-chart" };
+}
+async function loadCryptoChartYahoo(id, days) {
+  const range = days > 400 ? "2y" : days > 200 ? "1y" : "6mo";
+  const res = await yahooPlain(`https://query1.finance.yahoo.com/v8/finance/chart/${id.toUpperCase()}?range=${range}&interval=1d`);
+  if (!res.ok) throw new Error(`Yahoo grafik status ${res.status}`);
+  const j = await res.json();
+  if (!j?.chart?.result?.[0]?.timestamp) throw new Error("Yahoo grafik verisi yok.");
+  return j;
+}
+async function loadCrypto(env) {
+  const errs = [];
+  try { return await loadCryptoYahoo(env); } catch (e) { errs.push(e.message); }
+  try { return await loadCryptoYahooChartMeta(); } catch (e) { errs.push(e.message); }
+  try { const r = await loadCryptoCG(); r.source = "coingecko"; return r; } catch (e) { errs.push(e.message); }
+  try { return await loadCryptoCC(); } catch (e) { errs.push(e.message); }
+  throw new Error(errs.join("; "));
 }
 async function loadCryptoChartCC(sym, days) {
   const j = await ccFetch(`v2/histoday?fsym=${encodeURIComponent(sym.toUpperCase())}&tsym=USD&limit=${days - 1}`);
@@ -271,6 +310,7 @@ async function loadCryptoChartCC(sym, days) {
   return { chart: { result: [{ meta: { currency: "USD", regularMarketPrice: c[c.length - 1], chartPreviousClose: c[c.length - 2], source: "cryptocompare" }, timestamp: rows.map((r) => r.time), indicators: { quote: [{ open: rows.map((r) => r.open), high: rows.map((r) => r.high), low: rows.map((r) => r.low), close: c, volume: rows.map((r) => r.volumeto || 0) }] } }], error: null } };
 }
 async function loadCryptoChartAny(id, sym, days) {
+  if (/-usd$/.test(id)) return loadCryptoChartYahoo(id, days);
   if (id.startsWith("cc-")) return loadCryptoChartCC(sym || id.slice(3), days);
   try { return await loadCryptoChart(id, days); }
   catch (e1) { if (!sym) throw e1; try { return await loadCryptoChartCC(sym, days); } catch (e2) { throw new Error(`${e1.message}; ${e2.message}`); } }
@@ -525,7 +565,7 @@ export default {
 
     // --- Kripto: piyasa değerine göre ilk 50 (CoinGecko) ---
     if (url.pathname === "/api/crypto") {
-      try { return json(await cachedLoad(env, "crypto50", 60000, loadCrypto)); }
+      try { return json(await cachedLoad(env, "crypto50", 60000, () => loadCrypto(env))); }
       catch (e) { return json({ error: "Kripto verisi alınamadı.", detail: String(e && e.message ? e.message : e) }, 502); }
     }
 
