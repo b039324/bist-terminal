@@ -556,6 +556,24 @@ export default {
       return json({ error: "Yahoo Finance'ten toplu veri alınamadı.", detail }, 502);
     }
 
+    // --- Kripto takip listesi (hisse takip listesinden ayrı; masaüstü terminali etkilenmez) ---
+    if (url.pathname === "/api/crypto_watchlist") {
+      if (!env.PORTFOLIO_KV) return json({ error: "KV veritabanı Worker'a bağlanmamış." }, 500);
+      if (request.method === "GET") {
+        try { const raw = await env.PORTFOLIO_KV.get("crypto_watchlist"); return json(raw ? JSON.parse(raw) : []); }
+        catch (e) { return json({ error: "Kripto takip listesi okunamadı.", detail: String(e) }, 500); }
+      }
+      if (request.method === "POST") {
+        try {
+          const body = await request.json();
+          const items = (Array.isArray(body.items) ? body.items : []).filter((x) => x && /^[a-z0-9-]{1,60}$/.test(x.id)).slice(0, 100);
+          await env.PORTFOLIO_KV.put("crypto_watchlist", JSON.stringify(items));
+          return json({ ok: true });
+        } catch (e) { return json({ error: "Kripto takip listesi kaydedilemedi.", detail: String(e) }, 500); }
+      }
+      return json({ error: "Desteklenmeyen metod." }, 405);
+    }
+
     // --- Kur: USD/TRY, EUR/TRY (Yahoo chart meta) ---
     if (url.pathname === "/api/fx") {
       const pairs = (url.searchParams.get("pairs") || "USDTRY,EURTRY").toUpperCase().split(",").map((p) => p.trim()).filter((p) => /^[A-Z]{6}$/.test(p)).slice(0, 6);
