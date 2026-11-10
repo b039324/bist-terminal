@@ -215,6 +215,30 @@ async function loadFx(pairs) {
   return { rates: out, t: Date.now() };
 }
 
+// Emtia: Brent petrol (BZ=F, $/varil), ons altın (GC=F, $/ons), gram altın (ons x USDTRY / 31,1035, ₺)
+async function yahooMeta(sym) {
+  const res = await yahooPlain(`https://query1.finance.yahoo.com/v8/finance/chart/${encodeURIComponent(sym)}?range=1d&interval=1d`);
+  if (!res.ok) throw new Error(`${sym}: status ${res.status}`);
+  const m = (await res.json())?.chart?.result?.[0]?.meta;
+  if (!m || m.regularMarketPrice == null) throw new Error(`${sym}: veri yok`);
+  const prev = m.chartPreviousClose ?? m.previousClose ?? null;
+  return { price: m.regularMarketPrice, prev };
+}
+const chgPct = (p, q) => (q ? ((p - q) / q) * 100 : null);
+async function loadCommodities() {
+  const [br, au, usd] = await Promise.all([yahooMeta("BZ=F").catch(() => null), yahooMeta("GC=F").catch(() => null), fxRate("USDTRY").catch(() => null)]);
+  const items = [];
+  if (br) items.push({ id: "brent", price: br.price, changePct: chgPct(br.price, br.prev) });
+  if (au) items.push({ id: "gold_oz", price: au.price, changePct: chgPct(au.price, au.prev) });
+  if (au && usd) {
+    const gr = au.price * usd.price / 31.1035;
+    const grPrev = au.prev && usd.prev ? au.prev * usd.prev / 31.1035 : null;
+    items.push({ id: "gold_gr", price: gr, changePct: chgPct(gr, grPrev) });
+  }
+  if (!items.length) throw new Error("Emtia verisi alınamadı.");
+  return { items, t: Date.now() };
+}
+
 const CG_HEADERS = { "User-Agent": BROWSER_HEADERS["User-Agent"], Accept: "application/json" };
 async function cgFetch(path) {
   const res = await fetch(`https://api.coingecko.com/api/v3/${path}`, { headers: CG_HEADERS });
@@ -579,6 +603,12 @@ export default {
       const pairs = (url.searchParams.get("pairs") || "USDTRY,EURTRY").toUpperCase().split(",").map((p) => p.trim()).filter((p) => /^[A-Z]{6}$/.test(p)).slice(0, 6);
       try { return json(await cachedLoad(env, "fx_" + pairs.join("_"), 30000, () => loadFx(pairs))); }
       catch (e) { return json({ error: "Kur verisi alınamadı.", detail: String(e && e.message ? e.message : e) }, 502); }
+    }
+
+    // --- Emtia: Brent, ons altın, gram altın ---
+    if (url.pathname === "/api/commodities") {
+      try { return json(await cachedLoad(env, "commodities", 30000, () => loadCommodities())); }
+      catch (e) { return json({ error: "Emtia verisi alınamadı.", detail: String(e && e.message ? e.message : e) }, 502); }
     }
 
     // --- Kripto: piyasa değerine göre ilk 50 (CoinGecko) ---
