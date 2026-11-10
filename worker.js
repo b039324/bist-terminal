@@ -239,6 +239,33 @@ async function loadCommodities() {
   return { items, t: Date.now() };
 }
 
+// Piyasa detay grafiği (günlük, 1 yıl): kur ve emtia. Yahoo chart biçiminde döner; gram altın ons x USDTRY / 31,1035 olarak hesaplanır.
+const MK_SYM = { usdtry: "USDTRY=X", eurtry: "EURTRY=X", brent: "BZ=F", gold: "GC=F" };
+async function yahooDaily(sym) {
+  const res = await yahooPlain(`https://query1.finance.yahoo.com/v8/finance/chart/${sym}?range=1y&interval=1d`);
+  if (!res.ok) throw new Error(`${sym}: status ${res.status}`);
+  const r = (await res.json())?.chart?.result?.[0];
+  if (!r || !r.timestamp || !r.indicators?.quote?.[0]) throw new Error(`${sym}: veri yok`);
+  return r;
+}
+async function loadMarketChart(id) {
+  if (id !== "gram") return { chart: { result: [await yahooDaily(MK_SYM[id])] } };
+  const [g, u] = await Promise.all([yahooDaily("GC=F"), yahooDaily("USDTRY=X")]);
+  const dayOf = (t) => Math.floor(t / 86400), um = new Map();
+  u.timestamp.forEach((t, i) => { const c = u.indicators.quote[0].close[i]; if (c != null) um.set(dayOf(t), c); });
+  const days = [...um.keys()].sort((a, b) => a - b);
+  const rateAt = (t) => { const d = dayOf(t); if (um.has(d)) return um.get(d); let best = null; for (const k of days) { if (k <= d) best = k; else break; } return best != null ? um.get(best) : null; };
+  const q = g.indicators.quote[0], ts = [], o = [], h = [], l = [], c = [], v = [];
+  g.timestamp.forEach((t, i) => {
+    const cl = q.close[i], r = rateAt(t);
+    if (cl == null || r == null) return;
+    const k = r / 31.1035;
+    ts.push(t); c.push(cl * k); o.push((q.open[i] ?? cl) * k); h.push((q.high[i] ?? cl) * k); l.push((q.low[i] ?? cl) * k); v.push(0);
+  });
+  if (ts.length < 2) throw new Error("Gram altın için yeterli veri yok.");
+  return { chart: { result: [{ meta: { regularMarketPrice: c[c.length - 1] }, timestamp: ts, indicators: { quote: [{ open: o, high: h, low: l, close: c, volume: v }] } }] } };
+}
+
 const CG_HEADERS = { "User-Agent": BROWSER_HEADERS["User-Agent"], Accept: "application/json" };
 async function cgFetch(path) {
   const res = await fetch(`https://api.coingecko.com/api/v3/${path}`, { headers: CG_HEADERS });
@@ -603,6 +630,14 @@ export default {
       const pairs = (url.searchParams.get("pairs") || "USDTRY,EURTRY").toUpperCase().split(",").map((p) => p.trim()).filter((p) => /^[A-Z]{6}$/.test(p)).slice(0, 6);
       try { return json(await cachedLoad(env, "fx_" + pairs.join("_"), 30000, () => loadFx(pairs))); }
       catch (e) { return json({ error: "Kur verisi alınamadı.", detail: String(e && e.message ? e.message : e) }, 502); }
+    }
+
+    // --- Piyasa detay grafiği: usdtry | eurtry | brent | gold | gram ---
+    if (url.pathname === "/api/mchart") {
+      const mid = (url.searchParams.get("id") || "").toLowerCase();
+      if (mid !== "gram" && !MK_SYM[mid]) return json({ error: "Geçersiz piyasa kimliği." }, 400);
+      try { return json(await cachedLoad(env, "mc_" + mid, 5 * 60000, () => loadMarketChart(mid))); }
+      catch (e) { return json({ error: "Piyasa grafiği alınamadı.", detail: String(e && e.message ? e.message : e) }, 502); }
     }
 
     // --- Emtia: Brent, ons altın, gram altın ---
