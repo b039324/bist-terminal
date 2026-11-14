@@ -1,11 +1,12 @@
 // Basit PWA Service Worker — "önce ağ, olmazsa önbellek" (network-first) stratejisi.
 // Böylece siteyi her güncellediğimizde tarayıcı eski dosyaları göstermeye devam etmez;
 // internet yoksa yine de önbellekten (son başarılı sürümden) çalışabilir.
-const CACHE_NAME = "bist-terminal-v3";
+const CACHE_NAME = "bist-terminal-v4";
 const ASSETS = [
   "/bist-terminal/",
   "/bist-terminal/index.html",
   "/bist-terminal/style.css",
+  "/bist-terminal/tasarim.css",
   "/bist-terminal/app.js",
   "/bist-terminal/config.js",
   "/bist-terminal/manifest.json",

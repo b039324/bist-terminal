@@ -1,0 +1,291 @@
+/* ==========================================================================
+   tasarim.css — mobil sürümün tasarım dili (mobil/mobil.css) masaüstüne uygulanır.
+   style.css'in ÜSTÜNE biner (index.html'de ondan sonra yüklenir).
+   Eski görünüme dönmek için index.html'deki tasarim.css satırını silmek yeter.
+   Mantık (app.js) değişmedi; sadece renk sabitleri mobil paletine eşlendi.
+   ========================================================================== */
+
+/* ---- Renk ve ölçü değişkenleri: mobil palet ---- */
+:root {
+  --bg: #0E1116;
+  --panel: #171B22;
+  --panel-2: #12161C;
+  --panel-3: #1d232c;
+  --border: #2B333E;
+  --border-soft: #232A33;
+  --text: #E8ECF1;
+  --text-dim: #8A94A3;
+  --text-faint: #8A94A3;
+  --text-ghost: #6B7586;
+
+  --up: #2ECC8F;
+  --up-dim: rgba(46, 204, 143, .14);
+  --down: #FF6B70;
+  --down-dim: rgba(255, 90, 95, .14);
+  --flat: #8A94A3;
+  --warn: #F5B942;
+  --warn-dim: rgba(245, 185, 66, .14);
+  --blue: #5B9DFF;
+
+  /* mobilde vurgu rengi yeşildir (aktif sekme, ana düğme) */
+  --accent: #2ECC8F;
+  --accent-soft: rgba(46, 204, 143, .14);
+
+  --radius-sm: 10px;
+  --radius: 12px;
+  --radius-lg: 14px;
+
+  --font-display: system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+  --font-body: system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+  --font-mono: system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+
+  --toast-bg: #222a35;
+  --sidebar-w: 80px;
+}
+
+html[data-theme="light"] {
+  --bg: #F4F6F9;
+  --panel: #FFFFFF;
+  --panel-2: #F4F6F9;
+  --panel-3: #EEF1F5;
+  --border: #D3DAE3;
+  --border-soft: #E3E8EE;
+  --text: #14181F;
+  --text-dim: #5B6572;
+  --text-faint: #5B6572;
+  --text-ghost: #8B95A3;
+
+  --up: #087F5B;
+  --up-dim: rgba(8, 127, 91, .10);
+  --down: #C92A32;
+  --down-dim: rgba(201, 42, 50, .10);
+  --flat: #5B6572;
+  --warn: #B7791F;
+  --warn-dim: rgba(183, 121, 31, .12);
+  --blue: #2563EB;
+
+  --accent: #087F5B;
+  --accent-soft: rgba(8, 127, 91, .10);
+
+  --toast-bg: #1E2530;
+}
+
+html, body {
+  font-variant-numeric: tabular-nums;
+  -webkit-tap-highlight-color: transparent;
+}
+::selection { background: var(--up); color: var(--bg); }
+
+/* ---- Kilit ekranı ---- */
+.lock-screen { background-image: none; }
+.lock-card { border-color: var(--border-soft); }
+.lock-card .lock-icon { border-color: var(--up); color: var(--up); background: var(--up-dim); }
+.lock-card h1 { font-size: 28px; }
+
+/* ---- Düğmeler: mobildeki .primary / .ghost ---- */
+.primary-btn,
+.lock-card button,
+.add-position-form button,
+.compare-form button,
+.new-search-bar > button:not(.ghost-btn) {
+  background: var(--up);
+  color: var(--bg);
+  border-radius: 12px;
+  font-weight: 700;
+  font-size: 14px;
+  min-height: 44px;
+}
+.primary-btn:hover, .lock-card button:hover,
+.add-position-form button:hover, .compare-form button:hover { opacity: .9; }
+.primary-btn:disabled { opacity: .6; }
+
+.ghost-btn {
+  border: 1px solid var(--up);
+  color: var(--up);
+  border-radius: 12px;
+  font-weight: 600;
+  font-size: 13px;
+  min-height: 40px;
+  padding: 0 16px;
+}
+.ghost-btn:hover { background: var(--up-dim); border-color: var(--up); color: var(--up); }
+
+/* ---- Form alanları ---- */
+.lock-card input,
+.add-position-form input,
+.compare-form input,
+.new-search-bar input,
+.alarm-input,
+.note-textarea,
+.filter-select,
+.search-box input {
+  border-radius: 12px;
+  border-color: var(--border-soft);
+}
+.lock-card input:focus,
+.add-position-form input:focus,
+.compare-form input:focus,
+.new-search-bar input:focus,
+.alarm-input:focus,
+.note-textarea:focus,
+.filter-select:focus,
+.search-box input:focus { border-color: var(--up); box-shadow: none; }
+.search-box input { background: var(--panel); font-size: 20px; }
+.filter-select { min-height: 40px; font-size: 13px; font-weight: 600; }
+
+/* ---- Kartlar ---- */
+.bento-cell,
+.panel-card,
+.gauge-card,
+.chart-card,
+.range-card,
+.volume-card,
+.stock-header,
+.new-search-bar,
+.bist30-stats .stat-cell {
+  background: var(--panel);
+  border: 1px solid var(--border-soft);
+  border-radius: 14px;
+}
+.bento-cell:hover, .bist30-stats .stat-cell:hover { border-color: var(--border-soft); }
+.bento-portfolio-hero { background: var(--panel); }
+
+/* bölüm başlıkları: mobildeki .sec (büyük harf yok, 13px, sönük) */
+.bento-label,
+.card-title {
+  font-size: 13px;
+  font-weight: 600;
+  text-transform: none;
+  letter-spacing: 0;
+  color: var(--text-dim);
+}
+.bist30-stats .stat-lbl,
+.badge .badge-label,
+.analyst-target .target-label {
+  font-size: 12px;
+  text-transform: none;
+  letter-spacing: 0;
+}
+
+/* büyük tutar: mobildeki .bigint */
+.bento-hero-value,
+.price-block .price {
+  font-weight: 700;
+  letter-spacing: -1px;
+}
+.bento-hero-value { font-size: 40px; }
+.bento-hero-change {
+  display: inline-flex;
+  align-items: center;
+  align-self: flex-start;
+  width: fit-content;
+  padding: 4px 10px;
+  border-radius: 999px;
+  background: var(--panel-3);
+  font-size: 14px;
+  font-weight: 600;
+}
+.bento-hero-change.up { background: var(--up-dim); }
+.bento-hero-change.down { background: var(--down-dim); }
+.price-block .day-change { font-size: 15px; font-weight: 600; }
+.bento-mini-value, .bist30-stats .stat-num { font-weight: 600; letter-spacing: 0; }
+.bento-mini-sub { font-size: 12px; color: var(--text-dim); }
+.stock-id .ticker { letter-spacing: -.5px; }
+
+.badge { border-radius: 12px; background: var(--panel-2); }
+.status-tag { border-radius: 999px; }
+
+/* ---- Aralık düğmeleri: mobildeki .chip ---- */
+.range-tabs button {
+  border: 1px solid var(--border-soft);
+  border-radius: 999px;
+  padding: 6px 14px;
+  color: var(--text-dim);
+  font-family: inherit;
+  font-size: 12.5px;
+  font-weight: 600;
+}
+.range-tabs button:hover { color: var(--text); }
+.range-tabs button.active {
+  background: var(--text);
+  border-color: var(--text);
+  color: var(--bg);
+}
+.recent-chip { border-radius: 999px; }
+
+/* 52 hafta çubuğu: kırmızı → sarı → yeşil */
+.range-fill { background: linear-gradient(90deg, var(--down), var(--warn), var(--up)); }
+
+/* ---- Tablolar: mobildeki liste satırı ---- */
+.portfolio-table th {
+  font-size: 12px;
+  font-weight: 600;
+  text-transform: none;
+  letter-spacing: 0;
+  border-bottom: 1px solid var(--border-soft);
+}
+.portfolio-table td { font-weight: 500; letter-spacing: 0; }
+.portfolio-table tbody tr:hover { background: var(--panel-2); }
+.money-sector-row .msr-ratio.warm { background: var(--warn-dim); color: var(--warn); }
+.money-sector-row:hover { border-color: var(--border); }
+
+/* ---- Pencere ve bildirim ---- */
+.modal-backdrop { background: rgba(0, 0, 0, .55); backdrop-filter: none; }
+.modal-card { border-radius: 18px; border-color: var(--border); }
+.modal-close-btn { border-radius: 12px; }
+.alarm-row { border-radius: 12px; }
+
+.toast {
+  background: var(--toast-bg);
+  color: #E8ECF1;
+  border: 1px solid var(--border);
+  border-left-width: 3px;
+  border-radius: 12px;
+  box-shadow: 0 8px 24px rgba(0, 0, 0, .45);
+}
+.toast .toast-msg { color: #AEB7C4; font-size: 13px; }
+
+/* ---- Sol menü: mobildeki alt menü (ikon + yazı, aktif = yeşil) ---- */
+.sidebar { background: var(--panel-2); border-right: 1px solid var(--border-soft); }
+.brand-mark { background: var(--up); color: var(--bg); border-radius: 10px; }
+.side-btn { border-radius: 12px; color: var(--text-dim); }
+.side-btn:hover { background: var(--panel); color: var(--text); }
+.side-btn.active { background: transparent; color: var(--up); }
+.side-btn.active::before { background: var(--up); }
+.side-icon { filter: none; }
+.side-icon svg { display: block; }
+.alarms-badge { background: var(--up); color: var(--bg); }
+
+@media (min-width: 701px) {
+  .sidebar-nav {
+    overflow-y: auto;
+    scrollbar-width: none;
+    gap: 2px;
+    padding: 0 4px;
+  }
+  .sidebar-nav::-webkit-scrollbar { display: none; }
+  .sidebar .side-btn {
+    width: 72px;
+    height: 54px;
+    flex: none;
+    flex-direction: column;
+    gap: 4px;
+  }
+  .sidebar .sidebar-nav .side-label {
+    display: block;
+    font-size: 10.5px;
+    font-weight: 500;
+    line-height: 1;
+    white-space: nowrap;
+  }
+  .sidebar .sidebar-nav .side-btn.active .side-label { font-weight: 600; }
+  /* yazı görünür olduğu için ipucu balonu gereksiz */
+  .sidebar .side-btn[data-tip]:hover::after { display: none; }
+  .alarms-badge { top: 4px; right: 12px; }
+}
+
+/* dar ekranda (alt çubuk) mobildeki gibi üstte çizgi */
+@media (max-width: 700px) {
+  .sidebar { border-top: 1px solid var(--border-soft); border-right: 0; }
+  .side-btn.active::before { background: var(--up); }
+}

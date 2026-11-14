@@ -893,7 +893,7 @@ function drawGauge(score, svgId) {
     const x1 = cx + r * Math.cos(a1), y1 = cy - r * Math.sin(a1);
     const x2 = cx + r * Math.cos(a2), y2 = cy - r * Math.sin(a2);
     const t = i / segs;
-    const color = t < 0.5 ? lerpColor("#ff4757", "#d4af37", t / 0.5) : lerpColor("#d4af37", "#17c987", (t - 0.5) / 0.5);
+    const color = t < 0.5 ? lerpColor("#FF6B70", "#F5B942", t / 0.5) : lerpColor("#F5B942", "#2ECC8F", (t - 0.5) / 0.5);
     const p = document.createElementNS("http://www.w3.org/2000/svg", "path");
     p.setAttribute("d", "M " + x1 + " " + y1 + " A " + r + " " + r + " 0 0 1 " + x2 + " " + y2);
     p.setAttribute("stroke", color); p.setAttribute("stroke-width", "12"); p.setAttribute("fill", "none"); p.setAttribute("stroke-linecap", "round");
@@ -907,7 +907,7 @@ function drawGauge(score, svgId) {
   const dot = document.createElementNS("http://www.w3.org/2000/svg", "circle");
   dot.setAttribute("cx", cx); dot.setAttribute("cy", cy); dot.setAttribute("r", "6"); dot.setAttribute("fill", "#e6eaf0");
   svg.appendChild(dot);
-  const ls = { "font-family": "JetBrains Mono, monospace", "font-size": "10px", fill: "#4c5768" };
+  const ls = { "font-family": "system-ui, sans-serif", "font-size": "10px", fill: "#4c5768" };
   addSvgText(svg, cx - r - 6, cy + 16, svgId === "valueGaugeSvg" ? "PAHALI" : "SAT", ls);
   addSvgText(svg, cx + r - 10, cy + 16, svgId === "valueGaugeSvg" ? "UCUZ" : "AL", ls);
 }
@@ -957,25 +957,25 @@ function computeValuationScore(f) {
 // ==========================================================================
 // 10) MİNİ HACİM + CHARTS
 // ==========================================================================
-function drawMiniVolume(vtl) { const svg = document.getElementById("miniVolumeSvg"); svg.innerHTML = ""; const data = vtl.slice(-30); const max = Math.max(...data.map((d) => d.volumeTL)); const w = 300 / data.length; data.forEach((d, i) => { const h = max ? (d.volumeTL / max) * 55 : 0; const r = document.createElementNS("http://www.w3.org/2000/svg", "rect"); r.setAttribute("x", i * w + 1); r.setAttribute("y", 58 - h); r.setAttribute("width", Math.max(w - 2, 1)); r.setAttribute("height", h); r.setAttribute("fill", "#d4af37"); r.setAttribute("opacity", "0.75"); svg.appendChild(r); }); }
+function drawMiniVolume(vtl) { const svg = document.getElementById("miniVolumeSvg"); svg.innerHTML = ""; const data = vtl.slice(-30); const max = Math.max(...data.map((d) => d.volumeTL)); const w = 300 / data.length; data.forEach((d, i) => { const h = max ? (d.volumeTL / max) * 55 : 0; const r = document.createElementNS("http://www.w3.org/2000/svg", "rect"); r.setAttribute("x", i * w + 1); r.setAttribute("y", 58 - h); r.setAttribute("width", Math.max(w - 2, 1)); r.setAttribute("height", h); r.setAttribute("fill", "#F5B942"); r.setAttribute("opacity", "0.75"); svg.appendChild(r); }); }
 function isLightTheme() { return document.documentElement.getAttribute("data-theme") === "light"; }
 
 function renderChart(candles, vtl) {
   const pe = document.getElementById("priceChart"), ve = document.getElementById("volumeChart");
   pe.innerHTML = ""; ve.innerHTML = "";
   const light = isLightTheme();
-  const opt = { layout: { background: { color: "transparent" }, textColor: light ? "#566072" : "#7d8a9c", fontFamily: "JetBrains Mono, monospace" }, grid: { vertLines: { color: light ? "#e4e7ec" : "#1a1f29" }, horzLines: { color: light ? "#e4e7ec" : "#1a1f29" } }, timeScale: { borderColor: light ? "#dde1e7" : "#232a36" }, rightPriceScale: { borderColor: light ? "#dde1e7" : "#232a36" }, crosshair: { mode: 0 } };
+  const opt = { layout: { background: { color: "transparent" }, textColor: light ? "#566072" : "#7d8a9c", fontFamily: "system-ui, sans-serif" }, grid: { vertLines: { color: light ? "#e4e7ec" : "#1d232c" }, horzLines: { color: light ? "#e4e7ec" : "#1d232c" } }, timeScale: { borderColor: light ? "#dde1e7" : "#232A33" }, rightPriceScale: { borderColor: light ? "#dde1e7" : "#232A33" }, crosshair: { mode: 0 } };
   priceChartApi = LightweightCharts.createChart(pe, { ...opt, height: 340 });
-  candleSeries = priceChartApi.addCandlestickSeries({ upColor: "#17c987", downColor: "#ff4757", borderUpColor: "#17c987", borderDownColor: "#ff4757", wickUpColor: "#17c987", wickDownColor: "#ff4757" });
+  candleSeries = priceChartApi.addCandlestickSeries({ upColor: "#2ECC8F", downColor: "#FF6B70", borderUpColor: "#2ECC8F", borderDownColor: "#FF6B70", wickUpColor: "#2ECC8F", wickDownColor: "#FF6B70" });
   candleSeries.setData(candles.map((c) => ({ time: c.time, open: c.open, high: c.high, low: c.low, close: c.close })));
 
   const closesForEma = candles.map((c) => c.close);
   const ema21Series = ema(closesForEma, 21);
-  const ema21LineSeries = priceChartApi.addLineSeries({ color: "#d4af37", lineWidth: 2, title: "EMA21", priceLineVisible: false, lastValueVisible: true });
+  const ema21LineSeries = priceChartApi.addLineSeries({ color: "#F5B942", lineWidth: 2, title: "EMA21", priceLineVisible: false, lastValueVisible: true });
   ema21LineSeries.setData(candles.map((c, i) => ({ time: c.time, value: ema21Series[i] })).filter((p) => p.value != null));
 
   volumeChartApi = LightweightCharts.createChart(ve, { ...opt, height: 110 });
-  volumeSeries = volumeChartApi.addHistogramSeries({ color: "#4098d7" });
+  volumeSeries = volumeChartApi.addHistogramSeries({ color: "#5B9DFF" });
   volumeSeries.setData(vtl.map((v, i) => ({ time: v.time, value: v.volumeTL, color: candles[i].close >= candles[i].open ? "rgba(23,201,135,0.6)" : "rgba(255,71,87,0.6)" })));
   priceChartApi.timeScale().fitContent(); volumeChartApi.timeScale().fitContent();
   priceChartApi.timeScale().subscribeVisibleLogicalRangeChange((r) => { volumeChartApi.timeScale().setVisibleLogicalRange(r); });
@@ -1167,7 +1167,7 @@ function renderEarningsChart(quarterly) {
     const revRect = document.createElementNS("http://www.w3.org/2000/svg", "rect");
     revRect.setAttribute("x", cx - barW - 3); revRect.setAttribute("y", revY);
     revRect.setAttribute("width", barW); revRect.setAttribute("height", Math.max(1, revH));
-    revRect.setAttribute("fill", "#4098d7"); revRect.setAttribute("rx", "2");
+    revRect.setAttribute("fill", "#5B9DFF"); revRect.setAttribute("rx", "2");
     earningsChartSvg.appendChild(revRect);
 
     const earnH = (Math.abs(q.earnings || 0) / maxAbs) * scaleH;
@@ -1175,13 +1175,13 @@ function renderEarningsChart(quarterly) {
     const earnRect = document.createElementNS("http://www.w3.org/2000/svg", "rect");
     earnRect.setAttribute("x", cx + 3); earnRect.setAttribute("y", earnY);
     earnRect.setAttribute("width", barW); earnRect.setAttribute("height", Math.max(1, earnH));
-    earnRect.setAttribute("fill", q.earnings >= 0 ? "#17c987" : "#ff4757"); earnRect.setAttribute("rx", "2");
+    earnRect.setAttribute("fill", q.earnings >= 0 ? "#2ECC8F" : "#FF6B70"); earnRect.setAttribute("rx", "2");
     earningsChartSvg.appendChild(earnRect);
 
     const label = document.createElementNS("http://www.w3.org/2000/svg", "text");
     label.setAttribute("x", cx); label.setAttribute("y", h - 6);
     label.setAttribute("text-anchor", "middle"); label.setAttribute("font-size", "10.5");
-    label.setAttribute("fill", "#7d8a9c"); label.setAttribute("font-family", "JetBrains Mono, monospace");
+    label.setAttribute("fill", "#7d8a9c"); label.setAttribute("font-family", "system-ui, sans-serif");
     label.textContent = q.label || "";
     earningsChartSvg.appendChild(label);
   });
@@ -1189,13 +1189,13 @@ function renderEarningsChart(quarterly) {
   const zeroLine = document.createElementNS("http://www.w3.org/2000/svg", "line");
   zeroLine.setAttribute("x1", "0"); zeroLine.setAttribute("x2", String(w));
   zeroLine.setAttribute("y1", String(zeroY)); zeroLine.setAttribute("y2", String(zeroY));
-  zeroLine.setAttribute("stroke", "#232a36"); zeroLine.setAttribute("stroke-width", "1");
+  zeroLine.setAttribute("stroke", "#232A33"); zeroLine.setAttribute("stroke-width", "1");
   earningsChartSvg.insertBefore(zeroLine, earningsChartSvg.firstChild);
 
   const legend = document.createElementNS("http://www.w3.org/2000/svg", "text");
   legend.setAttribute("x", "6"); legend.setAttribute("y", "12");
-  legend.setAttribute("font-size", "9.5"); legend.setAttribute("fill", "#4098d7");
-  legend.setAttribute("font-family", "JetBrains Mono, monospace");
+  legend.setAttribute("font-size", "9.5"); legend.setAttribute("fill", "#5B9DFF");
+  legend.setAttribute("font-family", "system-ui, sans-serif");
   legend.textContent = "■ Gelir   ";
   earningsChartSvg.appendChild(legend);
 }
@@ -1214,7 +1214,7 @@ function renderRecTrend(recTrend) {
       <div class="rec-trend-month">
         <div class="rec-trend-label">${periodLabel(t.period)}</div>
         <div class="rec-trend-bar">
-          ${seg(t.strongBuy, "#17c987")}${seg(t.buy, "#5fd9a8")}${seg(t.hold, "#7d8a9c")}${seg(t.sell, "#ff8a94")}${seg(t.strongSell, "#ff4757")}
+          ${seg(t.strongBuy, "#2ECC8F")}${seg(t.buy, "#5fd9a8")}${seg(t.hold, "#7d8a9c")}${seg(t.sell, "#ff8a94")}${seg(t.strongSell, "#FF6B70")}
         </div>
         <div style="font-family:var(--font-mono); color:var(--text-faint); width:26px; text-align:right; font-size:11px">${total}</div>
       </div>`;
@@ -1222,7 +1222,7 @@ function renderRecTrend(recTrend) {
 
   recTrendChart.innerHTML = `<div class="rec-trend-row">${rows.join("")}</div>
     <div style="display:flex; gap:12px; margin-top:14px; flex-wrap:wrap; font-size:10.5px; color:var(--text-faint)">
-      <span>🟢 Güçlü Al</span><span style="color:#5fd9a8">🟢 Al</span><span>⚪ Nötr</span><span style="color:#ff8a94">🔴 Sat</span><span style="color:#ff4757">🔴 Güçlü Sat</span>
+      <span>🟢 Güçlü Al</span><span style="color:#5fd9a8">🟢 Al</span><span>⚪ Nötr</span><span style="color:#ff8a94">🔴 Sat</span><span style="color:#FF6B70">🔴 Güçlü Sat</span>
     </div>`;
 }
 
@@ -1483,7 +1483,7 @@ portfolioCsvBtn.addEventListener("click", () => {
 function drawDonut(alloc, total) {
   donutSvg.innerHTML = donutLegend.innerHTML = "";
   if (!total || alloc.length === 0) return;
-  const colors = ["#d4af37", "#4098d7", "#17c987", "#ff4757", "#a672e0", "#e08f4a", "#4ac4c4", "#e05d9e"];
+  const colors = ["#F5B942", "#5B9DFF", "#2ECC8F", "#FF6B70", "#B48CFF", "#FF8A5B", "#4ac4c4", "#e05d9e"];
   let start = -Math.PI / 2;
   alloc.sort((a, b) => b.value - a.value).forEach((a, i) => {
     const frac = a.value / total, end = start + frac * Math.PI * 2;
@@ -1637,13 +1637,13 @@ function renderCompareChart(results) {
 
   cmpChartApi = LightweightCharts.createChart(cmpChartEl, {
     height: 320,
-    layout: { background: { color: "transparent" }, textColor: light ? "#566072" : "#7d8a9c", fontFamily: "JetBrains Mono, monospace" },
-    grid: { vertLines: { color: light ? "#e4e7ec" : "#1a1f29" }, horzLines: { color: light ? "#e4e7ec" : "#1a1f29" } },
-    timeScale: { borderColor: light ? "#dde1e7" : "#232a36" },
-    rightPriceScale: { borderColor: light ? "#dde1e7" : "#232a36" },
+    layout: { background: { color: "transparent" }, textColor: light ? "#566072" : "#7d8a9c", fontFamily: "system-ui, sans-serif" },
+    grid: { vertLines: { color: light ? "#e4e7ec" : "#1d232c" }, horzLines: { color: light ? "#e4e7ec" : "#1d232c" } },
+    timeScale: { borderColor: light ? "#dde1e7" : "#232A33" },
+    rightPriceScale: { borderColor: light ? "#dde1e7" : "#232A33" },
   });
 
-  const colors = ["#d4af37", "#4098d7", "#17c987", "#ff4757"];
+  const colors = ["#F5B942", "#5B9DFF", "#2ECC8F", "#FF6B70"];
   results.forEach((r, i) => {
     const candles = r.d.candles;
     if (!candles || candles.length === 0) return;
@@ -1860,9 +1860,9 @@ function renderHeatmap(points) {
       const isSuspect = Math.abs(p.changePct) > SANITY_LIMIT;
       const intensity = Math.min(1, Math.abs(p.changePct) / COLOR_CEILING);
       const color = p.changePct >= 0
-        ? lerpColor("#1a2e28", "#17c987", intensity)
-        : lerpColor("#2e1a1e", "#ff4757", intensity);
-      const border = isSuspect ? "border:2px dashed #d4af37;" : "";
+        ? lerpColor("#1a2e28", "#2ECC8F", intensity)
+        : lerpColor("#2e1a1e", "#FF6B70", intensity);
+      const border = isSuspect ? "border:2px dashed #F5B942;" : "";
       const warn = isSuspect ? ' <span title="Şüpheli veri">⚠️</span>' : "";
       return `<div class="heatmap-cell" style="background:${color};${border}" title="${p.symbol}: ${fmtPct(p.changePct)}" onclick="goToStock('${p.symbol}')">
         <div class="hc-symbol">${p.symbol}${warn}</div>
@@ -1887,8 +1887,8 @@ function renderVolumeHeatmap(points) {
       const size = Math.round(MIN_PX + ratio * (MAX_PX - MIN_PX));
       const intensity = Math.min(1, Math.abs(p.changePct) / COLOR_CEILING);
       const color = p.changePct >= 0
-        ? lerpColor("#1a2e28", "#17c987", intensity)
-        : lerpColor("#2e1a1e", "#ff4757", intensity);
+        ? lerpColor("#1a2e28", "#2ECC8F", intensity)
+        : lerpColor("#2e1a1e", "#FF6B70", intensity);
       const fontScale = Math.max(10, Math.min(15, size / 10));
       return `<div class="volume-heatmap-cell" style="width:${size}px; height:${size}px; background:${color}"
         title="${p.symbol}: ${fmtCompactTL(p.volumeTL)} hacim, ${fmtPct(p.changePct)}"
@@ -2003,11 +2003,11 @@ function renderDeepScanMcap(results) {
 
 function renderGaugeDistribution(results) {
   const bands = [
-    { label: "GÜÇLÜ AL", cls: "strong-buy", color: "#17c987" },
+    { label: "GÜÇLÜ AL", cls: "strong-buy", color: "#2ECC8F" },
     { label: "AL", cls: "buy", color: "#5fd9a8" },
     { label: "NÖTR", cls: "neutral", color: "#7d8a9c" },
     { label: "SAT", cls: "sell", color: "#ff8a94" },
-    { label: "GÜÇLÜ SAT", cls: "strong-sell", color: "#ff4757" },
+    { label: "GÜÇLÜ SAT", cls: "strong-sell", color: "#FF6B70" },
   ];
   const groups = bands.map((b) => results.filter((r) => r.rec.label === b.label));
   const maxCount = Math.max(1, ...groups.map((g) => g.length));
@@ -2143,7 +2143,7 @@ function renderMoneyFlow(points) {
   moneySectorList.innerHTML = sectors.map((s, idx) => {
     const ratioCls = s.ratio == null ? "normal" : s.ratio >= 1.5 ? "hot" : s.ratio >= 1.15 ? "warm" : "normal";
     const ratioText = s.ratio != null ? fmtNum(s.ratio, 2) + "x" : "—";
-    const barColor = ratioCls === "hot" ? "#17c987" : ratioCls === "warm" ? "#d4af37" : "#4c5768";
+    const barColor = ratioCls === "hot" ? "#2ECC8F" : ratioCls === "warm" ? "#F5B942" : "#4c5768";
     const barWidth = s.ratio != null ? Math.min(100, (s.ratio / maxRatio) * 100) : 0;
 
     const stocksSorted = [...s.stocks].sort((a, b) => (b.volRatio ?? 0) - (a.volRatio ?? 0));
@@ -2359,12 +2359,12 @@ async function renderHomePortfolioChart() {
   const light = isLightTheme();
   const chart = LightweightCharts.createChart(homePortfolioChartEl, {
     height: 150,
-    layout: { background: { color: "transparent" }, textColor: light ? "#566072" : "#7d8a9c", fontFamily: "JetBrains Mono, monospace" },
-    grid: { vertLines: { visible: false }, horzLines: { color: light ? "#e4e7ec" : "#1a1f29" } },
-    timeScale: { borderColor: light ? "#dde1e7" : "#232a36" },
-    rightPriceScale: { borderColor: light ? "#dde1e7" : "#232a36" },
+    layout: { background: { color: "transparent" }, textColor: light ? "#566072" : "#7d8a9c", fontFamily: "system-ui, sans-serif" },
+    grid: { vertLines: { visible: false }, horzLines: { color: light ? "#e4e7ec" : "#1d232c" } },
+    timeScale: { borderColor: light ? "#dde1e7" : "#232A33" },
+    rightPriceScale: { borderColor: light ? "#dde1e7" : "#232A33" },
   });
-  const series = chart.addLineSeries({ color: "#d4af37", lineWidth: 2 });
+  const series = chart.addLineSeries({ color: "#F5B942", lineWidth: 2 });
   series.setData(history.map((h) => ({ time: Math.floor(new Date(h.date).getTime() / 1000), value: h.value })));
   chart.timeScale().fitContent();
 }
@@ -2392,7 +2392,7 @@ function renderHomeHeatmapMini() {
   const COLOR_CEILING = 15;
   homeHeatmapMini.innerHTML = top20.map((p) => {
     const intensity = Math.min(1, Math.abs(p.changePct) / COLOR_CEILING);
-    const color = p.changePct >= 0 ? lerpColor("#1a2e28", "#17c987", intensity) : lerpColor("#2e1a1e", "#ff4757", intensity);
+    const color = p.changePct >= 0 ? lerpColor("#1a2e28", "#2ECC8F", intensity) : lerpColor("#2e1a1e", "#FF6B70", intensity);
     return `<div class="heatmap-cell" style="background:${color}" title="${p.symbol}: ${fmtPct(p.changePct)}" onclick="goToStock('${p.symbol}')">
       <div class="hc-symbol">${p.symbol}</div>
       <div class="hc-change">${fmtPct(p.changePct, 1)}</div>
@@ -2551,13 +2551,13 @@ function renderPortfolioHistoryChart() {
 
   portfolioHistoryChartApi = LightweightCharts.createChart(portfolioHistoryChartEl, {
     height: 260,
-    layout: { background: { color: "transparent" }, textColor: light ? "#566072" : "#7d8a9c", fontFamily: "JetBrains Mono, monospace" },
-    grid: { vertLines: { color: light ? "#e4e7ec" : "#1a1f29" }, horzLines: { color: light ? "#e4e7ec" : "#1a1f29" } },
-    timeScale: { borderColor: light ? "#dde1e7" : "#232a36" },
-    rightPriceScale: { borderColor: light ? "#dde1e7" : "#232a36" },
+    layout: { background: { color: "transparent" }, textColor: light ? "#566072" : "#7d8a9c", fontFamily: "system-ui, sans-serif" },
+    grid: { vertLines: { color: light ? "#e4e7ec" : "#1d232c" }, horzLines: { color: light ? "#e4e7ec" : "#1d232c" } },
+    timeScale: { borderColor: light ? "#dde1e7" : "#232A33" },
+    rightPriceScale: { borderColor: light ? "#dde1e7" : "#232A33" },
   });
 
-  const valueSeries = portfolioHistoryChartApi.addLineSeries({ color: "#d4af37", lineWidth: 2, title: "Değer" });
+  const valueSeries = portfolioHistoryChartApi.addLineSeries({ color: "#F5B942", lineWidth: 2, title: "Değer" });
   valueSeries.setData(filtered.map((h) => ({ time: Math.floor(new Date(h.date).getTime() / 1000), value: h.value })));
 
   const costSeries = portfolioHistoryChartApi.addLineSeries({ color: "#4c5768", lineWidth: 1, lineStyle: 2, title: "Maliyet" });
