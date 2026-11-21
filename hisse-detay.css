@@ -1,0 +1,227 @@
+/* ==========================================================================
+   hisse-detay.css — "Product Sales & Market Share" dashboard tasarım dili,
+   SADECE hisse detay ekranına (#resultScreen) uygulanır.
+   tasarim.css'ten SONRA yüklenir. Geri almak için index.html'deki
+   hisse-detay.css satırını silmek yeter. app.js / HTML iskeleti değişmedi.
+
+   Dashboard'dan alınanlar:
+   - üstte KPI kutucuk şeridi (hedef fiyatlar + dönem getirileri)
+   - 12 kolonlu kart ızgarası (grafik solda, 52H aralığı + hacim sağda)
+   - büyük harf kart başlıkları + turuncu vurgu
+   - dolgulu turuncu aktif sekme / ana düğme
+   ========================================================================== */
+
+#resultScreen {
+  --accent: #FF8A2A;
+  --accent-soft: rgba(255, 138, 42, .16);
+  --on-accent: #1A1006;
+}
+html[data-theme="light"] #resultScreen {
+  --accent: #D9560B;
+  --accent-soft: rgba(217, 86, 11, .12);
+  --on-accent: #FFFFFF;
+}
+
+/* ---- Kart başlıkları: BÜYÜK HARF + turuncu işaret ---- */
+#resultScreen .card-title {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 12px;
+  font-weight: 700;
+  letter-spacing: .06em;
+  text-transform: uppercase;
+  color: var(--text);
+}
+#resultScreen .card-title::before {
+  content: "";
+  flex: none;
+  width: 3px;
+  height: 12px;
+  border-radius: 2px;
+  background: var(--accent);
+}
+#resultScreen .gauge-card .card-title { justify-content: flex-start; }
+#resultScreen .sub-note { color: var(--text-dim); }
+
+/* ---- Üst arama çubuğu ---- */
+#resultScreen .new-search-bar {
+  padding: 12px 16px;
+  gap: 10px;
+}
+#resultScreen .new-search-bar > button:not(.ghost-btn),
+#resultScreen #printPdfBtn {
+  background: var(--accent);
+  border-color: var(--accent);
+  color: var(--on-accent);
+}
+#resultScreen .ghost-btn {
+  border-color: var(--border);
+  color: var(--text);
+}
+#resultScreen .ghost-btn:hover {
+  border-color: var(--accent);
+  color: var(--accent);
+  background: var(--accent-soft);
+}
+#resultScreen #printPdfBtn:hover { opacity: .9; color: var(--on-accent); background: var(--accent); }
+
+/* ---- Hisse başlığı: üstte kimlik + fiyat, altında KPI kutucukları ---- */
+#resultScreen .stock-header {
+  display: grid;
+  gap: 14px;
+  padding: 22px 24px;
+}
+#resultScreen .stock-header .top-row { margin-bottom: 0; align-items: center; }
+#resultScreen .stock-id .ticker { font-size: 32px; letter-spacing: -.5px; }
+#resultScreen .stock-id .company-name { font-size: 13px; }
+#resultScreen .price-block .price { font-size: 38px; }
+#resultScreen .price-block .day-change {
+  display: inline-flex;
+  align-items: center;
+  margin-top: 8px;
+  padding: 4px 10px;
+  border-radius: 999px;
+  background: var(--panel-3);
+  font-size: 13px;
+  font-weight: 600;
+}
+#resultScreen .price-block .day-change.up { background: var(--up-dim); }
+#resultScreen .price-block .day-change.down { background: var(--down-dim); }
+
+#resultScreen .analyst-target { margin: 0; padding: 0; border-top: 0; }
+#resultScreen .analyst-target .target-row,
+#resultScreen .change-badges {
+  display: grid;
+  gap: 12px;
+}
+#resultScreen .analyst-target .target-row { grid-template-columns: repeat(4, minmax(0, 1fr)); }
+#resultScreen .change-badges {
+  grid-template-columns: repeat(5, minmax(0, 1fr));
+  padding: 0;
+  border-top: 0;
+}
+
+/* KPI kutucuğu (dashboard'daki NET REVENUE / MARKET SHARE kutuları) */
+#resultScreen .analyst-target .target-item,
+#resultScreen .badge {
+  min-width: 0;
+  text-align: left;
+  padding: 12px 14px;
+  background: var(--panel-2);
+  border: 1px solid var(--border-soft);
+  border-left: 3px solid var(--border);
+  border-radius: 10px;
+}
+#resultScreen .analyst-target .target-label,
+#resultScreen .badge .badge-label {
+  margin-bottom: 6px;
+  font-size: 10.5px;
+  font-weight: 600;
+  letter-spacing: .06em;
+  text-transform: uppercase;
+  color: var(--text-dim);
+}
+#resultScreen .analyst-target .target-value,
+#resultScreen .badge .badge-value {
+  font-size: 18px;
+  font-weight: 700;
+  letter-spacing: -.3px;
+}
+/* kenar rengi değere göre: yeşil / kırmızı / turuncu (hedef ortalama) */
+#resultScreen .badge:has(.badge-value.up),
+#resultScreen .target-item:has(.target-potential.up) { border-left-color: var(--up); }
+#resultScreen .badge:has(.badge-value.down),
+#resultScreen .target-item:has(.target-potential.down) { border-left-color: var(--down); }
+#resultScreen .analyst-target .target-item:nth-child(2) { border-left-color: var(--accent); }
+
+/* ---- 52 hafta aralığı ---- */
+#resultScreen .range-marker {
+  background: var(--accent);
+  box-shadow: 0 0 0 2px var(--accent-soft);
+}
+#resultScreen .range-extra { gap: 12px; }
+#resultScreen .range-extra .stat {
+  flex: 1 1 0;
+  min-width: 0;
+  padding: 10px 12px;
+  background: var(--panel-2);
+  border: 1px solid var(--border-soft);
+  border-radius: 10px;
+}
+#resultScreen .range-extra .stat .stat-label { font-weight: 600; }
+#resultScreen .range-extra .stat .stat-value { font-size: 16px; font-weight: 700; }
+
+/* ---- Grafik sekmeleri: aktif = dolgulu turuncu ---- */
+#resultScreen .range-tabs button.active {
+  background: var(--accent);
+  border-color: var(--accent);
+  color: var(--on-accent);
+}
+
+/* ---- Veri satırları ---- */
+#resultScreen .data-row { padding: 9px 0; }
+#resultScreen .data-row .row-label { font-size: 13px; }
+#resultScreen .data-row .row-value { font-weight: 700; }
+
+/* ---- Hacim kartı ---- */
+#resultScreen .volume-main .big-number { font-size: 26px; }
+
+/* ---- Kart ızgarası: sadece geniş ekranda (≥1100px) ---- */
+@media (min-width: 1100px) {
+  #resultScreen.active {
+    display: grid;
+    grid-template-columns: repeat(12, minmax(0, 1fr));
+    gap: 16px;
+    align-items: stretch;
+  }
+  #resultScreen > * { margin-bottom: 0; min-width: 0; }
+
+  /* iki kolonlu sarmalayıcılar ızgaraya karışır: her kart kendi hücresine oturur */
+  #resultScreen > .two-col-grid { display: contents; }
+  #resultScreen > .two-col-grid > * { grid-column: span 4; margin-bottom: 0; min-width: 0; }
+
+  #resultScreen > .new-search-bar,
+  #resultScreen > .stock-header,
+  #resultScreen > #profileCard,
+  #resultScreen > .panel-card:not(.two-col-grid > .panel-card),
+  #resultScreen > footer.data-source { grid-column: 1 / -1; }
+
+  /* grafik solda iki satır; sağda 52H aralığı + hacim */
+  #resultScreen > .chart-card { grid-column: 1 / span 8; grid-row: 3 / span 2; }
+  #resultScreen > .range-card { grid-column: 9 / -1; grid-row: 3; }
+  #resultScreen > .volume-card {
+    grid-column: 9 / -1;
+    grid-row: 4;
+    flex-direction: column;
+    align-items: stretch;
+    gap: 14px;
+  }
+  #resultScreen > .volume-card .volume-main + .volume-main {
+    padding-left: 0;
+    padding-top: 14px;
+    border-left: 0;
+    border-top: 1px solid var(--border-soft);
+  }
+  #resultScreen > .volume-card .volume-mini-chart { flex: none; min-width: 0; }
+}
+
+/* 1100–1359px: 4 kolon fazla dar, kartlar ikili dizilir */
+@media (min-width: 1100px) and (max-width: 1359px) {
+  #resultScreen > .two-col-grid > * { grid-column: span 6; }
+}
+
+/* ---- Dar ekran: KPI kutucukları sığsın ---- */
+@media (max-width: 700px) {
+  #resultScreen .analyst-target .target-row { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  #resultScreen .change-badges { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+  #resultScreen .stock-header { padding: 16px; }
+  #resultScreen .price-block .price { font-size: 30px; }
+}
+
+/* ---- Yazdırma: ızgarayı kapat, eski sıralı düzen çalışsın ---- */
+@media print {
+  #resultScreen.active { display: block !important; }
+  #resultScreen > .two-col-grid { display: grid !important; grid-template-columns: 1fr 1fr; }
+  #resultScreen .card-title::before { display: none; }
+}
