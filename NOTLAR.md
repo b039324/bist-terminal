@@ -5,4 +5,4 @@
 - Isı haritası kutuları mobildeki hacme göre boyutlandırmaya çevrilebilir.
 - Tema düğmesi (🌙/☀️) hâlâ emoji; JS metni değiştirdiği için SVG'ye geçirmek app.js'e dokunmayı gerektirir.
 - Hisse detayındaki KPI kutucuklarına dashboard'daki gibi halka (ring) göstergesi (örn. 52H konumu, RSI) eklenebilir; değer başına JS gerektirdiği için ayrı pakette yapılmalı.
-- Hisse detay paleti şimdilik nötr koyu + turuncu vurgu; dashboard'daki lacivert zemin istenirse sadece hisse-detay.css başındaki değişkenler değişir.
+- Dashboard paleti şimdilik sadece hisse detay ekranında; diğer ekranlara da yaymak için hisse-detay.css'teki değişken bloğu :root'a taşınabilir.

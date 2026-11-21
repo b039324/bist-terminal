@@ -9,6 +9,7 @@
    - 12 kolonlu kart ızgarası (grafik solda, 52H aralığı + hacim sağda)
    - büyük harf kart başlıkları + turuncu vurgu
    - dolgulu turuncu aktif sekme / ana düğme
+   - dashboard paleti: lacivert zemin, turuncu/mavi/camgöbeği/yeşil/kırmızı (koyu temada)
    ========================================================================== */
 
 #resultScreen {
@@ -21,6 +22,31 @@ html[data-theme="light"] #resultScreen {
   --accent-soft: rgba(217, 86, 11, .12);
   --on-accent: #FFFFFF;
 }
+
+/* ---- Dashboard paleti (koyu tema): lacivert zemin + turuncu/mavi/camgöbeği/yeşil/kırmızı ----
+   Açık temada tasarim.css'in açık paleti geçerli kalır (dashboard sadece koyu). */
+html:not([data-theme="light"]) #resultScreen {
+  --bg: #0A0F1D;
+  --panel: #0F1729;
+  --panel-2: #0B1222;
+  --panel-3: #17223B;
+  --border: #25345A;
+  --border-soft: #1B2744;
+  --text: #F2F5FA;
+  --text-dim: #8F9BB3;
+  --text-faint: #8F9BB3;
+  --up: #22C58B;
+  --up-dim: rgba(34, 197, 139, .15);
+  --down: #FF5A5F;
+  --down-dim: rgba(255, 90, 95, .15);
+  --warn: #F5B942;
+  --blue: #2D8CFF;
+  --cyan: #22D3EE;
+  --accent: #FF7A1A;
+  --accent-soft: rgba(255, 122, 26, .18);
+}
+#resultScreen { --cyan: #22D3EE; }
+html[data-theme="light"] #resultScreen { --cyan: #0E8FB0; }
 
 /* ---- Kart başlıkları: BÜYÜK HARF + turuncu işaret ---- */
 #resultScreen .card-title {
@@ -218,6 +244,44 @@ html[data-theme="light"] #resultScreen {
   #resultScreen .stock-header { padding: 16px; }
   #resultScreen .price-block .price { font-size: 30px; }
 }
+
+/* ==========================================================================
+   Dashboard renk panelleri: her bölüm kendi rengini taşır
+   ========================================================================== */
+
+/* kart başlığı işareti: grafik turuncu, aralık mavi, hacim camgöbeği, gösterge yeşil */
+#resultScreen .range-card .card-title::before { background: var(--blue); }
+#resultScreen .volume-card .card-title::before { background: var(--cyan); }
+#resultScreen .gauge-card .card-title::before { background: var(--up); }
+#resultScreen .panel-card .card-title::before { background: var(--blue); }
+#resultScreen .two-col-grid > .panel-card:nth-child(even) .card-title::before { background: var(--cyan); }
+
+/* hedef fiyat kutucukları: mavi / turuncu / camgöbeği (4.'sü değere göre yeşil-kırmızı) */
+#resultScreen .analyst-target .target-item:nth-child(1) { border-left-color: var(--blue); }
+#resultScreen .analyst-target .target-item:nth-child(3) { border-left-color: var(--cyan); }
+
+/* 52H aralığı alt kutucukları: mavi / camgöbeği */
+#resultScreen .range-extra .stat:nth-child(1) { border-left: 3px solid var(--blue); }
+#resultScreen .range-extra .stat:nth-child(2) { border-left: 3px solid var(--cyan); }
+
+/* hacim: günlük turuncu, 30 gün ortalaması mavi; mini çubuklar turuncu */
+#resultScreen .volume-main + .volume-main .big-number { color: var(--blue); }
+#resultScreen #miniVolumeSvg rect { fill: var(--accent); }
+
+/* çeyreklik gelir & kâr grafiği (SVG içindeki sabit renkler dashboard paletine eşlenir) */
+#resultScreen #earningsChartSvg [fill="#5B9DFF"] { fill: var(--blue); }
+#resultScreen #earningsChartSvg [fill="#2ECC8F"] { fill: var(--up); }
+#resultScreen #earningsChartSvg [fill="#FF6B70"] { fill: var(--down); }
+#resultScreen #earningsChartSvg [stroke="#5B9DFF"] { stroke: var(--blue); }
+#resultScreen #earningsChartSvg [stroke="#2ECC8F"] { stroke: var(--up); }
+#resultScreen #earningsChartSvg [stroke="#FF6B70"] { stroke: var(--down); }
+
+/* analist tavsiye trendi: güçlü al yeşil, al camgöbeği, tut gri, sat/güçlü sat kırmızı tonları */
+#resultScreen .rec-trend-bar div[style*="#2ECC8F"] { background: var(--up) !important; }
+#resultScreen .rec-trend-bar div[style*="#5fd9a8"] { background: var(--cyan) !important; }
+#resultScreen .rec-trend-bar div[style*="#7d8a9c"] { background: var(--panel-3) !important; }
+#resultScreen .rec-trend-bar div[style*="#ff8a94"] { background: #FF8F66 !important; }
+#resultScreen .rec-trend-bar div[style*="#FF6B70"] { background: var(--down) !important; }
 
 /* ---- Yazdırma: ızgarayı kapat, eski sıralı düzen çalışsın ---- */
 @media print {
