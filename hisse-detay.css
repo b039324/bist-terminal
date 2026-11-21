@@ -9,44 +9,8 @@
    - 12 kolonlu kart ızgarası (grafik solda, 52H aralığı + hacim sağda)
    - büyük harf kart başlıkları + turuncu vurgu
    - dolgulu turuncu aktif sekme / ana düğme
-   - dashboard paleti: lacivert zemin, turuncu/mavi/camgöbeği/yeşil/kırmızı (koyu temada)
+   - palet değişkenleri artık dashboard-palet.css içinde (tüm ekranlar için)
    ========================================================================== */
-
-#resultScreen {
-  --accent: #FF8A2A;
-  --accent-soft: rgba(255, 138, 42, .16);
-  --on-accent: #1A1006;
-}
-html[data-theme="light"] #resultScreen {
-  --accent: #D9560B;
-  --accent-soft: rgba(217, 86, 11, .12);
-  --on-accent: #FFFFFF;
-}
-
-/* ---- Dashboard paleti (koyu tema): lacivert zemin + turuncu/mavi/camgöbeği/yeşil/kırmızı ----
-   Açık temada tasarim.css'in açık paleti geçerli kalır (dashboard sadece koyu). */
-html:not([data-theme="light"]) #resultScreen {
-  --bg: #0A0F1D;
-  --panel: #0F1729;
-  --panel-2: #0B1222;
-  --panel-3: #17223B;
-  --border: #25345A;
-  --border-soft: #1B2744;
-  --text: #F2F5FA;
-  --text-dim: #8F9BB3;
-  --text-faint: #8F9BB3;
-  --up: #22C58B;
-  --up-dim: rgba(34, 197, 139, .15);
-  --down: #FF5A5F;
-  --down-dim: rgba(255, 90, 95, .15);
-  --warn: #F5B942;
-  --blue: #2D8CFF;
-  --cyan: #22D3EE;
-  --accent: #FF7A1A;
-  --accent-soft: rgba(255, 122, 26, .18);
-}
-#resultScreen { --cyan: #22D3EE; }
-html[data-theme="light"] #resultScreen { --cyan: #0E8FB0; }
 
 /* ---- Kart başlıkları: BÜYÜK HARF + turuncu işaret ---- */
 #resultScreen .card-title {

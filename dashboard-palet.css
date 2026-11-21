@@ -1,0 +1,134 @@
+/* ==========================================================================
+   dashboard-palet.css — "Product Sales & Market Share" dashboard paleti ve
+   tasarım dili TÜM masaüstü ekranlara uygulanır (mobil/ klasörüne dokunulmaz).
+   tasarim.css'ten sonra, hisse-detay.css'ten önce yüklenir.
+   Geri almak için index.html'deki bu css satırını silmek yeterli.
+   Koyu tema: lacivert zemin + turuncu vurgu. Açık tema: tasarim.css paleti,
+   sadece vurgu rengi turuncuya çevrilir.
+   ========================================================================== */
+
+html:not([data-theme="light"]) {
+  --bg: #0A0F1D;
+  --panel: #0F1729;
+  --panel-2: #0B1222;
+  --panel-3: #17223B;
+  --border: #25345A;
+  --border-soft: #1B2744;
+  --text: #F2F5FA;
+  --text-dim: #8F9BB3;
+  --text-faint: #8F9BB3;
+  --up: #22C58B;
+  --up-dim: rgba(34, 197, 139, .15);
+  --down: #FF5A5F;
+  --down-dim: rgba(255, 90, 95, .15);
+  --warn: #F5B942;
+  --blue: #2D8CFF;
+  --cyan: #22D3EE;
+  --accent: #FF7A1A;
+  --accent-soft: rgba(255, 122, 26, .18);
+  --on-accent: #1A1006;
+  --toast-bg: #17223B;
+}
+html[data-theme="light"] {
+  --cyan: #0E8FB0;
+  --accent: #D9560B;
+  --accent-soft: rgba(217, 86, 11, .12);
+  --on-accent: #FFFFFF;
+}
+
+::selection { background: var(--accent); color: var(--on-accent); }
+
+/* ---- Düğmeler: ana düğme turuncu, ikincil düğme nötr ---- */
+.primary-btn,
+.lock-card button,
+.add-position-form button,
+.compare-form button,
+.new-search-bar > button:not(.ghost-btn) {
+  background: var(--accent);
+  color: var(--on-accent);
+}
+.ghost-btn {
+  border-color: var(--border);
+  color: var(--text);
+}
+.ghost-btn:hover {
+  border-color: var(--accent);
+  color: var(--accent);
+  background: var(--accent-soft);
+}
+
+/* ---- Form alanları: odak turuncu ---- */
+.lock-card input:focus,
+.add-position-form input:focus,
+.compare-form input:focus,
+.new-search-bar input:focus,
+.alarm-input:focus,
+.note-textarea:focus,
+.filter-select:focus,
+.search-box input:focus { border-color: var(--accent); }
+
+/* ---- Kilit ekranı ---- */
+.lock-card .lock-icon { border-color: var(--accent); color: var(--accent); background: var(--accent-soft); }
+
+/* ---- Sol menü ---- */
+.brand-mark { background: var(--accent); color: var(--on-accent); }
+.side-btn.active { color: var(--accent); }
+.side-btn.active::before { background: var(--accent); }
+.alarms-badge { background: var(--accent); color: var(--on-accent); }
+@media (max-width: 700px) {
+  .side-btn.active::before { background: var(--accent); }
+}
+
+/* ---- Kart başlıkları: BÜYÜK HARF + renkli işaret (dashboard) ---- */
+.card-title {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 12px;
+  font-weight: 700;
+  letter-spacing: .06em;
+  text-transform: uppercase;
+  color: var(--text);
+}
+.card-title::before {
+  content: "";
+  flex: none;
+  width: 3px;
+  height: 12px;
+  border-radius: 2px;
+  background: var(--accent);
+}
+.panel-card .card-title::before { background: var(--blue); }
+.two-col-grid > .panel-card:nth-child(even) .card-title::before { background: var(--cyan); }
+.modal-card .card-title::before { display: none; }
+
+/* ---- Aralık düğmeleri: aktif = dolgulu turuncu ---- */
+.range-tabs button.active {
+  background: var(--accent);
+  border-color: var(--accent);
+  color: var(--on-accent);
+}
+
+/* ---- KPI kutucukları (Portföy özeti, BIST 30 üst şeridi) ---- */
+.portfolio-summary .summary-card,
+.bist30-stats .stat-cell {
+  border-left: 3px solid var(--accent);
+}
+.portfolio-summary .summary-card:nth-child(2) { border-left-color: var(--blue); }
+.portfolio-summary .summary-card:nth-child(3):has(.summary-value.up),
+.portfolio-summary .summary-card:nth-child(4):has(.summary-value.up) { border-left-color: var(--up); }
+.portfolio-summary .summary-card:nth-child(3):has(.summary-value.down),
+.portfolio-summary .summary-card:nth-child(4):has(.summary-value.down) { border-left-color: var(--down); }
+.bist30-stats .stat-cell.up { border-left-color: var(--up); }
+.bist30-stats .stat-cell.down { border-left-color: var(--down); }
+.portfolio-summary .summary-label {
+  font-size: 10.5px;
+  font-weight: 600;
+  letter-spacing: .06em;
+  text-transform: uppercase;
+}
+
+/* ---- Yazdırma: renk işaretleri kağıda çıkmasın ---- */
+@media print {
+  .card-title::before { display: none; }
+}
